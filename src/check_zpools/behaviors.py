@@ -34,6 +34,7 @@ from typing import TextIO
 
 import logging
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from rich.console import Console
@@ -439,7 +440,10 @@ def show_pool_status(pool_name: str | None = None, output_format: str = "table")
             if pool.scrub_in_progress:
                 scrub_str = "[yellow]In Progress[/yellow]"
             elif pool.last_scrub:
-                days_ago = (sys.modules["datetime"].datetime.now() - pool.last_scrub.replace(tzinfo=None)).days
+                # Handle both timezone-aware and naive datetimes
+                now = datetime.now()
+                last_scrub = pool.last_scrub.replace(tzinfo=None) if pool.last_scrub.tzinfo else pool.last_scrub
+                days_ago = (now - last_scrub).days
                 scrub_str = f"{days_ago}d ago"
             else:
                 scrub_str = "Never"
@@ -480,19 +484,67 @@ def _build_monitor_config(config: dict) -> MonitorConfig:
     -------
     MonitorConfig
         Monitor configuration object.
+
+    Raises
+    ------
+    ValueError
+        If configuration values are invalid or inconsistent.
     """
     zfs_config = config.get("zfs", {})
     capacity = zfs_config.get("capacity", {})
     errors = zfs_config.get("errors", {})
     scrub = zfs_config.get("scrub", {})
 
+    # Extract values with defaults
+    warning = capacity.get("warning_percent", 80)
+    critical = capacity.get("critical_percent", 90)
+    scrub_age = scrub.get("max_age_days", 30)
+    read_errors = errors.get("read_errors_warning", 0)
+    write_errors = errors.get("write_errors_warning", 0)
+    checksum_errors = errors.get("checksum_errors_warning", 0)
+
+    # Validate capacity thresholds
+    if not (0 < warning < 100):
+        raise ValueError(
+            f"capacity.warning_percent must be between 0 and 100, got {warning}"
+        )
+    if not (0 < critical <= 100):
+        raise ValueError(
+            f"capacity.critical_percent must be between 0 and 100, got {critical}"
+        )
+    if warning >= critical:
+        raise ValueError(
+            f"capacity.warning_percent ({warning}%) must be less than "
+            f"critical_percent ({critical}%)"
+        )
+
+    # Validate scrub age
+    if scrub_age < 0:
+        raise ValueError(
+            f"scrub.max_age_days must be non-negative, got {scrub_age}"
+        )
+
+    # Validate error thresholds
+    if read_errors < 0:
+        raise ValueError(
+            f"errors.read_errors_warning must be non-negative, got {read_errors}"
+        )
+    if write_errors < 0:
+        raise ValueError(
+            f"errors.write_errors_warning must be non-negative, got {write_errors}"
+        )
+    if checksum_errors < 0:
+        raise ValueError(
+            f"errors.checksum_errors_warning must be non-negative, got {checksum_errors}"
+        )
+
     return MonitorConfig(
-        capacity_warning_percent=capacity.get("warning_percent", 80),
-        capacity_critical_percent=capacity.get("critical_percent", 90),
-        scrub_max_age_days=scrub.get("max_age_days", 30),
-        read_errors_warning=errors.get("read_errors_warning", 0),
-        write_errors_warning=errors.get("write_errors_warning", 0),
-        checksum_errors_warning=errors.get("checksum_errors_warning", 0),
+        capacity_warning_percent=warning,
+        capacity_critical_percent=critical,
+        scrub_max_age_days=scrub_age,
+        read_errors_warning=read_errors,
+        write_errors_warning=write_errors,
+        checksum_errors_warning=checksum_errors,
     )
 
 

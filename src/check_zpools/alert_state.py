@@ -91,8 +91,12 @@ class AlertStateManager:
         self.load_state()
 
     def _ensure_state_dir(self) -> None:
-        """Create state file directory if it doesn't exist."""
-        self.state_file.parent.mkdir(parents=True, exist_ok=True)
+        """Create state file directory if it doesn't exist with restricted permissions."""
+        self.state_file.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+
+        # Restrict state file to owner-only read/write if it exists
+        if self.state_file.exists():
+            self.state_file.chmod(0o600)
 
     def _make_key(self, pool_name: str, category: str) -> str:
         """Generate unique key for a pool+category combination."""
@@ -352,6 +356,9 @@ class AlertStateManager:
 
             # Atomic rename
             temp_file.replace(self.state_file)
+
+            # Set secure permissions on new file
+            self.state_file.chmod(0o600)
 
             logger.debug(
                 "Saved alert state",

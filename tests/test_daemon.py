@@ -137,32 +137,38 @@ class TestDaemonInitialization:
 class TestCheckCycle:
     """Test single check cycle execution."""
 
-    @patch("check_zpools.daemon.ZFSParser")
-    def test_run_check_cycle_fetches_zfs_data(
-        self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_zfs_client: Mock
-    ) -> None:
+    def test_run_check_cycle_fetches_zfs_data(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
         """Check cycle should fetch pool list and status."""
-        mock_parser = Mock()
-        mock_parser_class.return_value = mock_parser
-        mock_parser.parse_pool_list.return_value = {}
-        mock_parser.parse_pool_status.return_value = {}
-        mock_parser.merge_pool_data.return_value = {}
-
         daemon._run_check_cycle()
 
         mock_zfs_client.get_pool_list.assert_called_once()
         mock_zfs_client.get_pool_status.assert_called_once()
 
     @patch("check_zpools.daemon.ZFSParser")
-    def test_run_check_cycle_parses_pool_data(
-        self, mock_parser_class: Mock, daemon: ZPoolDaemon
-    ) -> None:
+    def test_run_check_cycle_parses_pool_data(self, mock_parser_class: Mock, daemon: ZPoolDaemon) -> None:
         """Check cycle should parse ZFS data."""
         mock_parser = Mock()
         mock_parser_class.return_value = mock_parser
-        mock_parser.parse_pool_list.return_value = {}
-        mock_parser.parse_pool_status.return_value = {}
-        mock_parser.merge_pool_data.return_value = {}
+
+        # Create a minimal pool to avoid "No pools found" warning
+        pool = PoolStatus(
+            name="rpool",
+            health=PoolHealth.ONLINE,
+            capacity_percent=50.0,
+            size_bytes=1024**4,
+            allocated_bytes=int(0.5 * 1024**4),
+            free_bytes=int(0.5 * 1024**4),
+            read_errors=0,
+            write_errors=0,
+            checksum_errors=0,
+            last_scrub=datetime.now(UTC),
+            scrub_errors=0,
+            scrub_in_progress=False,
+        )
+
+        mock_parser.parse_pool_list.return_value = {"rpool": pool}
+        mock_parser.parse_pool_status.return_value = {"rpool": pool}
+        mock_parser.merge_pool_data.return_value = {"rpool": pool}
 
         daemon._run_check_cycle()
 
@@ -171,24 +177,36 @@ class TestCheckCycle:
         mock_parser.merge_pool_data.assert_called_once()
 
     @patch("check_zpools.daemon.ZFSParser")
-    def test_run_check_cycle_monitors_pools(
-        self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_monitor: Mock
-    ) -> None:
+    def test_run_check_cycle_monitors_pools(self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
         """Check cycle should run monitor on parsed pools."""
         mock_parser = Mock()
         mock_parser_class.return_value = mock_parser
-        mock_parser.parse_pool_list.return_value = {}
-        mock_parser.parse_pool_status.return_value = {}
-        mock_parser.merge_pool_data.return_value = {}
+
+        pool = PoolStatus(
+            name="rpool",
+            health=PoolHealth.ONLINE,
+            capacity_percent=50.0,
+            size_bytes=1024**4,
+            allocated_bytes=int(0.5 * 1024**4),
+            free_bytes=int(0.5 * 1024**4),
+            read_errors=0,
+            write_errors=0,
+            checksum_errors=0,
+            last_scrub=datetime.now(UTC),
+            scrub_errors=0,
+            scrub_in_progress=False,
+        )
+
+        mock_parser.parse_pool_list.return_value = {"rpool": pool}
+        mock_parser.parse_pool_status.return_value = {"rpool": pool}
+        mock_parser.merge_pool_data.return_value = {"rpool": pool}
 
         daemon._run_check_cycle()
 
         mock_monitor.check_all_pools.assert_called_once()
 
     @patch("check_zpools.daemon.ZFSParser")
-    def test_run_check_cycle_handles_zfs_fetch_error(
-        self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_zfs_client: Mock
-    ) -> None:
+    def test_run_check_cycle_handles_zfs_fetch_error(self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
         """Check cycle should handle ZFS command failures gracefully."""
         mock_zfs_client.get_pool_list.side_effect = RuntimeError("ZFS error")
 
@@ -196,9 +214,7 @@ class TestCheckCycle:
         daemon._run_check_cycle()
 
     @patch("check_zpools.daemon.ZFSParser")
-    def test_run_check_cycle_handles_parse_error(
-        self, mock_parser_class: Mock, daemon: ZPoolDaemon
-    ) -> None:
+    def test_run_check_cycle_handles_parse_error(self, mock_parser_class: Mock, daemon: ZPoolDaemon) -> None:
         """Check cycle should handle parse errors gracefully."""
         mock_parser = Mock()
         mock_parser_class.return_value = mock_parser
@@ -278,9 +294,25 @@ class TestAlertHandling:
         """Duplicate alerts should be suppressed."""
         mock_parser = Mock()
         mock_parser_class.return_value = mock_parser
-        mock_parser.parse_pool_list.return_value = {}
-        mock_parser.parse_pool_status.return_value = {}
-        mock_parser.merge_pool_data.return_value = {}
+
+        pool = PoolStatus(
+            name="rpool",
+            health=PoolHealth.ONLINE,
+            capacity_percent=50.0,
+            size_bytes=1024**4,
+            allocated_bytes=int(0.5 * 1024**4),
+            free_bytes=int(0.5 * 1024**4),
+            read_errors=0,
+            write_errors=0,
+            checksum_errors=0,
+            last_scrub=datetime.now(UTC),
+            scrub_errors=0,
+            scrub_in_progress=False,
+        )
+
+        mock_parser.parse_pool_list.return_value = {"rpool": pool}
+        mock_parser.parse_pool_status.return_value = {"rpool": pool}
+        mock_parser.merge_pool_data.return_value = {"rpool": pool}
 
         issue = PoolIssue(
             pool_name="rpool",
@@ -292,7 +324,7 @@ class TestAlertHandling:
 
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[],
+            pools=[pool],
             issues=[issue],
             overall_severity=Severity.WARNING,
         )
@@ -314,9 +346,25 @@ class TestAlertHandling:
         """OK severity should not trigger alerts by default."""
         mock_parser = Mock()
         mock_parser_class.return_value = mock_parser
-        mock_parser.parse_pool_list.return_value = {}
-        mock_parser.parse_pool_status.return_value = {}
-        mock_parser.merge_pool_data.return_value = {}
+
+        pool = PoolStatus(
+            name="rpool",
+            health=PoolHealth.ONLINE,
+            capacity_percent=50.0,
+            size_bytes=1024**4,
+            allocated_bytes=int(0.5 * 1024**4),
+            free_bytes=int(0.5 * 1024**4),
+            read_errors=0,
+            write_errors=0,
+            checksum_errors=0,
+            last_scrub=datetime.now(UTC),
+            scrub_errors=0,
+            scrub_in_progress=False,
+        )
+
+        mock_parser.parse_pool_list.return_value = {"rpool": pool}
+        mock_parser.parse_pool_status.return_value = {"rpool": pool}
+        mock_parser.merge_pool_data.return_value = {"rpool": pool}
 
         issue = PoolIssue(
             pool_name="rpool",
@@ -328,7 +376,7 @@ class TestAlertHandling:
 
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[],
+            pools=[pool],
             issues=[issue],
             overall_severity=Severity.OK,
         )
@@ -353,9 +401,25 @@ class TestRecoveryDetection:
         """Resolved issues should trigger recovery notification."""
         mock_parser = Mock()
         mock_parser_class.return_value = mock_parser
-        mock_parser.parse_pool_list.return_value = {}
-        mock_parser.parse_pool_status.return_value = {}
-        mock_parser.merge_pool_data.return_value = {}
+
+        pool = PoolStatus(
+            name="rpool",
+            health=PoolHealth.ONLINE,
+            capacity_percent=50.0,
+            size_bytes=1024**4,
+            allocated_bytes=int(0.5 * 1024**4),
+            free_bytes=int(0.5 * 1024**4),
+            read_errors=0,
+            write_errors=0,
+            checksum_errors=0,
+            last_scrub=datetime.now(UTC),
+            scrub_errors=0,
+            scrub_in_progress=False,
+        )
+
+        mock_parser.parse_pool_list.return_value = {"rpool": pool}
+        mock_parser.parse_pool_status.return_value = {"rpool": pool}
+        mock_parser.merge_pool_data.return_value = {"rpool": pool}
 
         # First cycle: issue present
         issue = PoolIssue(
@@ -368,17 +432,20 @@ class TestRecoveryDetection:
 
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[],
+            pools=[pool],
             issues=[issue],
             overall_severity=Severity.WARNING,
         )
+
+        # Skip alert to track issue
+        mock_state_manager.should_alert.return_value = False
 
         daemon._run_check_cycle()
 
         # Second cycle: issue resolved
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[],
+            pools=[pool],
             issues=[],
             overall_severity=Severity.OK,
         )
@@ -429,15 +496,29 @@ class TestDaemonLoop:
     """Test daemon monitoring loop."""
 
     @patch("check_zpools.daemon.ZFSParser")
-    def test_monitoring_loop_executes_check_cycles(
-        self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_monitor: Mock
-    ) -> None:
+    def test_monitoring_loop_executes_check_cycles(self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
         """Monitoring loop should execute check cycles."""
         mock_parser = Mock()
         mock_parser_class.return_value = mock_parser
-        mock_parser.parse_pool_list.return_value = {}
-        mock_parser.parse_pool_status.return_value = {}
-        mock_parser.merge_pool_data.return_value = {}
+
+        pool = PoolStatus(
+            name="rpool",
+            health=PoolHealth.ONLINE,
+            capacity_percent=50.0,
+            size_bytes=1024**4,
+            allocated_bytes=int(0.5 * 1024**4),
+            free_bytes=int(0.5 * 1024**4),
+            read_errors=0,
+            write_errors=0,
+            checksum_errors=0,
+            last_scrub=datetime.now(UTC),
+            scrub_errors=0,
+            scrub_in_progress=False,
+        )
+
+        mock_parser.parse_pool_list.return_value = {"rpool": pool}
+        mock_parser.parse_pool_status.return_value = {"rpool": pool}
+        mock_parser.merge_pool_data.return_value = {"rpool": pool}
 
         # Run loop in thread and stop after short time
         def run_loop():
@@ -447,17 +528,17 @@ class TestDaemonLoop:
         thread.start()
 
         # Give it time to run at least one cycle
-        daemon.shutdown_event.wait(timeout=0.5)
+        import time
+
+        time.sleep(1.5)  # Sleep longer than check interval
         daemon.stop()
-        thread.join(timeout=1.0)
+        thread.join(timeout=2.0)
 
         # Should have run at least once
         assert mock_monitor.check_all_pools.call_count >= 1
 
     @patch("check_zpools.daemon.ZFSParser")
-    def test_monitoring_loop_recovers_from_errors(
-        self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_zfs_client: Mock
-    ) -> None:
+    def test_monitoring_loop_recovers_from_errors(self, mock_parser_class: Mock, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
         """Monitoring loop should continue after errors."""
         call_count = 0
 

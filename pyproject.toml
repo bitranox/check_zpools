@@ -1,7 +1,7 @@
 [project]
 name = "check_zpools"
 version = "0.0.1"
-description = "Template CLI application with configuration management and structured logging"
+description = "Zpool Monitoring Daemon"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -13,7 +13,7 @@ dependencies = [
 ]
 license = { text = "MIT" }
 authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
-keywords = ["cli", "template", "config", "logging", "layered-config", "rich-click"]
+keywords = ["cli", "daemon", "zpool", "monitoring"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",

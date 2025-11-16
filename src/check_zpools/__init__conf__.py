@@ -22,7 +22,7 @@ from __future__ import annotations
 #: Distribution name declared in ``pyproject.toml``.
 name = "check_zpools"
 #: Human-readable summary shown in CLI help output.
-title = "Template CLI application with configuration management and structured logging"
+title = "Zpool Monitoring Daemon"
 #: Current release version pulled from ``pyproject.toml`` by automation.
 version = "0.0.1"
 #: Repository homepage presented to users.
