@@ -123,7 +123,7 @@ class EmailAlerter:
             )
             return False
 
-    def send_recovery(self, pool_name: str, category: str) -> bool:
+    def send_recovery(self, pool_name: str, category: str, pool: PoolStatus | None = None) -> bool:
         """Send email notification when an issue is resolved.
 
         Why
@@ -134,6 +134,7 @@ class EmailAlerter:
         What
         ---
         Sends a simple email indicating the issue category is now OK.
+        Includes complete pool status if available for context.
 
         Parameters
         ----------
@@ -141,6 +142,8 @@ class EmailAlerter:
             Name of the pool that recovered.
         category:
             Issue category that was resolved.
+        pool:
+            Optional complete pool status for detailed reporting.
 
         Returns
         -------
@@ -156,7 +159,7 @@ class EmailAlerter:
             return False
 
         subject = self._format_recovery_subject(pool_name, category)
-        body = self._format_recovery_body(pool_name, category)
+        body = self._format_recovery_body(pool_name, category, pool)
 
         logger.info(
             "Sending recovery email",
@@ -339,9 +342,158 @@ class EmailAlerter:
             ]
         )
 
+        # Add complete pool status section
+        lines.extend(
+            [
+                "",
+                "=" * 70,
+                "COMPLETE POOL STATUS",
+                "=" * 70,
+            ]
+        )
+        lines.append(self._format_complete_pool_status(pool))
+
         return "\n".join(lines)
 
-    def _format_recovery_body(self, pool_name: str, category: str) -> str:
+    def _format_complete_pool_status(self, pool: PoolStatus) -> str:
+        """Format complete pool status in zpool-like text format.
+
+        Why
+        ---
+        Provides detailed pool information in email for troubleshooting
+        without requiring SSH access to the server.
+
+        What
+        ---
+        Formats all pool metrics in a structured, readable text format
+        similar to `zpool status` output.
+
+        Parameters
+        ----------
+        pool:
+            Pool status to format.
+
+        Returns
+        -------
+        str
+            Complete formatted pool status.
+        """
+        lines = []
+
+        # Pool header
+        lines.extend(
+            [
+                f"Pool: {pool.name}",
+                f"State: {pool.health.value}",
+                "",
+            ]
+        )
+
+        # Capacity information
+        capacity_pct = pool.capacity_percent
+        used_tb = pool.allocated_bytes / (1024**4)
+        total_tb = pool.size_bytes / (1024**4)
+        free_tb = pool.free_bytes / (1024**4)
+        used_gb = pool.allocated_bytes / (1024**3)
+        total_gb = pool.size_bytes / (1024**3)
+        free_gb = pool.free_bytes / (1024**3)
+
+        lines.extend(
+            [
+                "Capacity:",
+                f"  Total:     {total_tb:.2f} TB ({total_gb:.2f} GB) [{pool.size_bytes:,} bytes]",
+                f"  Used:      {used_tb:.2f} TB ({used_gb:.2f} GB) [{pool.allocated_bytes:,} bytes]",
+                f"  Free:      {free_tb:.2f} TB ({free_gb:.2f} GB) [{pool.free_bytes:,} bytes]",
+                f"  Usage:     {capacity_pct:.2f}%",
+                "",
+            ]
+        )
+
+        # Error statistics
+        total_errors = pool.read_errors + pool.write_errors + pool.checksum_errors
+        error_status = "ERRORS DETECTED" if total_errors > 0 else "No errors"
+
+        lines.extend(
+            [
+                f"Error Statistics: {error_status}",
+                f"  Read Errors:      {pool.read_errors:,}",
+                f"  Write Errors:     {pool.write_errors:,}",
+                f"  Checksum Errors:  {pool.checksum_errors:,}",
+                f"  Total Errors:     {total_errors:,}",
+                "",
+            ]
+        )
+
+        # Scrub information
+        if pool.last_scrub:
+            scrub_date = pool.last_scrub.strftime("%Y-%m-%d %H:%M:%S %Z")
+            scrub_age_days = (datetime.now() - pool.last_scrub.replace(tzinfo=None)).days
+            scrub_status = "IN PROGRESS" if pool.scrub_in_progress else "Completed"
+            scrub_errors_status = f"{pool.scrub_errors} errors found" if pool.scrub_errors > 0 else "No errors found"
+
+            lines.extend(
+                [
+                    f"Scrub Status: {scrub_status}",
+                    f"  Last Scrub:   {scrub_date}",
+                    f"  Age:          {scrub_age_days} days",
+                    f"  Errors:       {scrub_errors_status}",
+                ]
+            )
+        else:
+            lines.extend(
+                [
+                    "Scrub Status: Never scrubbed",
+                    "  WARNING: No scrub has been performed on this pool",
+                ]
+            )
+
+        if pool.scrub_in_progress:
+            lines.append("  NOTE: A scrub is currently in progress")
+
+        lines.append("")
+
+        # Health assessment
+        if pool.health.is_healthy():
+            health_msg = "✓ Pool is healthy and operating normally"
+        elif pool.health.is_critical():
+            health_msg = "✗ CRITICAL: Pool is in a critical state requiring immediate attention"
+        else:
+            health_msg = "⚠ WARNING: Pool is degraded and should be investigated"
+
+        lines.extend(
+            [
+                "Health Assessment:",
+                f"  {health_msg}",
+                "",
+            ]
+        )
+
+        # Additional notes
+        notes = []
+        if capacity_pct >= 90:
+            notes.append("⚠ Capacity critically high (≥90%)")
+        elif capacity_pct >= 80:
+            notes.append("⚠ Capacity high (≥80%)")
+
+        if total_errors > 0:
+            notes.append(f"⚠ {total_errors} I/O or checksum errors detected")
+
+        if pool.last_scrub:
+            scrub_age_days = (datetime.now() - pool.last_scrub.replace(tzinfo=None)).days
+            if scrub_age_days > 30:
+                notes.append(f"⚠ Scrub is {scrub_age_days} days old (recommended: <30 days)")
+        else:
+            notes.append("⚠ Pool has never been scrubbed")
+
+        if notes:
+            lines.append("Notes:")
+            for note in notes:
+                lines.append(f"  {note}")
+            lines.append("")
+
+        return "\n".join(lines)
+
+    def _format_recovery_body(self, pool_name: str, category: str, pool: PoolStatus | None = None) -> str:
         """Format recovery email body.
 
         Parameters
@@ -350,6 +502,8 @@ class EmailAlerter:
             Name of recovered pool.
         category:
             Issue category that resolved.
+        pool:
+            Optional complete pool status for detailed reporting.
 
         Returns
         -------
@@ -375,5 +529,17 @@ class EmailAlerter:
             f"Generated by {__init__conf__.title} v{__init__conf__.version}",
             f"Hostname: {hostname}",
         ]
+
+        # Add complete pool status if available
+        if pool is not None:
+            lines.extend(
+                [
+                    "",
+                    "=" * 70,
+                    "CURRENT POOL STATUS",
+                    "=" * 70,
+                ]
+            )
+            lines.append(self._format_complete_pool_status(pool))
 
         return "\n".join(lines)

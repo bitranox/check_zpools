@@ -499,8 +499,12 @@ class TestRecoveryDetection:
 
         daemon._run_check_cycle()
 
-        # Should send recovery notification
-        mock_alerter.send_recovery.assert_called_with("rpool", "capacity")
+        # Should send recovery notification with pool status
+        mock_alerter.send_recovery.assert_called_once()
+        call_args = mock_alerter.send_recovery.call_args
+        assert call_args[0][0] == "rpool"  # pool_name
+        assert call_args[0][1] == "capacity"  # category
+        assert call_args[0][2].name == "rpool"  # pool status
         mock_state_manager.clear_issue.assert_called_with("rpool", "capacity")
 
 

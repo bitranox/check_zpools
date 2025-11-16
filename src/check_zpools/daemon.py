@@ -389,6 +389,9 @@ class ZPoolDaemon:
                 current_issues[issue.pool_name] = set()
             current_issues[issue.pool_name].add(issue.category)
 
+        # Build pool dict for lookups
+        pools_dict = {pool.name: pool for pool in result.pools}
+
         # Find resolved issues
         for pool_name, prev_categories in self.previous_issues.items():
             current_categories = current_issues.get(pool_name, set())
@@ -400,8 +403,9 @@ class ZPoolDaemon:
                     extra={"pool": pool_name, "category": category},
                 )
 
-                # Send recovery email
-                success = self.alerter.send_recovery(pool_name, category)
+                # Send recovery email with current pool status
+                pool_status = pools_dict.get(pool_name)
+                success = self.alerter.send_recovery(pool_name, category, pool_status)
                 if success:
                     # Clear alert state so future issues alert immediately
                     self.state_manager.clear_issue(pool_name, category)
