@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 from .models import PoolHealth, PoolStatus
 
@@ -367,7 +367,9 @@ class ZFSParser:
         """
         prop_data = props.get(key, {})
         if isinstance(prop_data, dict):
-            return str(prop_data.get("value", default))
+            # Cast to dict[str, Any] for type checker
+            prop_dict = cast(dict[str, Any], prop_data)
+            return str(prop_dict.get("value", default))
         return str(default)
 
     def _parse_size_to_bytes(self, size_str: str) -> int:
