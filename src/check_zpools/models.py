@@ -35,6 +35,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from functools import lru_cache
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -73,11 +74,16 @@ class PoolHealth(str, Enum):
     UNAVAIL = "UNAVAIL"
     REMOVED = "REMOVED"
 
+    @lru_cache(maxsize=6)
     def is_healthy(self) -> bool:
         """Return True if this health state is considered healthy.
 
         Why
             Simplifies conditional logic when checking if pool is OK.
+
+        Why Cached
+            Called frequently during monitoring. Only 6 possible enum values,
+            perfect for caching. Eliminates repeated enum comparisons.
 
         Returns
             True for ONLINE, False for all other states.
@@ -91,11 +97,16 @@ class PoolHealth(str, Enum):
         """
         return self == PoolHealth.ONLINE
 
+    @lru_cache(maxsize=6)
     def is_critical(self) -> bool:
         """Return True if this health state is critical.
 
         Why
             Determines if immediate action is required.
+
+        Why Cached
+            Called frequently during monitoring. Only 6 possible enum values,
+            perfect for caching. Eliminates repeated tuple membership checks.
 
         Returns
             True for FAULTED, UNAVAIL, or REMOVED states.
@@ -136,8 +147,16 @@ class Severity(str, Enum):
     WARNING = "WARNING"
     CRITICAL = "CRITICAL"
 
+    @lru_cache(maxsize=4)
     def _order_value(self) -> int:
-        """Return numeric value for ordering comparisons."""
+        """Return numeric value for ordering comparisons.
+
+        Why Cached
+        ----------
+        Called frequently during severity comparisons (e.g., max() to find highest severity).
+        Only 4 possible enum values, perfect for caching with maxsize=4.
+        Eliminates repeated dict construction and lookup.
+        """
         order = {
             Severity.OK: 0,
             Severity.INFO: 1,

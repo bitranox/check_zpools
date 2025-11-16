@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timezone
+from functools import lru_cache
 from typing import Any, cast
 
 from .models import PoolHealth, PoolStatus
@@ -372,8 +373,15 @@ class ZFSParser:
             return str(prop_dict.get("value", default))
         return str(default)
 
+    @lru_cache(maxsize=32)
     def _parse_size_to_bytes(self, size_str: str) -> int:
         """Convert size string to bytes.
+
+        Why Cached
+        ----------
+        Same size values appear repeatedly across multiple pools (e.g., "1000000").
+        Caching eliminates redundant string-to-float-to-int conversions.
+        maxsize=32 covers typical ZFS size variations without excessive memory.
 
         Parameters
         ----------
