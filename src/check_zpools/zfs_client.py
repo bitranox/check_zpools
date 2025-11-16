@@ -126,9 +126,7 @@ class ZFSClient:
             if found_path is None:
                 logger.error("zpool command not found in PATH")
                 raise ZFSNotAvailableError(
-                    "zpool command not found. Please install ZFS utilities.\n"
-                    "On Debian/Ubuntu: apt install zfsutils-linux\n"
-                    "On RHEL/CentOS: yum install zfs"
+                    "zpool command not found. Please install ZFS utilities.\nOn Debian/Ubuntu: apt install zfsutils-linux\nOn RHEL/CentOS: yum install zfs"
                 )
             self.zpool_path = Path(found_path)
         else:
@@ -335,7 +333,7 @@ class ZFSClient:
                 )
                 raise
 
-        except subprocess.TimeoutExpired as exc:
+        except subprocess.TimeoutExpired:
             logger.error(
                 "ZFS command timed out",
                 extra={

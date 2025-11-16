@@ -28,10 +28,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Any
+from datetime import datetime, timezone
 
-from .models import CheckResult, PoolHealth, PoolIssue, PoolStatus, Severity
+from .models import CheckResult, PoolIssue, PoolStatus, Severity
 
 logger = logging.getLogger(__name__)
 

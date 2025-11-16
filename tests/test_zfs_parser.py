@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import json
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 from check_zpools.models import PoolHealth
-from check_zpools.zfs_parser import ZFSParseError, ZFSParser
+from check_zpools.zfs_parser import ZFSParser
 
 
 @pytest.fixture

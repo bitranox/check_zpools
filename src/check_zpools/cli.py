@@ -48,13 +48,21 @@ import lib_log_rich.runtime
 from click.core import ParameterSource
 
 from . import __init__conf__
-from .behaviors import emit_greeting, noop_main, raise_intentional_failure
+from .behaviors import (
+    check_pools_once,
+    emit_greeting,
+    noop_main,
+    raise_intentional_failure,
+    run_daemon,
+    show_pool_status,
+)
 from .config import get_config
 from .config_deploy import deploy_configuration
 from .config_show import display_config
 from .logging_setup import init_logging
 from .mail import EmailConfig, load_email_config_from_dict, send_email, send_notification
 from .service_install import install_service, show_service_status, uninstall_service
+from .zfs_client import ZFSNotAvailableError
 
 #: Shared Click context flags so help output stays consistent across commands.
 CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}  # noqa: C408
@@ -989,6 +997,189 @@ def cli_service_status() -> None:
     with lib_log_rich.runtime.bind(job_id="cli-service-status", extra={"command": "service-status"}):
         logger.info("Checking service status")
         show_service_status()
+
+
+@cli.command("check", context_settings=CLICK_CONTEXT_SETTINGS)
+@click.option(
+    "--format",
+    type=click.Choice(["text", "json"], case_sensitive=False),
+    default="text",
+    help="Output format for results",
+)
+def cli_check(format: str) -> None:
+    """Perform one-shot check of all ZFS pools.
+
+    Checks all pools against configured thresholds and reports issues.
+    Exit codes: 0=OK, 1=WARNING, 2=CRITICAL
+
+    Examples:
+
+    \b
+    # Check all pools with text output
+    $ check_zpools check
+
+    \b
+    # Check all pools with JSON output
+    $ check_zpools check --format json
+    """
+    with lib_log_rich.runtime.bind(job_id="cli-check", extra={"command": "check", "format": format}):
+        try:
+            result = check_pools_once()
+
+            if format == "json":
+                import json
+
+                data = {
+                    "timestamp": result.timestamp.isoformat(),
+                    "pools": [
+                        {
+                            "name": pool.name,
+                            "health": pool.health.value,
+                            "capacity_percent": pool.capacity_percent,
+                        }
+                        for pool in result.pools
+                    ],
+                    "issues": [
+                        {
+                            "pool_name": issue.pool_name,
+                            "severity": issue.severity.value,
+                            "category": issue.category,
+                            "message": issue.message,
+                            "details": issue.details,
+                        }
+                        for issue in result.issues
+                    ],
+                    "overall_severity": result.overall_severity.value,
+                }
+                click.echo(json.dumps(data, indent=2))
+            else:
+                # Text format
+                click.echo(f"\nZFS Pool Check - {result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                click.echo(f"Overall Status: {result.overall_severity.value.upper()}\n")
+
+                if result.issues:
+                    click.echo("Issues Found:")
+                    for issue in result.issues:
+                        severity_color = "red" if issue.severity.value == "critical" else "yellow" if issue.severity.value == "warning" else "green"
+                        click.echo(f"  [{severity_color}]{issue.severity.value.upper()}[/{severity_color}] {issue.pool_name}: {issue.message}")
+                else:
+                    click.echo("[green]No issues detected[/green]")
+
+                click.echo(f"\nPools Checked: {len(result.pools)}")
+
+            # Set exit code based on severity
+            if result.overall_severity.value == "critical":
+                raise SystemExit(2)
+            elif result.overall_severity.value == "warning":
+                raise SystemExit(1)
+
+        except ZFSNotAvailableError as exc:
+            logger.error("ZFS not available", extra={"error": str(exc)})
+            click.echo(f"\nError: {exc}", err=True)
+            raise SystemExit(1)
+        except Exception as exc:
+            logger.error(
+                "Check failed",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            click.echo(f"\nError: {exc}", err=True)
+            raise SystemExit(1)
+
+
+@cli.command("daemon", context_settings=CLICK_CONTEXT_SETTINGS)
+@click.option(
+    "--foreground",
+    is_flag=True,
+    default=False,
+    help="Run in foreground (don't daemonize)",
+)
+def cli_daemon(foreground: bool) -> None:
+    """Start daemon mode for continuous ZFS pool monitoring.
+
+    Monitors pools at configured intervals and sends email alerts when
+    issues are detected. Runs until SIGTERM/SIGINT received.
+
+    Examples:
+
+    \b
+    # Start daemon in foreground
+    $ check_zpools daemon --foreground
+
+    \b
+    # Start as systemd service (use install-service instead)
+    $ sudo systemctl start check_zpools
+    """
+    with lib_log_rich.runtime.bind(
+        job_id="cli-daemon",
+        extra={"command": "daemon", "foreground": foreground},
+    ):
+        try:
+            run_daemon(foreground=foreground)
+        except ZFSNotAvailableError as exc:
+            logger.error("ZFS not available", extra={"error": str(exc)})
+            click.echo(f"\nError: {exc}", err=True)
+            raise SystemExit(1)
+        except Exception as exc:
+            logger.error(
+                "Daemon failed",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            click.echo(f"\nError: {exc}", err=True)
+            raise SystemExit(1)
+
+
+@cli.command("status", context_settings=CLICK_CONTEXT_SETTINGS)
+@click.option(
+    "--format",
+    type=click.Choice(["table", "text", "json"], case_sensitive=False),
+    default="table",
+    help="Output format",
+)
+@click.option(
+    "--pool",
+    default=None,
+    help="Show specific pool only",
+)
+def cli_status(format: str, pool: Optional[str]) -> None:
+    """Display current ZFS pool status.
+
+    Shows health, capacity, errors, and scrub status for all pools
+    (or a specific pool if --pool is specified).
+
+    Examples:
+
+    \b
+    # Show all pools as table (default)
+    $ check_zpools status
+
+    \b
+    # Show specific pool as JSON
+    $ check_zpools status --pool rpool --format json
+
+    \b
+    # Show all pools as text
+    $ check_zpools status --format text
+    """
+    with lib_log_rich.runtime.bind(
+        job_id="cli-status",
+        extra={"command": "status", "format": format, "pool": pool},
+    ):
+        try:
+            show_pool_status(pool_name=pool, output_format=format)
+        except ZFSNotAvailableError as exc:
+            logger.error("ZFS not available", extra={"error": str(exc)})
+            click.echo(f"\nError: {exc}", err=True)
+            raise SystemExit(1)
+        except Exception as exc:
+            logger.error(
+                "Status display failed",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            click.echo(f"\nError: {exc}", err=True)
+            raise SystemExit(1)
 
 
 def _load_and_validate_email_config() -> EmailConfig:
