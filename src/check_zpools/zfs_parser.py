@@ -27,6 +27,7 @@ Architecture Notes
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, cast
@@ -386,21 +387,71 @@ class ZFSParser:
         Parameters
         ----------
         size_str:
-            Size as string (may be numeric or with suffix like "1.5T")
+            Size as string. May be numeric ("1000000") or with suffix ("1.5T").
+            Supports binary suffixes: K (1024), M (1024^2), G (1024^3),
+            T (1024^4), P (1024^5).
 
         Returns
         -------
         int:
             Size in bytes
+
+        Raises
+        ------
+        ValueError:
+            If size_str cannot be parsed as number or number+suffix
+
+        Examples
+        --------
+        >>> parser = ZFSParser()
+        >>> parser._parse_size_to_bytes("1000000")
+        1000000
+        >>> parser._parse_size_to_bytes("1.5T")
+        1649267441664
+        >>> parser._parse_size_to_bytes("500G")
+        536870912000
         """
+        # Try parsing as plain number first (most common case)
         try:
-            # If it's already a number, return it
             return int(float(size_str))
         except ValueError:
-            # Try to parse with suffix (K, M, G, T, P)
-            # This is a simplified version; ZFS may use different formats
-            logger.debug(f"Parsing size string: {size_str}")
-            return int(float(size_str))  # Placeholder for now
+            pass
+
+        # Parse with suffix (e.g., "1.5T", "500G", "10M")
+        pattern = r'^([0-9.]+)\s*([KMGTP])$'
+        match = re.match(pattern, size_str.strip().upper())
+
+        if not match:
+            raise ValueError(
+                f"Cannot parse size string '{size_str}' - "
+                f"expected number or number+suffix (K/M/G/T/P)"
+            )
+
+        value_str, suffix = match.groups()
+
+        try:
+            value = float(value_str)
+        except ValueError as exc:
+            raise ValueError(f"Invalid numeric value in size string '{size_str}'") from exc
+
+        # Binary multipliers (1K = 1024 bytes, not 1000)
+        multipliers = {
+            'K': 1024,
+            'M': 1024 ** 2,
+            'G': 1024 ** 3,
+            'T': 1024 ** 4,
+            'P': 1024 ** 5,
+        }
+
+        multiplier = multipliers[suffix]
+        result = int(value * multiplier)
+
+        logger.debug(
+            f"Parsed size string: '{size_str}' → {result} bytes",
+            extra={"size_str": size_str, "value": value, "suffix": suffix, "bytes": result}
+        )
+
+        return result
 
     def _extract_error_counts(self, pool_data: dict[str, Any]) -> dict[str, int]:
         """Extract total error counts from vdev tree.

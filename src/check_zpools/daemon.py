@@ -270,13 +270,16 @@ class ZPoolDaemon:
             },
         )
 
-        # Process results
-        self._handle_check_result(result, pools)
-
-        # Detect and notify recoveries
+        # Detect and notify recoveries BEFORE updating previous_issues
         self._detect_recoveries(result)
 
-    def _handle_check_result(self, result: CheckResult, pools: dict[str, Any]) -> None:
+        # Process results and send alerts
+        current_issues = self._handle_check_result(result, pools)
+
+        # Update previous issues for next cycle (after recovery detection)
+        self.previous_issues = current_issues
+
+    def _handle_check_result(self, result: CheckResult, pools: dict[str, Any]) -> dict[str, set[str]]:
         """Process check result by sending alerts for actionable issues.
 
         Why
@@ -290,6 +293,7 @@ class ZPoolDaemon:
         2. Check alert state to determine if alert should send
         3. Send alert emails
         4. Record alert state
+        5. Return current issues for tracking
 
         Parameters
         ----------
@@ -297,6 +301,11 @@ class ZPoolDaemon:
             Check result containing issues.
         pools:
             Pool status dict for issue context.
+
+        Returns
+        -------
+        dict[str, set[str]]:
+            Dictionary mapping pool names to sets of issue categories.
         """
         # Track current issues for recovery detection
         current_issues: dict[str, set[str]] = {}
@@ -349,8 +358,8 @@ class ZPoolDaemon:
                     extra={"pool": issue.pool_name, "category": issue.category},
                 )
 
-        # Update current issues for next cycle
-        self.previous_issues = current_issues
+        # Return current issues for tracking
+        return current_issues
 
     def _detect_recoveries(self, result: CheckResult) -> None:
         """Detect and notify when previously alerted issues are resolved.
