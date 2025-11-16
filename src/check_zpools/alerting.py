@@ -447,15 +447,18 @@ class EmailAlerter:
         ])
 
         # Delegate each section to specialized methods
-        lines.append(self._format_capacity_section(pool))
-        lines.append(self._format_error_statistics_section(pool))
-        lines.append(self._format_scrub_status_section(pool))
-        lines.append(self._format_health_assessment_section(pool))
-        lines.append(self._format_notes_section(pool))
+        # Each method returns a list of lines to avoid double-joining
+        lines.extend(self._format_capacity_section(pool))
+        lines.extend(self._format_error_statistics_section(pool))
+        lines.extend(self._format_scrub_status_section(pool))
+        lines.extend(self._format_health_assessment_section(pool))
+        notes_lines = self._format_notes_section(pool)
+        if notes_lines:  # Only add if not empty
+            lines.extend(notes_lines)
 
         return "\n".join(lines)
 
-    def _format_capacity_section(self, pool: PoolStatus) -> str:
+    def _format_capacity_section(self, pool: PoolStatus) -> list[str]:
         """Format capacity information section.
 
         Parameters
@@ -465,8 +468,8 @@ class EmailAlerter:
 
         Returns
         -------
-        str
-            Formatted capacity section.
+        list[str]
+            List of formatted lines for capacity section.
         """
         capacity_pct = pool.capacity_percent
         used_tb = pool.allocated_bytes / (1024**4)
@@ -476,7 +479,7 @@ class EmailAlerter:
         total_gb = pool.size_bytes / (1024**3)
         free_gb = pool.free_bytes / (1024**3)
 
-        lines = [
+        return [
             "Capacity:",
             f"  Total:     {total_tb:.2f} TB ({total_gb:.2f} GB) [{pool.size_bytes:,} bytes]",
             f"  Used:      {used_tb:.2f} TB ({used_gb:.2f} GB) [{pool.allocated_bytes:,} bytes]",
@@ -485,9 +488,7 @@ class EmailAlerter:
             "",
         ]
 
-        return "\n".join(lines)
-
-    def _format_error_statistics_section(self, pool: PoolStatus) -> str:
+    def _format_error_statistics_section(self, pool: PoolStatus) -> list[str]:
         """Format error statistics section.
 
         Parameters
@@ -497,13 +498,13 @@ class EmailAlerter:
 
         Returns
         -------
-        str
-            Formatted error statistics section.
+        list[str]
+            List of formatted lines for error statistics section.
         """
         total_errors = pool.read_errors + pool.write_errors + pool.checksum_errors
         error_status = "ERRORS DETECTED" if total_errors > 0 else "No errors"
 
-        lines = [
+        return [
             f"Error Statistics: {error_status}",
             f"  Read Errors:      {pool.read_errors:,}",
             f"  Write Errors:     {pool.write_errors:,}",
@@ -512,9 +513,7 @@ class EmailAlerter:
             "",
         ]
 
-        return "\n".join(lines)
-
-    def _format_scrub_status_section(self, pool: PoolStatus) -> str:
+    def _format_scrub_status_section(self, pool: PoolStatus) -> list[str]:
         """Format scrub status section.
 
         Parameters
@@ -524,8 +523,8 @@ class EmailAlerter:
 
         Returns
         -------
-        str
-            Formatted scrub status section.
+        list[str]
+            List of formatted lines for scrub status section.
         """
         lines = []
 
@@ -556,9 +555,9 @@ class EmailAlerter:
 
         lines.append("")
 
-        return "\n".join(lines)
+        return lines
 
-    def _format_health_assessment_section(self, pool: PoolStatus) -> str:
+    def _format_health_assessment_section(self, pool: PoolStatus) -> list[str]:
         """Format health assessment section.
 
         Parameters
@@ -568,8 +567,8 @@ class EmailAlerter:
 
         Returns
         -------
-        str
-            Formatted health assessment section.
+        list[str]
+            List of formatted lines for health assessment section.
         """
         if pool.health.is_healthy():
             health_msg = "✓ Pool is healthy and operating normally"
@@ -578,15 +577,13 @@ class EmailAlerter:
         else:
             health_msg = "⚠ WARNING: Pool is degraded and should be investigated"
 
-        lines = [
+        return [
             "Health Assessment:",
             f"  {health_msg}",
             "",
         ]
 
-        return "\n".join(lines)
-
-    def _format_notes_section(self, pool: PoolStatus) -> str:
+    def _format_notes_section(self, pool: PoolStatus) -> list[str]:
         """Format additional notes section.
 
         Parameters
@@ -596,8 +593,8 @@ class EmailAlerter:
 
         Returns
         -------
-        str
-            Formatted notes section.
+        list[str]
+            List of formatted lines for notes section (empty list if no notes).
         """
         notes = []
         capacity_pct = pool.capacity_percent
@@ -626,9 +623,9 @@ class EmailAlerter:
             for note in notes:
                 lines.append(f"  {note}")
             lines.append("")
-            return "\n".join(lines)
+            return lines
 
-        return ""
+        return []  # Return empty list instead of empty string
 
     def _format_recovery_body(self, pool_name: str, category: str, pool: PoolStatus | None = None) -> str:
         """Format recovery email body.
