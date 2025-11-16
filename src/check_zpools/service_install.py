@@ -30,9 +30,7 @@ import logging
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
-from typing import NoReturn
 
 logger = logging.getLogger(__name__)
 
@@ -58,10 +56,7 @@ def _check_root_privileges() -> None:
     """
     if os.geteuid() != 0:
         logger.error("Service installation requires root privileges")
-        raise PermissionError(
-            "This command must be run as root (use sudo).\n"
-            "Example: sudo check_zpools install-service"
-        )
+        raise PermissionError("This command must be run as root (use sudo).\nExample: sudo check_zpools install-service")
 
 
 def _find_executable() -> Path:
@@ -79,10 +74,7 @@ def _find_executable() -> Path:
     exec_path = shutil.which("check_zpools")
     if exec_path is None:
         logger.error("Could not find check_zpools executable in PATH")
-        raise FileNotFoundError(
-            "check_zpools executable not found in PATH.\n"
-            "Please ensure it is installed and accessible."
-        )
+        raise FileNotFoundError("check_zpools executable not found in PATH.\nPlease ensure it is installed and accessible.")
     return Path(exec_path).resolve()
 
 
@@ -181,7 +173,7 @@ def _install_service_file(executable_path: Path) -> None:
     SERVICE_FILE_PATH.chmod(0o644)
 
 
-def _run_systemctl(command: list[str], *, check: bool = True) -> subprocess.CompletedProcess:
+def _run_systemctl(command: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
     """Execute systemctl command.
 
     Parameters
@@ -284,16 +276,16 @@ def install_service(*, enable: bool = True, start: bool = True) -> None:
     print("\n✓ check_zpools service installed successfully\n")
 
     if enable:
-        print(f"  • Service enabled (will start on boot)")
+        print("  • Service enabled (will start on boot)")
     if start:
-        print(f"  • Service started")
+        print("  • Service started")
 
-    print(f"\nUseful commands:")
+    print("\nUseful commands:")
     print(f"  • View status:  systemctl status {SERVICE_NAME}")
     print(f"  • View logs:    journalctl -u {SERVICE_NAME} -f")
     print(f"  • Stop service: systemctl stop {SERVICE_NAME}")
     print(f"  • Disable:      systemctl disable {SERVICE_NAME}")
-    print(f"  • Uninstall:    check_zpools uninstall-service")
+    print("  • Uninstall:    check_zpools uninstall-service")
 
 
 def uninstall_service(*, stop: bool = True, disable: bool = True) -> None:
@@ -437,13 +429,13 @@ def show_service_status() -> None:
         print(f"✓ Service file installed: {SERVICE_FILE_PATH}")
         print(f"  • Running:  {'✓ Yes' if status['running'] else '✗ No'}")
         print(f"  • Enabled:  {'✓ Yes (starts on boot)' if status['enabled'] else '✗ No'}")
-        print(f"\nService Details:")
+        print("\nService Details:")
         print("-" * 40)
         print(status["status_text"])
     else:
-        print(f"✗ Service not installed")
-        print(f"\nTo install:")
-        print(f"  sudo check_zpools install-service")
+        print("✗ Service not installed")
+        print("\nTo install:")
+        print("  sudo check_zpools install-service")
 
 
 __all__ = [
