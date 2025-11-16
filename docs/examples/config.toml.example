@@ -1,0 +1,47 @@
+# Example configuration for check_zpools
+# Copy to ~/.config/check_zpools/config.toml and customize
+
+[zfs.capacity]
+# Alert when pool reaches these capacity thresholds
+warning_percent = 80  # Warning at 80% capacity
+critical_percent = 90  # Critical at 90% capacity
+
+[zfs.errors]
+# Alert on any errors (set to higher values to require more errors before alerting)
+read_errors_warning = 0  # Alert on any read errors
+write_errors_warning = 0  # Alert on any write errors
+checksum_errors_warning = 0  # Alert on any checksum errors
+
+[zfs.scrub]
+# Alert if scrub is older than this many days
+max_age_days = 30  # Warn if scrub not run in 30 days
+
+[daemon]
+# Daemon mode configuration
+check_interval_seconds = 300  # Check every 5 minutes (300 seconds)
+alert_resend_hours = 24  # Resend same alert after 24 hours
+pools_to_monitor = []  # Empty list = monitor all pools
+# pools_to_monitor = ["rpool", "data"]  # Or specify specific pools to monitor
+
+# Optional: Custom state file location
+# state_file = "/var/lib/check_zpools/alert_state.json"
+
+[alerts]
+# Email alert configuration
+subject_prefix = "[ZFS Alert]"  # Prefix for email subjects
+alert_recipients = ["admin@example.com"]  # Email addresses to receive alerts
+send_ok_emails = false  # Don't send emails for OK status
+send_recovery_emails = true  # Send emails when issues are resolved
+
+[email]
+# SMTP configuration for sending email alerts
+smtp_hosts = ["mail.example.com:587"]  # SMTP server(s) with optional port
+from_address = "zfs-monitor@example.com"  # Sender email address
+smtp_username = "alerts@example.com"  # SMTP authentication username
+# smtp_password set via environment variable: CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD
+use_starttls = true  # Use STARTTLS for secure connection
+
+# Optional SMTP settings
+# timeout = 30  # SMTP timeout in seconds
+# raise_on_missing_attachments = true
+# raise_on_invalid_recipient = true

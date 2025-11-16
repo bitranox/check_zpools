@@ -5,33 +5,74 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-### Added
-- Email sending functionality via `btx-lib-mail>=1.0.1` integration
-- Two new CLI commands: `send-email` and `send-notification`
-- Email configuration support via lib_layered_config with sensible defaults
-- Comprehensive email wrapper with `EmailConfig` dataclass in `mail.py`
-- Email configuration validation in `__post_init__` (timeout, from_address, SMTP host:port format)
-- Real SMTP integration tests using .env configuration (TEST_SMTP_SERVER, TEST_EMAIL_ADDRESS)
-- 48 new tests covering email functionality:
-  - 18 EmailConfig validation tests
-  - 4 configuration loading tests
-  - 6 email sending tests (unit)
-  - 2 notification tests (unit)
-  - 5 error scenario tests
-  - 5 edge case tests
-  - 3 real SMTP integration tests
-  - 10 CLI integration tests
-- `.env.example` documentation for TEST_SMTP_SERVER and TEST_EMAIL_ADDRESS
-- DotEnv loading in test suite for integration test configuration
+## [0.1.0] - 2025-11-16
+
+### Added - ZFS Pool Monitoring
+- **ZFS Data Models** (`models.py`): Comprehensive data structures for pool status and issues
+  - `PoolHealth`, `Severity` enumerations
+  - `PoolStatus`, `PoolIssue`, `CheckResult` dataclasses
+- **ZFS Command Integration** (`zfs_client.py`, `zfs_parser.py`):
+  - Execute `zpool list -j` and `zpool status -j` commands
+  - Parse JSON output into typed data structures
+  - Error handling for command failures and timeouts
+- **Pool Monitoring** (`monitor.py`):
+  - Configurable capacity thresholds (warning/critical)
+  - Error monitoring (read/write/checksum errors)
+  - Scrub status and age monitoring
+  - Multi-pool health checking with severity aggregation
+- **Alert Management** (`alert_state.py`, `alerting.py`):
+  - Persistent alert state with JSON storage
+  - Alert deduplication and resend throttling
+  - Email notifications with rich formatting
+  - Recovery notifications when issues resolve
+  - Secure state file permissions (0o600)
+- **Daemon Mode** (`daemon.py`):
+  - Continuous monitoring with configurable intervals
+  - Graceful shutdown via SIGTERM/SIGINT
+  - Error recovery (continues after failures)
+  - State persistence across restarts
+- **CLI Commands**:
+  - `check`: One-shot pool health check (text/JSON output)
+  - `daemon`: Start continuous monitoring service
+  - `status`: Display pool status with rich tables
+  - `install-service`: Install as systemd service
+  - `uninstall-service`: Remove systemd service
+  - `service-status`: Show service status
+- **Systemd Integration** (`service_install.py`):
+  - Automated service file generation
+  - Service installation/uninstallation
+  - Status checking and management
+- **Configuration**:
+  - Example configuration file (`docs/examples/config.toml.example`)
+  - Layered configuration system (app/host/user/env)
+  - Configuration validation with clear error messages
+- **Testing** (204 total tests, all passing):
+  - 42 tests for alert state management and email alerting
+  - 70 tests for ZFS parser, monitor, and models
+  - Comprehensive edge case and error scenario coverage
 
 ### Changed
-- Extracted `_load_and_validate_email_config()` helper function to eliminate code duplication between CLI email commands
-- Updated test suite from 56 to 104 passing tests
-- Increased code coverage from 79% to 87.50%
-- Enhanced `conftest.py` with automatic .env loading for integration tests
+- Repurposed template into ZFS monitoring tool
+- Updated behaviors.py with ZFS monitoring functions
+- Enhanced datetime handling for timezone-aware comparisons
+- Improved error handling throughout codebase
+
+### Fixed
+- Configuration validation prevents invalid threshold values
+- Datetime comparison handles both aware and naive datetimes
+- State file permissions restricted to owner-only access
+- ZFS command error handling prevents daemon crashes
+
+### Security
+- State files created with 0o600 permissions (owner-only read/write)
+- State directories created with 0o750 permissions
+- SMTP passwords via environment variables (not config files)
+- No hardcoded credentials
 
 ### Dependencies
-- Added `btx-lib-mail>=1.0.1` for SMTP email sending capabilities
+- Email sending via `btx-lib-mail>=1.0.1`
+- Rich output via `rich>=13.0.0`
+- CLI framework via `rich-click>=1.7.0`
 
 ## [0.0.1] - 2025-11-11
 - Bootstrap 
