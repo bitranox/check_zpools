@@ -54,6 +54,7 @@ from .config_deploy import deploy_configuration
 from .config_show import display_config
 from .logging_setup import init_logging
 from .mail import EmailConfig, load_email_config_from_dict, send_email, send_notification
+from .service_install import install_service, show_service_status, uninstall_service
 
 #: Shared Click context flags so help output stays consistent across commands.
 CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}  # noqa: C408
@@ -843,6 +844,151 @@ def cli_send_notification(
             )
             click.echo(f"\nError: Unexpected error - {exc}", err=True)
             raise SystemExit(1)
+
+
+@cli.command("install-service", context_settings=CLICK_CONTEXT_SETTINGS)
+@click.option(
+    "--no-enable",
+    is_flag=True,
+    default=False,
+    help="Don't enable service to start on boot",
+)
+@click.option(
+    "--no-start",
+    is_flag=True,
+    default=False,
+    help="Don't start service immediately",
+)
+def cli_install_service(no_enable: bool, no_start: bool) -> None:
+    """Install check_zpools as a systemd service (requires root).
+
+    Installs the check_zpools daemon as a systemd service that will:
+    - Run continuously to monitor ZFS pools
+    - Start automatically on system boot (unless --no-enable)
+    - Log to journald for centralized monitoring
+    - Restart automatically on failure
+
+    The service will be installed to /etc/systemd/system/check_zpools.service
+    and will run with root privileges (required for ZFS access).
+
+    Examples:
+
+    \b
+    # Install, enable, and start service
+    $ sudo check_zpools install-service
+
+    \b
+    # Install but don't start yet
+    $ sudo check_zpools install-service --no-start
+
+    \b
+    # Install but don't enable for boot
+    $ sudo check_zpools install-service --no-enable
+    """
+
+    with lib_log_rich.runtime.bind(
+        job_id="cli-install-service",
+        extra={"command": "install-service", "enable": not no_enable, "start": not no_start},
+    ):
+        try:
+            logger.info("Installing systemd service", extra={"enable": not no_enable, "start": not no_start})
+            install_service(enable=not no_enable, start=not no_start)
+        except PermissionError as exc:
+            logger.error("Permission denied during service installation", extra={"error": str(exc)})
+            click.echo(f"\n{exc}", err=True)
+            raise SystemExit(1)
+        except FileNotFoundError as exc:
+            logger.error("Required file not found", extra={"error": str(exc)})
+            click.echo(f"\n{exc}", err=True)
+            raise SystemExit(1)
+        except Exception as exc:
+            logger.error(
+                "Service installation failed",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            click.echo(f"\nError: Service installation failed - {exc}", err=True)
+            raise SystemExit(1)
+
+
+@cli.command("uninstall-service", context_settings=CLICK_CONTEXT_SETTINGS)
+@click.option(
+    "--no-stop",
+    is_flag=True,
+    default=False,
+    help="Don't stop running service",
+)
+@click.option(
+    "--no-disable",
+    is_flag=True,
+    default=False,
+    help="Don't disable service",
+)
+def cli_uninstall_service(no_stop: bool, no_disable: bool) -> None:
+    """Uninstall check_zpools systemd service (requires root).
+
+    Removes the check_zpools systemd service:
+    - Stops the running service (unless --no-stop)
+    - Disables automatic start on boot (unless --no-disable)
+    - Removes service file from /etc/systemd/system/
+
+    Note: This does not remove cache and state directories.
+    Use 'sudo rm -rf /var/cache/check_zpools /var/lib/check_zpools'
+    to remove these directories if needed.
+
+    Examples:
+
+    \b
+    # Uninstall service completely
+    $ sudo check_zpools uninstall-service
+
+    \b
+    # Uninstall but leave service running
+    $ sudo check_zpools uninstall-service --no-stop
+    """
+
+    with lib_log_rich.runtime.bind(
+        job_id="cli-uninstall-service",
+        extra={"command": "uninstall-service", "stop": not no_stop, "disable": not no_disable},
+    ):
+        try:
+            logger.info("Uninstalling systemd service", extra={"stop": not no_stop, "disable": not no_disable})
+            uninstall_service(stop=not no_stop, disable=not no_disable)
+        except PermissionError as exc:
+            logger.error("Permission denied during service uninstallation", extra={"error": str(exc)})
+            click.echo(f"\n{exc}", err=True)
+            raise SystemExit(1)
+        except Exception as exc:
+            logger.error(
+                "Service uninstallation failed",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            click.echo(f"\nError: Service uninstallation failed - {exc}", err=True)
+            raise SystemExit(1)
+
+
+@cli.command("service-status", context_settings=CLICK_CONTEXT_SETTINGS)
+def cli_service_status() -> None:
+    """Show status of check_zpools systemd service.
+
+    Displays whether the service is:
+    - Installed (service file exists)
+    - Running (currently active)
+    - Enabled (starts on boot)
+
+    Also shows full systemctl status output for detailed diagnostics.
+
+    Examples:
+
+    \b
+    # Check service status
+    $ check_zpools service-status
+    """
+
+    with lib_log_rich.runtime.bind(job_id="cli-service-status", extra={"command": "service-status"}):
+        logger.info("Checking service status")
+        show_service_status()
 
 
 def _load_and_validate_email_config() -> EmailConfig:
