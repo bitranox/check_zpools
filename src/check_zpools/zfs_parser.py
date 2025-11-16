@@ -36,6 +36,10 @@ from .models import PoolHealth, PoolStatus
 
 logger = logging.getLogger(__name__)
 
+# Pre-compiled regex patterns for performance
+# Pattern for parsing size strings with binary suffixes (e.g., "1.5T", "500G")
+_SIZE_PATTERN = re.compile(r'^([0-9.]+)\s*([KMGTP])$')
+
 
 class ZFSParseError(ValueError):
     """Exception raised when ZFS JSON parsing fails.
@@ -397,8 +401,8 @@ class ZFSParser:
             pass
 
         # Parse with suffix (e.g., "1.5T", "500G", "10M")
-        pattern = r'^([0-9.]+)\s*([KMGTP])$'
-        match = re.match(pattern, size_str.strip().upper())
+        # Use pre-compiled pattern for performance
+        match = _SIZE_PATTERN.match(size_str.strip().upper())
 
         if not match:
             raise ValueError(
