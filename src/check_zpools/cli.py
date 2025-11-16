@@ -1060,17 +1060,17 @@ def cli_check(format: str) -> None:
                 if result.issues:
                     click.echo("Issues Found:")
                     for issue in result.issues:
-                        severity_color = "red" if issue.severity.value == "critical" else "yellow" if issue.severity.value == "warning" else "green"
-                        click.echo(f"  [{severity_color}]{issue.severity.value.upper()}[/{severity_color}] {issue.pool_name}: {issue.message}")
+                        severity_color = "red" if issue.severity.value == "CRITICAL" else "yellow" if issue.severity.value == "WARNING" else "green"
+                        click.echo(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
                 else:
                     click.echo("[green]No issues detected[/green]")
 
                 click.echo(f"\nPools Checked: {len(result.pools)}")
 
             # Set exit code based on severity
-            if result.overall_severity.value == "critical":
+            if result.overall_severity.value == "CRITICAL":
                 raise SystemExit(2)
-            elif result.overall_severity.value == "warning":
+            elif result.overall_severity.value == "WARNING":
                 raise SystemExit(1)
 
         except ZFSNotAvailableError as exc:

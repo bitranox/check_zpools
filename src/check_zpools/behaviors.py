@@ -30,7 +30,7 @@ interfaces.
 
 from __future__ import annotations
 
-from typing import TextIO
+from typing import Any, TextIO
 
 import logging
 import sys
@@ -165,7 +165,7 @@ def noop_main() -> None:
     return None
 
 
-def check_pools_once(config: dict | None = None) -> CheckResult:
+def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
     """Perform one-shot check of all ZFS pools against configured thresholds.
 
     Why
@@ -246,7 +246,7 @@ def check_pools_once(config: dict | None = None) -> CheckResult:
     return result
 
 
-def run_daemon(config: dict | None = None, foreground: bool = False) -> None:
+def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -> None:
     """Start daemon mode for continuous ZFS pool monitoring.
 
     Why
@@ -356,7 +356,7 @@ def show_pool_status(pool_name: str | None = None, output_format: str = "table")
 
     try:
         list_data = client.get_pool_list()
-        status_data = client.get_pool_status(pool_name)
+        status_data = client.get_pool_status(pool_name=pool_name)
 
         pools_from_list = parser.parse_pool_list(list_data)
         pools_from_status = parser.parse_pool_status(status_data)
@@ -472,7 +472,7 @@ def show_pool_status(pool_name: str | None = None, output_format: str = "table")
             print()
 
 
-def _build_monitor_config(config: dict) -> MonitorConfig:
+def _build_monitor_config(config: dict[str, Any]) -> MonitorConfig:
     """Build MonitorConfig from layered configuration dict.
 
     Parameters
@@ -505,38 +505,23 @@ def _build_monitor_config(config: dict) -> MonitorConfig:
 
     # Validate capacity thresholds
     if not (0 < warning < 100):
-        raise ValueError(
-            f"capacity.warning_percent must be between 0 and 100, got {warning}"
-        )
+        raise ValueError(f"capacity.warning_percent must be between 0 and 100, got {warning}")
     if not (0 < critical <= 100):
-        raise ValueError(
-            f"capacity.critical_percent must be between 0 and 100, got {critical}"
-        )
+        raise ValueError(f"capacity.critical_percent must be between 0 and 100, got {critical}")
     if warning >= critical:
-        raise ValueError(
-            f"capacity.warning_percent ({warning}%) must be less than "
-            f"critical_percent ({critical}%)"
-        )
+        raise ValueError(f"capacity.warning_percent ({warning}%) must be less than critical_percent ({critical}%)")
 
     # Validate scrub age
     if scrub_age < 0:
-        raise ValueError(
-            f"scrub.max_age_days must be non-negative, got {scrub_age}"
-        )
+        raise ValueError(f"scrub.max_age_days must be non-negative, got {scrub_age}")
 
     # Validate error thresholds
     if read_errors < 0:
-        raise ValueError(
-            f"errors.read_errors_warning must be non-negative, got {read_errors}"
-        )
+        raise ValueError(f"errors.read_errors_warning must be non-negative, got {read_errors}")
     if write_errors < 0:
-        raise ValueError(
-            f"errors.write_errors_warning must be non-negative, got {write_errors}"
-        )
+        raise ValueError(f"errors.write_errors_warning must be non-negative, got {write_errors}")
     if checksum_errors < 0:
-        raise ValueError(
-            f"errors.checksum_errors_warning must be non-negative, got {checksum_errors}"
-        )
+        raise ValueError(f"errors.checksum_errors_warning must be non-negative, got {checksum_errors}")
 
     return MonitorConfig(
         capacity_warning_percent=warning,
@@ -548,7 +533,7 @@ def _build_monitor_config(config: dict) -> MonitorConfig:
     )
 
 
-def _get_state_file_path(config: dict) -> Path:
+def _get_state_file_path(config: dict[str, Any]) -> Path:
     """Get path to alert state file from configuration.
 
     Parameters

@@ -217,7 +217,7 @@ class PoolMonitor:
 
         logger.info(f"Checking {len(pools)} pools")
 
-        for pool_name, pool_status in pools.items():
+        for pool_status in pools.values():
             pool_list.append(pool_status)
             pool_issues = self.check_pool(pool_status)
             all_issues.extend(pool_issues)
