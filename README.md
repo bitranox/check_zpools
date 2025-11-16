@@ -12,12 +12,16 @@
 [![Maintainability](https://qlty.sh/badges/041ba2c1-37d6-40bb-85a0-ec5a8a0aca0c/maintainability.svg)](https://qlty.sh/gh/bitranox/projects/check_zpools)
 [![Known Vulnerabilities](https://snyk.io/test/github/bitranox/check_zpools/badge.svg)](https://snyk.io/test/github/bitranox/check_zpools)
 
-`check_zpools` is a template CLI application demonstrating configuration management and structured logging. It showcases rich-click for ergonomics and lib_cli_exit_tools for exits, providing a solid foundation for building CLI applications.
-- CLI entry point styled with rich-click (rich output + click ergonomics).
-- Layered configuration system with lib_layered_config (defaults → app → host → user → .env → env).
-- Rich structured logging with lib_log_rich (console, journald, eventlog, Graylog/GELF).
-- Exit-code and messaging helpers powered by lib_cli_exit_tools.
-- Metadata helpers ready for packaging, testing, and release automation.
+`check_zpools` is a production-ready ZFS pool monitoring tool with intelligent alerting and daemon mode. It provides comprehensive health monitoring with configurable thresholds, email notifications, and alert deduplication.
+
+## Features
+
+- **ZFS Pool Monitoring**: Real-time health, capacity, error, and scrub status tracking
+- **Intelligent Alerting**: Email notifications with deduplication and configurable resend intervals
+- **Daemon Mode**: Continuous monitoring with graceful shutdown and error recovery
+- **Rich CLI**: Beautiful table output and JSON export via rich-click
+- **Layered Configuration**: Flexible config system (defaults → app → host → user → .env → env)
+- **Structured Logging**: Rich console output with journald, eventlog, and Graylog/GELF support
 
 ## Install - recommended via UV
 UV - the ultrafast installer - written in Rust (10–20× faster than pip/poetry)
@@ -36,8 +40,7 @@ uv pip install check_zpools
 ```
 
 For alternative install paths (pip, pipx, uv, uvx source builds, etc.), see
-[INSTALL.md](INSTALL.md). All supported methods register both the
-`check_zpools` and `bitranox-template-cli-app-config-log-mail` commands on your PATH.
+[INSTALL.md](INSTALL.md). All supported methods register the `check_zpools` command on your PATH.
 
 ### Python 3.13+ Baseline
 
@@ -53,65 +56,112 @@ For alternative install paths (pip, pipx, uv, uvx source builds, etc.), see
 
 ## Usage
 
-The CLI leverages [rich-click](https://github.com/ewels/rich-click) so help output, validation errors, and prompts render with Rich styling while keeping the familiar click ergonomics.
+The CLI leverages [rich-click](https://github.com/ewels/rich-click) for beautiful help output and Rich-styled tables.
 
-### Available Commands
+### ZFS Monitoring Commands
 
 ```bash
-# Display package information
-bitranox-template-cli-app-config-log info
+# One-shot pool health check
+check_zpools check                # Display issues in text format
+check_zpools check --format json  # Export as JSON for scripting
 
-# Test commands for development
-bitranox-template-cli-app-config-log hello
-bitranox-template-cli-app-config-log fail
-bitranox-template-cli-app-config-log --traceback fail
+# Display pool status with rich tables
+check_zpools status               # Show all pools
+check_zpools status rpool         # Show specific pool
+
+# Start continuous monitoring daemon
+check_zpools daemon               # Run in foreground (for systemd)
+
+# Systemd service management
+sudo check_zpools install-service     # Install as systemd service
+sudo check_zpools uninstall-service   # Remove systemd service
+check_zpools service-status           # Check service status
 
 # Configuration management
-bitranox-template-cli-app-config-log config                    # Show current configuration
-bitranox-template-cli-app-config-log config --format json      # Show as JSON
-bitranox-template-cli-app-config-log config --section lib_log_rich  # Show specific section
-bitranox-template-cli-app-config-log config-deploy --target user    # Deploy config to user directory
-bitranox-template-cli-app-config-log config-deploy --target user --target host  # Deploy to multiple locations
+check_zpools config                           # Show current configuration
+check_zpools config --format json             # Show as JSON
+check_zpools config --section zfs             # Show specific section
+check_zpools config-deploy --target user      # Deploy config to user directory
 
-# All commands work with any entry point
-python -m check_zpools info
-uvx check_zpools info
+# Package information
+check_zpools info                 # Display version and paths
+python -m check_zpools --version  # Show version
 ```
 
-### Email Sending
+### ZFS Monitoring Configuration
 
-The application includes email sending capabilities via [btx-lib-mail](https://pypi.org/project/btx-lib-mail/), supporting both simple notifications and rich HTML emails with attachments.
+Create a configuration file to customize monitoring thresholds and alert behavior. See [docs/examples/config.toml.example](docs/examples/config.toml.example) for a complete reference.
 
-#### Email Configuration
+**Quick Start** - Create `~/.config/check_zpools/config.toml`:
+
+```toml
+[zfs.capacity]
+warning_percent = 80   # Alert when pool reaches 80% capacity
+critical_percent = 90  # Critical alert at 90%
+
+[zfs.errors]
+read_errors_warning = 0      # Alert on any read errors
+write_errors_warning = 0     # Alert on any write errors
+checksum_errors_warning = 0  # Alert on any checksum errors
+
+[zfs.scrub]
+max_age_days = 30  # Warn if scrub not run in 30 days
+
+[daemon]
+check_interval_seconds = 300  # Check every 5 minutes
+alert_resend_hours = 24       # Resend alerts after 24 hours
+pools_to_monitor = []         # Empty = monitor all pools
+
+[alerts]
+alert_recipients = ["admin@example.com"]
+send_recovery_emails = true   # Notify when issues resolve
+
+[email]
+smtp_hosts = ["smtp.gmail.com:587"]
+from_address = "zfs-monitor@example.com"
+smtp_username = "alerts@example.com"
+# Set via environment: CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD
+use_starttls = true
+```
+
+**Exit Codes:**
+- `0` - All pools healthy (OK)
+- `1` - Warning-level issues detected
+- `2` - Critical issues detected
+
+### Email Alert Configuration
+
+The monitoring system sends email alerts via [btx-lib-mail](https://pypi.org/project/btx-lib-mail/) when issues are detected.
+
+#### Email Setup
 
 Configure email settings via environment variables, `.env` file, or configuration files:
 
 **Environment Variables:**
 ```bash
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_HOSTS="smtp.gmail.com:587,smtp.backup.com:587"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_FROM_ADDRESS="alerts@myapp.com"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_USERNAME="your-email@gmail.com"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_PASSWORD="your-app-password"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_USE_STARTTLS="true"
-export BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_TIMEOUT="60.0"
+export CHECK_ZPOOLS_EMAIL_SMTP_HOSTS="smtp.gmail.com:587,smtp.backup.com:587"
+export CHECK_ZPOOLS_EMAIL_FROM_ADDRESS="zfs-monitor@example.com"
+export CHECK_ZPOOLS_EMAIL_SMTP_USERNAME="your-email@gmail.com"
+export CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD="your-app-password"
+export CHECK_ZPOOLS_EMAIL_USE_STARTTLS="true"
 ```
 
-**Configuration File** (`~/.config/bitranox-template-cli-app-config-log/config.toml`):
+**Configuration File** (`~/.config/check_zpools/config.toml`):
 ```toml
 [email]
-smtp_hosts = ["smtp.gmail.com:587", "smtp.backup.com:587"]  # Fallback to backup if primary fails
-from_address = "alerts@myapp.com"
-smtp_username = "myuser@gmail.com"
-smtp_password = "secret_password"  # Consider using environment variables for sensitive data
+smtp_hosts = ["smtp.gmail.com:587", "smtp.backup.com:587"]
+from_address = "zfs-monitor@example.com"
+smtp_username = "alerts@example.com"
+# smtp_password via environment variable: CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD
 use_starttls = true
-timeout = 60.0
 ```
 
 **`.env` File:**
 ```bash
 # Email configuration for local testing
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_HOSTS=smtp.gmail.com:587
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_FROM_ADDRESS=noreply@example.com
+CHECK_ZPOOLS_EMAIL_SMTP_HOSTS=smtp.gmail.com:587
+CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD=your-app-password
+CHECK_ZPOOLS_EMAIL_FROM_ADDRESS=zfs-monitor@example.com
 ```
 
 #### Gmail Configuration Example
@@ -119,100 +169,11 @@ BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_FROM_ADDRESS=noreply@example.com
 For Gmail, create an [App Password](https://support.google.com/accounts/answer/185833) instead of using your account password:
 
 ```bash
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_HOSTS=smtp.gmail.com:587
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_FROM_ADDRESS=your-email@gmail.com
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_USERNAME=your-email@gmail.com
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_PASSWORD=your-16-char-app-password
-```
-
-#### Send Simple Email
-
-```bash
-# Send basic email to one recipient
-bitranox-template-cli-app-config-log send-email \
-    --to recipient@example.com \
-    --subject "Test Email" \
-    --body "Hello from bitranox!"
-
-# Send to multiple recipients
-bitranox-template-cli-app-config-log send-email \
-    --to user1@example.com \
-    --to user2@example.com \
-    --subject "Team Update" \
-    --body "Please review the latest changes"
-```
-
-#### Send HTML Email with Attachments
-
-```bash
-bitranox-template-cli-app-config-log send-email \
-    --to recipient@example.com \
-    --subject "Monthly Report" \
-    --body "Please find the monthly report attached." \
-    --body-html "<h1>Monthly Report</h1><p>See attached PDF for details.</p>" \
-    --attachment report.pdf \
-    --attachment data.csv
-```
-
-#### Send Notifications
-
-For simple plain-text notifications, use the convenience command:
-
-```bash
-# Single recipient
-bitranox-template-cli-app-config-log send-notification \
-    --to ops@example.com \
-    --subject "Deployment Success" \
-    --message "Application deployed successfully to production at $(date)"
-
-# Multiple recipients
-bitranox-template-cli-app-config-log send-notification \
-    --to admin1@example.com \
-    --to admin2@example.com \
-    --subject "System Alert" \
-    --message "Database backup completed successfully"
-```
-
-#### Programmatic Email Usage
-
-```python
-from check_zpools.mail import EmailConfig, send_email, send_notification
-
-# Configure email
-config = EmailConfig(
-    smtp_hosts=["smtp.gmail.com:587"],
-    from_address="alerts@myapp.com",
-    smtp_username="myuser@gmail.com",
-    smtp_password="app-password",
-    timeout=60.0,
-)
-
-# Send simple email
-send_email(
-    config=config,
-    recipients="recipient@example.com",
-    subject="Test Email",
-    body="Hello from Python!",
-)
-
-# Send email with HTML and attachments
-from pathlib import Path
-send_email(
-    config=config,
-    recipients=["user1@example.com", "user2@example.com"],
-    subject="Report",
-    body="See attached report",
-    body_html="<h1>Report</h1><p>Details in attachment</p>",
-    attachments=[Path("report.pdf")],
-)
-
-# Send notification
-send_notification(
-    config=config,
-    recipients="ops@example.com",
-    subject="Deployment Complete",
-    message="Production deployment finished successfully",
-)
+CHECK_ZPOOLS_EMAIL_SMTP_HOSTS=smtp.gmail.com:587
+CHECK_ZPOOLS_EMAIL_FROM_ADDRESS=your-email@gmail.com
+CHECK_ZPOOLS_EMAIL_SMTP_USERNAME=your-email@gmail.com
+CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD=your-16-char-app-password
+CHECK_ZPOOLS_EMAIL_USE_STARTTLS=true
 ```
 
 #### Email Troubleshooting
@@ -232,7 +193,7 @@ send_notification(
 - Verify `from_address` is valid and not blacklisted
 - Review SMTP server logs for delivery status
 
-### Configuration Management
+### Advanced Configuration
 
 The application uses [lib_layered_config](https://github.com/bitranox/lib_layered_config) for hierarchical configuration with the following precedence (lowest to highest):
 
@@ -241,54 +202,55 @@ The application uses [lib_layered_config](https://github.com/bitranox/lib_layere
 #### Configuration Locations
 
 Platform-specific paths:
-- **Linux (user)**: `~/.config/bitranox-template-cli-app-config-log/config.toml`
-- **Linux (app)**: `/etc/xdg/bitranox-template-cli-app-config-log/config.toml`
-- **Linux (host)**: `/etc/bitranox-template-cli-app-config-log/hosts/{hostname}.toml`
-- **macOS (user)**: `~/Library/Application Support/bitranox/Bitranox Template CLI App Config Log/config.toml`
-- **Windows (user)**: `%APPDATA%\bitranox\Bitranox Template CLI App Config Log\config.toml`
+- **Linux (user)**: `~/.config/check_zpools/config.toml`
+- **Linux (app)**: `/etc/xdg/check_zpools/config.toml`
+- **Linux (host)**: `/etc/check_zpools/hosts/{hostname}.toml`
+- **macOS (user)**: `~/Library/Application Support/check_zpools/config.toml`
+- **Windows (user)**: `%APPDATA%\check_zpools\config.toml`
 
 #### View Configuration
 
 ```bash
 # Show merged configuration from all sources
-bitranox-template-cli-app-config-log config
+check_zpools config
 
 # Show as JSON for scripting
-bitranox-template-cli-app-config-log config --format json
+check_zpools config --format json
 
 # Show specific section only
-bitranox-template-cli-app-config-log config --section lib_log_rich
+check_zpools config --section zfs
 ```
 
 #### Deploy Configuration Files
 
 ```bash
 # Create user configuration file
-bitranox-template-cli-app-config-log config-deploy --target user
+check_zpools config-deploy --target user
 
 # Deploy to system-wide location (requires privileges)
-sudo bitranox-template-cli-app-config-log config-deploy --target app
+sudo check_zpools config-deploy --target app
 
 # Deploy to multiple locations at once
-bitranox-template-cli-app-config-log config-deploy --target user --target host
+check_zpools config-deploy --target user --target host
 
 # Overwrite existing configuration
-bitranox-template-cli-app-config-log config-deploy --target user --force
+check_zpools config-deploy --target user --force
 ```
 
 #### Environment Variable Overrides
 
-Configuration can be overridden via environment variables using two methods:
+Configuration can be overridden via environment variables:
 
-**Method 1: Native lib_log_rich variables (highest precedence)**
 ```bash
-LOG_CONSOLE_LEVEL=DEBUG bitranox-template-cli-app-config-log hello
-LOG_ENABLE_GRAYLOG=true LOG_GRAYLOG_ENDPOINT="logs.example.com:12201" bitranox-template-cli-app-config-log hello
-```
+# Override ZFS thresholds
+CHECK_ZPOOLS_ZFS_CAPACITY_WARNING_PERCENT=85 check_zpools check
+CHECK_ZPOOLS_ZFS_CAPACITY_CRITICAL_PERCENT=95 check_zpools check
 
-**Method 2: Application-prefixed variables**
-```bash
-BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_LIB_LOG_RICH_CONSOLE_LEVEL=DEBUG bitranox-template-cli-app-config-log hello
+# Override daemon settings
+CHECK_ZPOOLS_DAEMON_CHECK_INTERVAL_SECONDS=600 check_zpools daemon
+
+# Override logging
+LOG_CONSOLE_LEVEL=DEBUG check_zpools status
 ```
 
 #### .env File Support
@@ -297,27 +259,35 @@ Create a `.env` file in your project directory for local development:
 
 ```bash
 # .env
-LOG_CONSOLE_LEVEL=DEBUG
-LOG_CONSOLE_FORMAT_PRESET=short
-LOG_ENABLE_GRAYLOG=false
+CHECK_ZPOOLS_ZFS_CAPACITY_WARNING_PERCENT=85
+CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD=your-app-password
+LOG_CONSOLE_LEVEL=INFO
 ```
 
 The application automatically discovers and loads `.env` files from the current directory or parent directories.
 
 ### Library Use
 
-You can import the documented helpers directly:
+You can import and use check_zpools as a library in your Python code:
 
 ```python
-import check_zpools as btcacl
+from check_zpools.behaviors import check_pools_once, show_pool_status
+from check_zpools.config import get_config
 
-btcacl.emit_greeting()
-try:
-    btcacl.raise_intentional_failure()
-except RuntimeError as exc:
-    print(f"caught expected failure: {exc}")
+# Perform one-shot pool check
+result = check_pools_once()
+print(f"Overall severity: {result.overall_severity.value}")
+print(f"Issues found: {len(result.issues)}")
 
-btcacl.print_info()
+for issue in result.issues:
+    print(f"  {issue.pool_name}: {issue.message}")
+
+# Display pool status programmatically
+show_pool_status(output_format="json")
+
+# Access configuration
+config = get_config()
+print(f"Warning threshold: {config['zfs']['capacity']['warning_percent']}%")
 ```
 
 
