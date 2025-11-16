@@ -11,7 +11,6 @@ Tests cover:
 from __future__ import annotations
 
 import json
-import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -71,7 +70,7 @@ class TestAlertStateManager:
 
     def test_manager_creates_state_directory(self, temp_state_file: Path) -> None:
         """Manager should create state directory if it doesn't exist."""
-        manager = AlertStateManager(temp_state_file, resend_interval_hours=24)
+        AlertStateManager(temp_state_file, resend_interval_hours=24)
         assert temp_state_file.parent.exists()
 
     def test_manager_starts_with_empty_state(self, state_manager: AlertStateManager) -> None:
