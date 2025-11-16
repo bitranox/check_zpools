@@ -1,0 +1,32 @@
+{
+  "output_version": {
+    "command": "zpool status",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "rpool": {
+      "name": "rpool",
+      "type": "POOL",
+      "state": "DEGRADED",
+      "pool_guid": "17068583395379267683",
+      "txg": "2966143",
+      "spa_version": "5000",
+      "zpl_version": "5",
+      "vdev_tree": {
+        "type": "root",
+        "stats": {
+          "read_errors": 0,
+          "write_errors": 0,
+          "checksum_errors": 0
+        }
+      },
+      "scan": {
+        "state": "finished",
+        "start_time": 1700000000,
+        "end_time": 1700010000,
+        "errors": 0
+      }
+    }
+  }
+}
