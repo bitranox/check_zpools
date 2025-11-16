@@ -1,0 +1,649 @@
+# Default configuration for check_zpools
+#
+# This file contains the default configuration that ships with the application.
+# Settings can be overridden via:
+#   - Application-level config: /etc/xdg/check_zpools/config.toml (Linux)
+#   - Host-level config: /etc/check_zpools/hosts/{hostname}.toml (Linux)
+#   - User-level config: ~/.config/check_zpools/config.toml (Linux)
+#   - .env files: .env in current directory or parent directories
+#   - Environment variables: Prefix with CHECK_ZPOOLS_
+#
+# Precedence (lowest to highest): defaults → app → host → user → dotenv → env
+
+# ==============================================================================
+# ZFS Monitoring Configuration
+# ==============================================================================
+
+[check_zpools]
+# Capacity thresholds (percentage of pool utilization)
+capacity_warning_percent = 80
+# Purpose: Percentage at which to trigger WARNING alerts for pool capacity
+# Type: integer (0-100)
+# Default: 80
+# Environment: CHECK_ZPOOLS_CAPACITY_WARNING_PERCENT
+# Note: ZFS performance degrades significantly above 80% capacity
+# Example: capacity_warning_percent = 75
+
+capacity_critical_percent = 90
+# Purpose: Percentage at which to trigger CRITICAL alerts for pool capacity
+# Type: integer (0-100)
+# Default: 90
+# Environment: CHECK_ZPOOLS_CAPACITY_CRITICAL_PERCENT
+# Example: capacity_critical_percent = 95
+
+# Scrub age monitoring
+scrub_max_age_days = 30
+# Purpose: Maximum days since last scrub before WARNING alert
+# Type: integer
+# Default: 30
+# Environment: CHECK_ZPOOLS_SCRUB_MAX_AGE_DAYS
+# Note: Set to 0 to disable scrub age monitoring
+# Example: scrub_max_age_days = 7
+
+# Error thresholds
+read_errors_warning = 1
+# Purpose: Number of read errors to trigger WARNING
+# Type: integer
+# Default: 1 (any errors trigger warning)
+# Environment: CHECK_ZPOOLS_READ_ERRORS_WARNING
+# Example: read_errors_warning = 5
+
+write_errors_warning = 1
+# Purpose: Number of write errors to trigger WARNING
+# Type: integer
+# Default: 1 (any errors trigger warning)
+# Environment: CHECK_ZPOOLS_WRITE_ERRORS_WARNING
+# Example: write_errors_warning = 5
+
+checksum_errors_warning = 1
+# Purpose: Number of checksum errors to trigger WARNING
+# Type: integer
+# Default: 1 (any errors trigger warning)
+# Environment: CHECK_ZPOOLS_CHECKSUM_ERRORS_WARNING
+# Note: Checksum errors are serious and may indicate hardware issues
+# Example: checksum_errors_warning = 0  # Alert on any checksum error
+
+[check_zpools.daemon]
+# Daemon mode configuration
+check_interval_seconds = 300
+# Purpose: Interval between pool checks when running as daemon
+# Type: integer (seconds)
+# Default: 300 (5 minutes)
+# Environment: CHECK_ZPOOLS_DAEMON_CHECK_INTERVAL_SECONDS
+# Example: check_interval_seconds = 60  # Check every minute
+
+alert_resend_interval_hours = 2
+# Purpose: Hours before re-sending alerts for persistent issues
+# Type: integer
+# Default: 24 (re-alert daily)
+# Environment: CHECK_ZPOOLS_DAEMON_ALERT_RESEND_INTERVAL_HOURS
+# Note: Prevents alert fatigue while keeping admins informed
+# Example: alert_resend_interval_hours = 6  # Re-alert every 6 hours
+
+pools_to_monitor = []
+# Purpose: List of specific pool names to monitor (empty = all pools)
+# Type: array of strings
+# Default: [] (monitor all pools)
+# Environment: CHECK_ZPOOLS_DAEMON_POOLS_TO_MONITOR (comma-separated)
+# Example: pools_to_monitor = ["rpool", "zpool-data", "zpool-backup"]
+
+state_file = ""
+# Purpose: Path to alert state file for deduplication
+# Type: string (file path)
+# Default: "" (uses platform-specific cache directory)
+# Environment: CHECK_ZPOOLS_DAEMON_STATE_FILE
+# Note: Default is ~/.cache/check_zpools/alert_state.json on Linux
+# Example: state_file = "/var/lib/check_zpools/alert_state.json"
+
+[check_zpools.alerts]
+# Alert configuration
+alert_recipients = []
+# Purpose: Email addresses to receive alerts
+# Type: array of strings
+# Default: [] (no email alerts sent)
+# Environment: CHECK_ZPOOLS_ALERTS_ALERT_RECIPIENTS (comma-separated)
+# Example: alert_recipients = ["admin@example.com", "ops-team@example.com"]
+
+subject_prefix = "[ZFS Alert]"
+# Purpose: Prefix for email subject lines
+# Type: string
+# Default: "[ZFS Alert]"
+# Environment: CHECK_ZPOOLS_ALERTS_SUBJECT_PREFIX
+# Example: subject_prefix = "[PROD-ZFS]"
+
+alert_on_severities = ["CRITICAL", "WARNING"]
+# Purpose: Which severities should trigger email alerts
+# Type: array of strings
+# Default: ["CRITICAL", "WARNING"]
+# Values: "CRITICAL", "WARNING", "INFO"
+# Environment: CHECK_ZPOOLS_ALERTS_ALERT_ON_SEVERITIES (comma-separated)
+# Example: alert_on_severities = ["CRITICAL"]  # Only critical alerts
+
+send_recovery_emails = true
+# Purpose: Send email when issues are resolved
+# Type: boolean
+# Default: true
+# Environment: CHECK_ZPOOLS_ALERTS_SEND_RECOVERY_EMAILS
+# Example: send_recovery_emails = false
+
+# ==============================================================================
+# Email Configuration - SMTP settings for sending notifications
+# ==============================================================================
+#
+# Documentation: Uses btx_lib_mail for SMTP functionality
+# Settings can be overridden via lib_layered_config precedence chain
+# Environment variables: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_*
+#
+# Sensible defaults are applied by the email wrapper.
+# Uncomment and modify any setting below to override the defaults.
+#
+# [email]
+
+# smtp_hosts = ["smtp.example.com:587"]
+# Purpose: SMTP servers to use for email delivery (tried in order)
+# Type: array of strings in "host[:port]" format
+# Default: [] (empty, must be configured to send email)
+# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_HOSTS
+# Note: Port 587 is standard for STARTTLS, 465 for implicit TLS, 25 for plain
+# Example: smtp_hosts = ["smtp.gmail.com:587", "smtp.backup.com:587"]
+
+# from_address = "noreply@localhost"
+# Purpose: Default sender address for outgoing emails
+# Type: string (valid email address)
+# Default: "noreply@localhost"
+# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_FROM_ADDRESS
+# Example: from_address = "alerts@example.com"
+
+# smtp_username = ""
+# Purpose: SMTP authentication username
+# Type: string or None
+# Default: None (no authentication)
+# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_USERNAME
+# Note: Both username and password must be set to enable authentication
+# Example: smtp_username = "user@example.com"
+
+# smtp_password = ""
+# Purpose: SMTP authentication password
+# Type: string or None
+# Default: None (no authentication)
+# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_PASSWORD
+# Security: Store in environment variable or user config, not in defaults
+# Example: Set via environment variable for security
+
+# use_starttls = true
+# Purpose: Enable STARTTLS negotiation before authentication
+# Type: boolean
+# Default: true
+# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_USE_STARTTLS
+# Note: Standard for port 587; disable for implicit TLS (port 465)
+# Example: use_starttls = false
+
+# timeout = 30.0
+# Purpose: Socket timeout in seconds for SMTP operations
+# Type: float
+# Default: 30.0
+# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_TIMEOUT
+# Example: timeout = 60.0
+
+# raise_on_missing_attachments = true
+# Purpose: Behavior when attachment files are missing
+# Type: boolean
+# Default: true (raise FileNotFoundError)
+# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_RAISE_ON_MISSING_ATTACHMENTS
+# Note: When false, logs warning and continues without attachment
+# Example: raise_on_missing_attachments = false
+
+# raise_on_invalid_recipient = true
+# Purpose: Behavior when recipient email addresses are invalid
+# Type: boolean
+# Default: true (raise ValueError)
+# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_RAISE_ON_INVALID_RECIPIENT
+# Note: When false, logs warning and skips invalid addresses
+# Example: raise_on_invalid_recipient = true
+
+
+# ==============================================================================
+# lib_log_rich - Rich-powered structured logging with multi-target fan-out
+# ==============================================================================
+#
+# Documentation: https://github.com/bitranox/lib_log_rich
+# Settings are loaded via lib_layered_config and can be overridden via:
+#   - Host/User config files (see precedence list at top)
+#   - Environment variables: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_* (based on slug)
+#
+# IMPORTANT: Environment Variable Naming
+# ---------------------------------------
+# Configuration can be overridden via environment variables using TWO methods:
+#
+# Method 1: lib_log_rich native environment variables (HIGHEST PRECEDENCE)
+#   LOG_CONSOLE_LEVEL=DEBUG
+#   LOG_ENABLE_GRAYLOG=true
+#   etc.
+#
+#   These are read by lib_log_rich during init() and override all other sources.
+#   Use these for runtime overrides (e.g., in CI/CD, debugging).
+#
+# Method 2: lib_layered_config environment variables
+#   BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_LIB_LOG_RICH_CONSOLE_LEVEL=DEBUG
+#   BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_LIB_LOG_RICH_ENABLE_GRAYLOG=true
+#   etc.
+#
+#   Format: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_<section>_<setting>
+#   These are merged via lib_layered_config before init().
+#
+# Precedence (lowest to highest):
+#   defaults → app config → host config → user config → .env file →
+#   BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_* env vars → LOG_* env vars
+#
+# Recommendation: Use LOG_* for simplicity and maximum precedence
+#
+# .env File Support
+# -----------------
+# The application automatically loads .env files from the current directory or
+# parent directories using lib_log_rich's built-in dotenv support. This enables
+# you to set LOG_* variables in .env files for local development:
+#
+#   # .env file example
+#   LOG_CONSOLE_LEVEL=DEBUG
+#   LOG_ENABLE_GRAYLOG=false
+#   LOG_CONSOLE_FORMAT_PRESET=short
+#
+# The .env file is loaded before lib_log_rich initialization via
+# lib_log_rich.config.enable_dotenv(), making LOG_* variables available.
+#
+# Precedence for environment variables:
+#   1. Real OS environment variables (os.environ)
+#   2. Discovered .env file values
+#   3. Built-in defaults
+#
+# This means system environment variables always override .env file content.
+#
+# Ideal use cases:
+#   - Local development without modifying config files
+#   - Per-developer logging preferences
+#   - Temporary debugging without committing configuration changes
+#
+# IMPORTANT: Never commit .env files containing secrets to version control
+#
+# [lib_log_rich]
+
+# ------------------------------------------------------------------------------
+# Core Identity Settings (defaults provided by code, can be overridden here)
+# ------------------------------------------------------------------------------
+
+# service = "check_zpools"
+# Purpose: Logical service name recorded in each log event
+# Type: string (non-empty)
+# Default: "check_zpools" (from package name)
+# Environment: LOG_SERVICE
+# Example: service = "my-custom-service"
+
+# environment = "prod"
+# Purpose: Deployment environment label (dev, stage, prod, local, etc.)
+# Type: string (non-empty)
+# Default: "prod"
+# Environment: LOG_ENVIRONMENT
+# Example: environment = "staging"
+
+# ------------------------------------------------------------------------------
+# Console Output Settings
+# ------------------------------------------------------------------------------
+
+# console_level = "INFO"
+# Purpose: Minimum severity level emitted to Rich console
+# Type: string (case-insensitive)
+# Default: "INFO"
+# Values: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+# Environment: LOG_CONSOLE_LEVEL
+# Example: console_level = "DEBUG"
+
+# console_stream = "stderr"
+# Purpose: Where to send console output
+# Type: string
+# Default: "stderr"
+# Values: "stdout", "stderr", "both", "custom", "none"
+# Environment: LOG_CONSOLE_STREAM
+# Note: "custom" requires console_stream_target parameter in code
+#       "none" suppresses all console output
+# Example: console_stream = "stdout"
+
+# console_format_preset = "full"
+# Purpose: Console line layout preset
+# Type: string (case-insensitive)
+# Default: "full"
+# Values: "full", "short", "full_loc", "short_loc"
+# Environment: LOG_CONSOLE_FORMAT_PRESET
+# Details:
+#   - full: Timestamp, level icon, logger name, message, context
+#   - short: Minimal format with level and message
+#   - full_loc: Like full but with local timezone
+#   - short_loc: Like short but with local timezone
+# Example: console_format_preset = "short"
+
+# console_format_template = "{timestamp} {level_icon} {LEVEL:>8} {logger_name} — {message} {context_fields}"
+# Purpose: Custom console output template (overrides preset)
+# Type: string (Python str.format template)
+# Default: None (uses preset)
+# Environment: LOG_CONSOLE_FORMAT_TEMPLATE
+# Available placeholders:
+#   Timestamps:
+#     {timestamp}                      - ISO 8601 UTC with microseconds (e.g., 2025-09-24T10:15:24.123456+00:00)
+#     {timestamp_trimmed}              - UTC trimmed to seconds with timezone (e.g., 2025-09-24T10:15:24+00:00)
+#     {timestamp_no_us}                - UTC trimmed to seconds with timezone (alias for timestamp_trimmed)
+#     {timestamp_trimmed_naive}        - UTC trimmed to seconds without timezone (e.g., 2025-09-24T10:15:24)
+#     {timestamp_loc}                  - Local time with timezone offset (e.g., 2025-09-24T12:15:24.123456+02:00)
+#     {timestamp_trimmed_loc}          - Local time trimmed to seconds with offset
+#     {timestamp_trimmed_naive_loc}    - Local time trimmed to seconds without offset
+#   UTC Calendar Components:
+#     {YYYY}, {MM}, {DD}               - UTC year, month, day
+#     {hh}, {mm}, {ss}                 - UTC hour, minute, second
+#   Local Calendar Components:
+#     {YYYY_loc}, {MM_loc}, {DD_loc}   - Local year, month, day
+#     {hh_loc}, {mm_loc}, {ss_loc}     - Local hour, minute, second
+#   Level Information:
+#     {LEVEL}                          - Upper-case level name (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+#     {level_icon}                     - Rich glyph (🐛, ℹ, ⚠, ✖, 💀)
+#     {level_code}                     - Four-character abbreviation (DEBG, INFO, WARN, ERRO, CRIT)
+#   Message & Context:
+#     {message}                        - Raw log message string
+#     {context_fields}                 - Space-prefixed key=value pairs
+#     {context}                        - Full context dictionary (service, environment, job_id, extras, etc.)
+#     {extra}                          - Shallow copy of extra mapping from logger call
+#   Logger Identity:
+#     {logger_name}                    - Logger identifier from getLogger()
+#     {event_id}                       - Unique identifier generated per log event
+#   System Identity:
+#     {user_name}                      - System user captured during init()
+#     {hostname}                       - Short hostname captured during init()
+#     {process_id}                     - Current PID
+#     {process_id_chain}               - Parent>child PID chain (>-joined ancestry)
+#   Miscellaneous:
+#     {theme}                          - Active console theme name
+# Example: console_format_template = "{timestamp} [{LEVEL}] {message}"
+
+# console_theme = "dark"
+# Purpose: Rich color palette for console output
+# Type: string
+# Default: None (uses Rich defaults)
+# Values: "classic", "dark", "neon", "pastel", or other Rich theme names
+# Environment: LOG_CONSOLE_THEME
+# Example: console_theme = "neon"
+
+# console_styles = { INFO = "green", WARNING = "yellow bold", ERROR = "red bold" }
+# Purpose: Override Rich styles per severity level
+# Type: table with level keys
+# Default: None (uses theme defaults)
+# Environment: LOG_CONSOLE_STYLES (comma-separated: "LEVEL=style,LEVEL=style")
+# Keys: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# Values: Rich style strings (color, bold, italic, etc.)
+# Example: console_styles = { DEBUG = "dim cyan", INFO = "bold green" }
+
+# force_color = false
+# Purpose: Force ANSI color output even when stderr is not a TTY
+# Type: boolean
+# Default: false
+# Environment: LOG_FORCE_COLOR
+# Example: force_color = true
+
+# no_color = false
+# Purpose: Disable color output entirely (overrides force_color)
+# Type: boolean
+# Default: false
+# Environment: LOG_NO_COLOR
+# Example: no_color = true
+
+# ------------------------------------------------------------------------------
+# Backend Adapters (journald, Windows Event Log)
+# ------------------------------------------------------------------------------
+
+# backend_level = "WARNING"
+# Purpose: Minimum severity threshold for journald and Windows Event Log
+# Type: string (case-insensitive)
+# Default: "WARNING"
+# Values: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+# Environment: LOG_BACKEND_LEVEL
+# Example: backend_level = "ERROR"
+
+# enable_journald = false
+# Purpose: Enable systemd journald adapter (Linux only)
+# Type: boolean
+# Default: false
+# Environment: LOG_ENABLE_JOURNALD
+# Note: Requires python3-systemd package or pip install systemd
+#       Silently disabled on non-Linux systems
+# Example: enable_journald = true
+
+# enable_eventlog = false
+# Purpose: Enable Windows Event Log adapter (Windows only)
+# Type: boolean
+# Default: false
+# Environment: LOG_ENABLE_EVENTLOG
+# Note: Silently disabled on non-Windows systems
+# Example: enable_eventlog = true
+
+# ------------------------------------------------------------------------------
+# Graylog / GELF Settings
+# ------------------------------------------------------------------------------
+
+# enable_graylog = false
+# Purpose: Enable Graylog adapter for centralized logging
+# Type: boolean
+# Default: false
+# Environment: LOG_ENABLE_GRAYLOG
+# Note: Requires graylog_endpoint to be set
+# Example: enable_graylog = true
+
+# graylog_endpoint = ["logs.example.com", 12201]
+# Purpose: Graylog server host and port for GELF protocol
+# Type: array [host, port] or string "host:port"
+# Default: None
+# Environment: LOG_GRAYLOG_ENDPOINT (format: "host:port")
+# Example: graylog_endpoint = ["192.168.1.100", 12201]
+
+# graylog_protocol = "tcp"
+# Purpose: Transport protocol for Graylog connection
+# Type: string (case-insensitive)
+# Default: "tcp"
+# Values: "tcp", "udp"
+# Environment: LOG_GRAYLOG_PROTOCOL
+# Note: TLS only supported with TCP
+# Example: graylog_protocol = "udp"
+
+# graylog_tls = false
+# Purpose: Wrap Graylog TCP connection in TLS
+# Type: boolean
+# Default: false
+# Environment: LOG_GRAYLOG_TLS
+# Note: Only valid when graylog_protocol = "tcp"
+# Example: graylog_tls = true
+
+# graylog_level = "WARNING"
+# Purpose: Minimum severity level sent to Graylog
+# Type: string (case-insensitive)
+# Default: "WARNING"
+# Values: "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"
+# Environment: LOG_GRAYLOG_LEVEL
+# Example: graylog_level = "ERROR"
+
+# ------------------------------------------------------------------------------
+# Queue Settings (Background Processing)
+# ------------------------------------------------------------------------------
+
+# queue_enabled = true
+# Purpose: Route log events through background queue worker
+# Type: boolean
+# Default: true
+# Environment: LOG_QUEUE_ENABLED
+# Note: Disable for synchronous logging (blocks on I/O)
+# Example: queue_enabled = false
+
+# queue_maxsize = 2048
+# Purpose: Maximum pending events before queue full policy applies
+# Type: integer (> 0)
+# Default: 2048
+# Environment: LOG_QUEUE_MAXSIZE
+# Example: queue_maxsize = 4096
+
+# queue_full_policy = "block"
+# Purpose: Behavior when queue is full
+# Type: string
+# Default: "block"
+# Values: "block" (wait for space), "drop" (discard events)
+# Environment: LOG_QUEUE_FULL_POLICY
+# Example: queue_full_policy = "drop"
+
+# queue_put_timeout = 1.0
+# Purpose: Timeout in seconds for blocking queue puts
+# Type: float (> 0) or None for no timeout
+# Default: 1.0
+# Environment: LOG_QUEUE_PUT_TIMEOUT
+# Note: Set to 0 or None for infinite wait
+# Example: queue_put_timeout = 5.0
+
+# queue_stop_timeout = 5.0
+# Purpose: Maximum time to wait for queue drain during shutdown
+# Type: float (> 0) or None for infinite wait
+# Default: 5.0
+# Environment: LOG_QUEUE_STOP_TIMEOUT
+# Example: queue_stop_timeout = 10.0
+
+# ------------------------------------------------------------------------------
+# Ring Buffer (In-Memory Event Storage)
+# ------------------------------------------------------------------------------
+
+# enable_ring_buffer = true
+# Purpose: Enable in-memory circular buffer for log history
+# Type: boolean
+# Default: true
+# Environment: LOG_RING_BUFFER_ENABLED
+# Note: Enables log.dump() functionality
+# Example: enable_ring_buffer = false
+
+# ring_buffer_size = 25000
+# Purpose: Maximum events retained in ring buffer
+# Type: integer (> 0)
+# Default: 25000
+# Environment: LOG_RING_BUFFER_SIZE
+# Example: ring_buffer_size = 50000
+
+# ------------------------------------------------------------------------------
+# Dump Format Settings (for log.dump())
+# ------------------------------------------------------------------------------
+
+# dump_format_preset = "full"
+# Purpose: Default layout for text dumps
+# Type: string (case-insensitive)
+# Default: "full"
+# Values: "full", "short", "full_loc", "short_loc"
+# Environment: LOG_DUMP_FORMAT_PRESET
+# Example: dump_format_preset = "short"
+
+# dump_format_template = "{timestamp} {level_icon} {LEVEL:>8} {logger_name} — {message}"
+# Purpose: Custom template for text dumps (overrides preset)
+# Type: string (Python str.format template)
+# Default: None (uses preset)
+# Environment: LOG_DUMP_FORMAT_TEMPLATE
+# Note: Uses same placeholders as console_format_template
+# Example: dump_format_template = "{timestamp} [{LEVEL}] {message}"
+
+# ------------------------------------------------------------------------------
+# Security & Payload Management
+# ------------------------------------------------------------------------------
+
+# scrub_patterns = { password = ".+", secret = ".+", token = ".+" }
+# Purpose: Regex patterns to redact sensitive data from logs
+# Type: table with field=regex pairs
+# Default: { password = ".+", secret = ".+", token = ".+" }
+# Environment: LOG_SCRUB_PATTERNS (comma-separated: "field=regex,field=regex")
+# Note: Patterns are merged with built-in defaults
+# Example: scrub_patterns = { api_key = ".+", credit_card = "\\d{16}" }
+
+# [lib_log_rich.payload_limits]
+# Purpose: Guard against oversized log payloads
+# Note: All limits are optional; unspecified values use defaults
+
+# truncate_message = true
+# Purpose: Truncate vs reject oversized messages
+# Type: boolean
+# Default: true
+# Note: When false, oversized messages raise ValueError
+
+# message_max_chars = 4096
+# Purpose: Maximum characters in primary log message
+# Type: integer
+# Default: 4096
+# Example: message_max_chars = 8192
+
+# extra_max_keys = 25
+# Purpose: Maximum keys in extra metadata dict
+# Type: integer
+# Default: 25
+# Example: extra_max_keys = 50
+
+# extra_max_value_chars = 512
+# Purpose: Maximum characters per extra value (after stringify)
+# Type: integer
+# Default: 512
+# Example: extra_max_value_chars = 1024
+
+# extra_max_depth = 3
+# Purpose: Maximum nesting depth for extra structures
+# Type: integer
+# Default: 3
+# Example: extra_max_depth = 5
+
+# extra_max_total_bytes = 8192
+# Purpose: Total UTF-8 byte limit for sanitized extra payload
+# Type: integer or None (no limit)
+# Default: 8192
+# Example: extra_max_total_bytes = 16384
+
+# context_max_keys = 20
+# Purpose: Maximum keys in LogContext.extra
+# Type: integer
+# Default: 20
+# Example: context_max_keys = 30
+
+# context_max_value_chars = 256
+# Purpose: Maximum characters per context value
+# Type: integer
+# Default: 256
+# Example: context_max_value_chars = 512
+
+# stacktrace_max_frames = 10
+# Purpose: Number of frames preserved in exception tracebacks
+# Type: integer
+# Default: 10
+# Note: Leading and trailing frames kept; middle frames truncated
+# Example: stacktrace_max_frames = 20
+
+# ------------------------------------------------------------------------------
+# Rate Limiting
+# ------------------------------------------------------------------------------
+
+# rate_limit = [500, 60.0]
+# Purpose: Throttle log emissions (max_events per window_seconds)
+# Type: array [max_events, window_seconds]
+# Default: None (no rate limiting)
+# Environment: LOG_RATE_LIMIT (format: "MAX:WINDOW_SECONDS")
+# Example: rate_limit = [1000, 60.0]  # Max 1000 events per 60 seconds
+
+# ------------------------------------------------------------------------------
+# Advanced Settings (typically not needed)
+# ------------------------------------------------------------------------------
+
+# console_stream_target = <not configurable via TOML>
+# Purpose: Custom file-like object for console output
+# Note: Only available programmatically when console_stream = "custom"
+
+# console_adapter_factory = <not configurable via TOML>
+# Purpose: Custom console adapter factory for queue-backed or test adapters
+# Note: Only available programmatically
+# Documentation: See STREAMINGCONSOLE.md in lib_log_rich docs
+
+# diagnostic_hook = <not configurable via TOML>
+# Purpose: Callback for observing runtime diagnostics
+# Note: Only available programmatically
+# Signature: Callable[[str, dict[str, Any]], None]
+# Events: queue_worker_error, queue_drop_callback_error, message_truncated,
+#         extra_keys_dropped, exc_info_truncated, rate_limited, etc.

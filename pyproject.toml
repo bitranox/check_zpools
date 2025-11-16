@@ -1,0 +1,110 @@
+[project]
+name = "check_zpools"
+version = "0.0.1"
+description = "Template CLI application with configuration management and structured logging"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "rich-click>=1.9.4",
+    "lib_cli_exit_tools>=2.1.0",
+    "lib_log_rich>=5.2.0",
+    "lib_layered_config>=1.1.1",
+    "btx-lib-mail>=1.0.1",
+]
+license = { text = "MIT" }
+authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
+keywords = ["cli", "template", "config", "logging", "layered-config", "rich-click"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: MIT License",
+  "Environment :: Console",
+  "Operating System :: OS Independent",
+  "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/bitranox/check_zpools"
+Repository = "https://github.com/bitranox/check_zpools.git"
+Issues = "https://github.com/bitranox/check_zpools/issues"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.0.0",
+  "pytest-cov>=7.0.0",
+  "ruff>=0.14.4",
+  "pyright>=1.1.406",
+  "bandit>=1.8.6",
+  "build>=1.3.0",
+  "twine>=6.2.0",
+  "codecov-cli>=11.2.5",
+  "pip-audit>=2.9.0",
+  "textual>=6.6.0",
+  "import-linter>=2.6"
+]
+
+[project.scripts]
+check_zpools = "check_zpools.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/check_zpools"]
+include = ["src/check_zpools/py.typed", "src/check_zpools/defaultconfig.toml"]
+
+[tool.ruff]
+line-length = 160
+target-version = "py313"
+
+[tool.ruff.lint.per-file-ignores]
+# ignore the "unused import sys" in the jupyter notebook - which we need (it is a linter hickup)
+"notebooks/*.ipynb" = ["F401"]
+
+[tool.pyright]
+typeCheckingMode = "strict"
+extraPaths = [
+  "src",
+]
+exclude = [
+  "scripts/menu.py",
+]
+
+[tool.pytest.ini_options]
+addopts = ["--doctest-modules"]
+doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]
+pythonpath = ["src"]
+markers = [
+  "os_agnostic: test runs on every supported operating system",
+  "os_windows: test exercises Windows-only behavior",
+  "os_macos: test exercises macOS-only behavior",
+  "os_posix: test exercises behavior requiring POSIX semantics",
+  "os_linux: test exercises Linux-only behavior",
+]
+
+[tool.coverage.run]
+branch = true
+parallel = false
+data_file = ".coverage.unit"
+source = ["src/check_zpools"]
+
+[tool.coverage.report]
+omit = [
+  "tests/*",
+]
+fail_under = 85
+show_missing = true
+
+[tool.importlinter]
+root_package = "check_zpools"
+
+[[tool.importlinter.contracts]]
+name = "CLI depends on behaviors only"
+type = "layers"
+layers = [
+  "check_zpools.cli",
+  "check_zpools.behaviors",
+]
