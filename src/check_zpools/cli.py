@@ -54,7 +54,6 @@ from .behaviors import (
     noop_main,
     raise_intentional_failure,
     run_daemon,
-    show_pool_status,
 )
 from .cli_errors import handle_generic_error, handle_zfs_not_available
 from .config import get_config
@@ -856,7 +855,7 @@ def cli_send_notification(
             raise SystemExit(1)
 
 
-@cli.command("install-service", context_settings=CLICK_CONTEXT_SETTINGS)
+@cli.command("service-install", context_settings=CLICK_CONTEXT_SETTINGS)
 @click.option(
     "--no-enable",
     is_flag=True,
@@ -891,28 +890,28 @@ def cli_install_service(no_enable: bool, no_start: bool, uvx_version: Optional[s
 
     \b
     # Install, enable, and start service
-    $ sudo check_zpools install-service
+    $ sudo check_zpools service-install
 
     \b
     # Install but don't start yet
-    $ sudo check_zpools install-service --no-start
+    $ sudo check_zpools service-install --no-start
 
     \b
     # Install but don't enable for boot
-    $ sudo check_zpools install-service --no-enable
+    $ sudo check_zpools service-install --no-enable
 
     \b
     # Install with uvx using @latest (uvx installations only)
-    $ sudo uvx check_zpools@latest install-service --uvx-version @latest
+    $ sudo uvx check_zpools@latest service-install --uvx-version @latest
 
     \b
     # Install with uvx pinned to specific version
-    $ sudo uvx check_zpools@1.0.0 install-service --uvx-version @1.0.0
+    $ sudo uvx check_zpools@1.0.0 service-install --uvx-version @1.0.0
     """
 
     with lib_log_rich.runtime.bind(
-        job_id="cli-install-service",
-        extra={"command": "install-service", "enable": not no_enable, "start": not no_start},
+        job_id="cli-service-install",
+        extra={"command": "service-install", "enable": not no_enable, "start": not no_start},
     ):
         try:
             logger.info("Installing systemd service", extra={"enable": not no_enable, "start": not no_start, "uvx_version": uvx_version})
@@ -935,7 +934,7 @@ def cli_install_service(no_enable: bool, no_start: bool, uvx_version: Optional[s
             raise SystemExit(1)
 
 
-@cli.command("uninstall-service", context_settings=CLICK_CONTEXT_SETTINGS)
+@cli.command("service-uninstall", context_settings=CLICK_CONTEXT_SETTINGS)
 @click.option(
     "--no-stop",
     is_flag=True,
@@ -964,16 +963,16 @@ def cli_uninstall_service(no_stop: bool, no_disable: bool) -> None:
 
     \b
     # Uninstall service completely
-    $ sudo check_zpools uninstall-service
+    $ sudo check_zpools service-uninstall
 
     \b
     # Uninstall but leave service running
-    $ sudo check_zpools uninstall-service --no-stop
+    $ sudo check_zpools service-uninstall --no-stop
     """
 
     with lib_log_rich.runtime.bind(
-        job_id="cli-uninstall-service",
-        extra={"command": "uninstall-service", "stop": not no_stop, "disable": not no_disable},
+        job_id="cli-service-uninstall",
+        extra={"command": "service-uninstall", "stop": not no_stop, "disable": not no_disable},
     ):
         try:
             logger.info("Uninstalling systemd service", extra={"stop": not no_stop, "disable": not no_disable})
@@ -1095,50 +1094,6 @@ def cli_daemon(foreground: bool) -> None:
             handle_zfs_not_available(exc, operation="Daemon")
         except Exception as exc:
             handle_generic_error(exc, operation="Daemon")
-
-
-@cli.command("status", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
-    "--format",
-    type=click.Choice(["table", "text", "json"], case_sensitive=False),
-    default="table",
-    help="Output format",
-)
-@click.option(
-    "--pool",
-    default=None,
-    help="Show specific pool only",
-)
-def cli_status(format: str, pool: Optional[str]) -> None:
-    """Display current ZFS pool status.
-
-    Shows health, capacity, errors, and scrub status for all pools
-    (or a specific pool if --pool is specified).
-
-    Examples:
-
-    \b
-    # Show all pools as table (default)
-    $ check_zpools status
-
-    \b
-    # Show specific pool as JSON
-    $ check_zpools status --pool rpool --format json
-
-    \b
-    # Show all pools as text
-    $ check_zpools status --format text
-    """
-    with lib_log_rich.runtime.bind(
-        job_id="cli-status",
-        extra={"command": "status", "format": format, "pool": pool},
-    ):
-        try:
-            show_pool_status(pool_name=pool, output_format=format)
-        except ZFSNotAvailableError as exc:
-            handle_zfs_not_available(exc, operation="Status")
-        except Exception as exc:
-            handle_generic_error(exc, operation="Status")
 
 
 def _load_and_validate_email_config() -> EmailConfig:

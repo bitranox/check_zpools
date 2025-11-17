@@ -3,14 +3,56 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
-## [1.1.5] - 2025-11-17
-- **UVX debug Version 2
+## [2.0.0] - 2025-11-17
+### Changed - BREAKING CHANGES
+- **CLI Command Naming**: Renamed service management commands for better consistency
+  - `install-service` → `service-install`
+  - `uninstall-service` → `service-uninstall`
+  - **Migration**: Update scripts and documentation to use new command names
+- **Size Display Format**: Changed pool size display in `check` command output from compact format (e.g., "1.0T", "464.0G") to explicit unit format (e.g., "1.00 TB", "464.00 GB") for better readability
+- **Error Column Consolidation**: Combined three error columns into single "Errors (R/W/C)" column
+  - Previous: Separate columns for "Read Errors", "Write Errors", "Checksum Errors"
+  - New: Single column showing "0/0/0" format (Read/Write/Checksum)
+  - Benefit: More compact table display, easier to scan
 
-## [1.1.4] - 2025-11-17
-- **UVX debug Version
+### Removed - BREAKING CHANGES
+- **status command**: Removed redundant `status` command - use `check` command instead
+  - The `status` command only displayed pool information without threshold evaluation
+  - The `check` command provides the same pool status display PLUS issue detection and monitoring
+  - **Migration**: Replace `check_zpools status` with `check_zpools check`
 
-## [1.1.3] - 2025-11-17
-- **Service Installation (uvx not in PATH)**: Fixed installation failure when uvx is invoked with relative/absolute path (e.g., `./uvx check_zpools install-service`) - now searches for uvx in the same directory as the detected check_zpools executable when uvx is not found in PATH
+### Fixed
+- **Service Installation (uvx detection priority)**: Fixed critical design flaw where system PATH uvx was used instead of user's explicitly chosen uvx
+  - **Search priority order** (respects user intent):
+    1. Parent process (uvx that actually launched check_zpools) - PRIMARY
+    2. Current working directory (`./uvx`)
+    3. Same bin directory as check_zpools
+    4. System PATH - LAST RESORT ONLY
+  - Uses `psutil` to examine parent process command line
+  - Handles all invocation methods: `./uvx`, `/path/to/uvx`, `uvx` in PATH
+  - **Why this matters**: If user runs `/opt/venv/bin/uvx`, we must use THAT uvx, not a different one from PATH
+
+### Added
+- **Last Scrub Column**: Added "Last Scrub" column to `check` command table output showing when each pool was last scrubbed
+  - Displays relative time (e.g., "Today", "Yesterday", "2d ago", "3w ago", "2mo ago")
+  - Color-coded: green for recent scrubs (<30 days), yellow for aging (30-60 days), red for old (>60 days)
+  - Shows "Never" in yellow if pool has never been scrubbed
+  - Comprehensive test coverage: 16 tests covering all time ranges, boundaries, and edge cases
+- `psutil>=6.1.0` dependency for robust parent process detection during service installation
+
+### Testing
+- Added 16 comprehensive unit tests for `_format_last_scrub()` helper function
+- Tests cover: None handling, all time ranges (today, yesterday, days, weeks, months), color coding, timezone handling (naive/aware), and boundary conditions
+- Total test count: 439 tests (all passing)
+
+
+## [1.1.6] - 2025-11-17
+### Changed
+- **CLI Command Naming**: Renamed `install-service` to `service-install` and `uninstall-service` to `service-uninstall` for better consistency with other service commands
+### Fixed
+- **Service Installation (uvx not in PATH)**: Fixed installation failure when uvx is invoked with relative/absolute path (e.g., `./uvx check_zpools service-install` or `/path/to/uvx check_zpools service-install`) - now uses psutil to examine parent process command line to locate uvx executable, with fallbacks to current working directory and check_zpools bin directory
+### Added
+- `psutil>=7.1.3` dependency for robust parent process detection during service installation
 
 ## [1.1.2] - 2025-11-17
 ### Fixed

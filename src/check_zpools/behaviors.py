@@ -3,8 +3,8 @@
 Purpose
 -------
 Implement core ZFS monitoring behaviors that the CLI adapter exposes, including
-one-shot pool checks, daemon mode execution, and pool status display. Each
-behavior is self-contained and delegates to domain services for actual work.
+one-shot pool checks and daemon mode execution. Each behavior is self-contained
+and delegates to domain services for actual work.
 
 Contents
 --------
@@ -19,7 +19,6 @@ Legacy Template Functions (Deprecated):
 ZFS Monitoring Functions:
 * :func:`check_pools_once` – perform one-shot check of all pools
 * :func:`run_daemon` – start daemon mode for continuous monitoring
-* :func:`show_pool_status` – display current pool status with rich formatting
 
 System Role
 -----------
@@ -34,11 +33,7 @@ from typing import Any, TextIO
 
 import logging
 import sys
-from datetime import datetime
 from pathlib import Path
-
-from rich.console import Console
-from rich.table import Table
 
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
@@ -331,159 +326,6 @@ def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -
         raise
 
 
-def show_pool_status(pool_name: str | None = None, output_format: str = "table") -> None:
-    """Display current ZFS pool status with rich formatting.
-
-    Why
-    ---
-    Administrators need a quick, readable view of pool health without
-    parsing raw zpool output.
-
-    What
-    ---
-    Queries pools and displays formatted output via rich tables or JSON.
-
-    Parameters
-    ----------
-    pool_name:
-        Optional pool name to show. If None, shows all pools.
-    output_format:
-        Output format: 'table' (rich table), 'text' (simple text), or 'json'.
-
-    Raises
-    ------
-    ZFSNotAvailableError
-        When zpool command is not available.
-    """
-    logger.info("Displaying pool status", extra={"pool": pool_name, "format": output_format})
-
-    # Load config to get capacity thresholds for color-coding
-    config_dict = get_config().as_dict()
-    capacity = config_dict.get("zfs", {}).get("capacity", {})
-    capacity_warning = capacity.get("warning_percent", 80)
-    capacity_critical = capacity.get("critical_percent", 90)
-
-    client = ZFSClient()
-    parser = ZFSParser()
-
-    try:
-        list_data = client.get_pool_list()
-        status_data = client.get_pool_status(pool_name=pool_name)
-
-        pools_from_list = parser.parse_pool_list(list_data)
-        pools_from_status = parser.parse_pool_status(status_data)
-        pools = parser.merge_pool_data(pools_from_list, pools_from_status)
-
-        if pool_name:
-            pools = {pool_name: pools[pool_name]} if pool_name in pools else {}
-
-    except ZFSNotAvailableError:
-        logger.error("ZFS not available on this system")
-        raise
-    except Exception as exc:
-        logger.error(
-            "Failed to fetch pool status",
-            extra={"error": str(exc), "error_type": type(exc).__name__},
-            exc_info=True,
-        )
-        raise RuntimeError(f"Failed to get pool status: {exc}") from exc
-
-    if not pools:
-        console = Console()
-        console.print("[yellow]No pools found[/yellow]")
-        return
-
-    if output_format == "json":
-        import json
-
-        data = [
-            {
-                "name": pool.name,
-                "health": pool.health.value,
-                "capacity_percent": pool.capacity_percent,
-                "size_bytes": pool.size_bytes,
-                "allocated_bytes": pool.allocated_bytes,
-                "free_bytes": pool.free_bytes,
-                "read_errors": pool.read_errors,
-                "write_errors": pool.write_errors,
-                "checksum_errors": pool.checksum_errors,
-                "last_scrub": pool.last_scrub.isoformat() if pool.last_scrub else None,
-                "scrub_errors": pool.scrub_errors,
-                "scrub_in_progress": pool.scrub_in_progress,
-            }
-            for pool in pools.values()
-        ]
-        print(json.dumps(data, indent=2))
-
-    elif output_format == "table":
-        console = Console()
-        table = Table(title="ZFS Pool Status")
-
-        table.add_column("Pool", style="cyan", no_wrap=True)
-        table.add_column("Health", style="green")
-        table.add_column("Capacity", justify="right")
-        table.add_column("Size", justify="right")
-        table.add_column("Errors (R/W/C)", justify="right")
-        table.add_column("Last Scrub", justify="right")
-
-        for pool in pools.values():
-            # Color-code health
-            health_style = "green"
-            if pool.health.value == "DEGRADED":
-                health_style = "yellow"
-            elif pool.health.value in ("FAULTED", "UNAVAIL"):
-                health_style = "red"
-
-            # Format capacity with color based on configured thresholds
-            cap_style = "green"
-            if pool.capacity_percent >= capacity_critical:
-                cap_style = "red"
-            elif pool.capacity_percent >= capacity_warning:
-                cap_style = "yellow"
-
-            # Format size
-            size_tb = pool.size_bytes / (1024**4)
-            size_str = f"{size_tb:.2f} TB"
-
-            # Format errors
-            errors_str = f"{pool.read_errors}/{pool.write_errors}/{pool.checksum_errors}"
-
-            # Format scrub
-            if pool.scrub_in_progress:
-                scrub_str = "[yellow]In Progress[/yellow]"
-            elif pool.last_scrub:
-                # Handle both timezone-aware and naive datetimes
-                now = datetime.now()
-                last_scrub = pool.last_scrub.replace(tzinfo=None) if pool.last_scrub.tzinfo else pool.last_scrub
-                days_ago = (now - last_scrub).days
-                scrub_str = f"{days_ago}d ago"
-            else:
-                scrub_str = "Never"
-
-            table.add_row(
-                pool.name,
-                f"[{health_style}]{pool.health.value}[/{health_style}]",
-                f"[{cap_style}]{pool.capacity_percent:.1f}%[/{cap_style}]",
-                size_str,
-                errors_str,
-                scrub_str,
-            )
-
-        console.print(table)
-
-    else:  # text format
-        for pool in pools.values():
-            print(f"Pool: {pool.name}")
-            print(f"  Health: {pool.health.value}")
-            print(f"  Capacity: {pool.capacity_percent:.1f}% ({pool.allocated_bytes / (1024**4):.2f} TB / {pool.size_bytes / (1024**4):.2f} TB)")
-            print(f"  Errors: {pool.read_errors} read, {pool.write_errors} write, {pool.checksum_errors} checksum")
-            if pool.last_scrub:
-                print(f"  Last Scrub: {pool.last_scrub} ({pool.scrub_errors} errors)")
-            else:
-                print("  Last Scrub: Never")
-            print()
-
-
 def _build_monitor_config(config: dict[str, Any]) -> MonitorConfig:
     """Build MonitorConfig from layered configuration dict.
 
@@ -582,5 +424,4 @@ __all__ = [
     "noop_main",
     "check_pools_once",
     "run_daemon",
-    "show_pool_status",
 ]

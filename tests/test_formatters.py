@@ -21,6 +21,7 @@ from io import StringIO
 from rich.console import Console
 
 from check_zpools.formatters import (
+    _format_last_scrub,
     display_check_result_text,
     format_check_result_json,
     format_check_result_text,
@@ -797,7 +798,8 @@ class TestDisplayCheckResultTextWithTableColumns:
         display_check_result_text(result, console)
         output = buffer.getvalue()
 
-        assert "Capacity" in output
+        # Column header may be truncated in narrow tables
+        assert "Capaci" in output
         assert "50.0%" in output
 
     @pytest.mark.os_agnostic
@@ -818,12 +820,12 @@ class TestDisplayCheckResultTextWithTableColumns:
         output = buffer.getvalue()
 
         assert "Size" in output
-        assert "1.0T" in output
+        assert "1.00 TB" in output
 
     @pytest.mark.os_agnostic
-    def test_table_includes_error_columns(self) -> None:
+    def test_table_includes_error_column(self) -> None:
         """When displaying pool status table,
-        Read/Write/Checksum Error columns appear."""
+        Errors (R/W/C) column appears."""
         result = a_check_result_with_no_issues()
         buffer = StringIO()
         console = Console(file=buffer, legacy_windows=False)
@@ -831,10 +833,9 @@ class TestDisplayCheckResultTextWithTableColumns:
         display_check_result_text(result, console)
         output = buffer.getvalue()
 
-        assert "Read Errors" in output
-        assert "Write Errors" in output
-        # "Checksum Errors" may be wrapped across lines in the table
-        assert "Checksum" in output and "Errors" in output
+        # Column header should contain "Errors" and "(R/W/C)"
+        assert "Errors" in output
+        assert "R/W/C" in output or "R/" in output  # May wrap
 
     @pytest.mark.os_agnostic
     def test_table_shows_pool_with_errors(self) -> None:
@@ -858,10 +859,8 @@ class TestDisplayCheckResultTextWithTableColumns:
         display_check_result_text(result, console)
         output = buffer.getvalue()
 
-        # Error counts should appear in the output
-        assert "5" in output  # read errors
-        assert "2" in output  # write errors
-        assert "1" in output  # checksum errors
+        # Error counts should appear in R/W/C format
+        assert "5/2/1" in output
 
 
 class TestDisplayCheckResultTextWithMultiplePools:
@@ -931,3 +930,207 @@ class TestDisplayCheckResultTextDefaultConsole:
             success = False
 
         assert success
+
+
+# ============================================================================
+# Test _format_last_scrub Helper Function
+# ============================================================================
+
+
+class TestFormatLastScrub:
+    """Test _format_last_scrub helper function for relative time formatting."""
+
+    @pytest.mark.os_agnostic
+    def test_none_returns_never_yellow(self) -> None:
+        """When last_scrub is None,
+        returns 'Never' in yellow color."""
+        text, color = _format_last_scrub(None)
+
+        assert text == "Never"
+        assert color == "yellow"
+
+    @pytest.mark.os_agnostic
+    def test_today_returns_green(self) -> None:
+        """When last_scrub is today,
+        returns 'Today' in green color."""
+        from datetime import timezone
+
+        now = datetime.now(timezone.utc)
+        text, color = _format_last_scrub(now)
+
+        assert text == "Today"
+        assert color == "green"
+
+    @pytest.mark.os_agnostic
+    def test_yesterday_returns_green(self) -> None:
+        """When last_scrub was yesterday,
+        returns 'Yesterday' in green color."""
+        from datetime import timedelta, timezone
+
+        yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+        text, color = _format_last_scrub(yesterday)
+
+        assert text == "Yesterday"
+        assert color == "green"
+
+    @pytest.mark.os_agnostic
+    def test_three_days_ago_returns_green(self) -> None:
+        """When last_scrub was 3 days ago,
+        returns '3d ago' in green color."""
+        from datetime import timedelta, timezone
+
+        three_days = datetime.now(timezone.utc) - timedelta(days=3)
+        text, color = _format_last_scrub(three_days)
+
+        assert text == "3d ago"
+        assert color == "green"
+
+    @pytest.mark.os_agnostic
+    def test_six_days_ago_returns_green(self) -> None:
+        """When last_scrub was 6 days ago (< 1 week),
+        returns '6d ago' in green color."""
+        from datetime import timedelta, timezone
+
+        six_days = datetime.now(timezone.utc) - timedelta(days=6)
+        text, color = _format_last_scrub(six_days)
+
+        assert text == "6d ago"
+        assert color == "green"
+
+    @pytest.mark.os_agnostic
+    def test_two_weeks_ago_returns_green(self) -> None:
+        """When last_scrub was 2 weeks ago (14 days),
+        returns '2w ago' in green color."""
+        from datetime import timedelta, timezone
+
+        two_weeks = datetime.now(timezone.utc) - timedelta(days=14)
+        text, color = _format_last_scrub(two_weeks)
+
+        assert text == "2w ago"
+        assert color == "green"
+
+    @pytest.mark.os_agnostic
+    def test_29_days_ago_returns_green(self) -> None:
+        """When last_scrub was 29 days ago (< 30 days),
+        returns '4w ago' in green color."""
+        from datetime import timedelta, timezone
+
+        twenty_nine_days = datetime.now(timezone.utc) - timedelta(days=29)
+        text, color = _format_last_scrub(twenty_nine_days)
+
+        assert text == "4w ago"
+        assert color == "green"
+
+    @pytest.mark.os_agnostic
+    def test_45_days_ago_returns_yellow(self) -> None:
+        """When last_scrub was 45 days ago (30-60 days),
+        returns '45d ago' in yellow color."""
+        from datetime import timedelta, timezone
+
+        forty_five_days = datetime.now(timezone.utc) - timedelta(days=45)
+        text, color = _format_last_scrub(forty_five_days)
+
+        assert text == "45d ago"
+        assert color == "yellow"
+
+    @pytest.mark.os_agnostic
+    def test_59_days_ago_returns_yellow(self) -> None:
+        """When last_scrub was 59 days ago (just under 60 days),
+        returns '59d ago' in yellow color."""
+        from datetime import timedelta, timezone
+
+        fifty_nine_days = datetime.now(timezone.utc) - timedelta(days=59)
+        text, color = _format_last_scrub(fifty_nine_days)
+
+        assert text == "59d ago"
+        assert color == "yellow"
+
+    @pytest.mark.os_agnostic
+    def test_90_days_ago_returns_red(self) -> None:
+        """When last_scrub was 90 days ago (3 months),
+        returns '3mo ago' in red color."""
+        from datetime import timedelta, timezone
+
+        ninety_days = datetime.now(timezone.utc) - timedelta(days=90)
+        text, color = _format_last_scrub(ninety_days)
+
+        assert text == "3mo ago"
+        assert color == "red"
+
+    @pytest.mark.os_agnostic
+    def test_180_days_ago_returns_red(self) -> None:
+        """When last_scrub was 180 days ago (6 months),
+        returns '6mo ago' in red color."""
+        from datetime import timedelta, timezone
+
+        half_year = datetime.now(timezone.utc) - timedelta(days=180)
+        text, color = _format_last_scrub(half_year)
+
+        assert text == "6mo ago"
+        assert color == "red"
+
+    @pytest.mark.os_agnostic
+    def test_naive_datetime_is_treated_as_utc(self) -> None:
+        """When last_scrub is a naive datetime,
+        it's treated as UTC and formatted correctly."""
+        from datetime import timedelta
+
+        # Create naive datetime (no timezone)
+        naive_dt = datetime.now() - timedelta(days=5)
+
+        text, color = _format_last_scrub(naive_dt)
+
+        # Should format as "5d ago" or similar (depending on system timezone)
+        # But should not crash or raise exception
+        assert "ago" in text or text == "Today" or text == "Yesterday"
+        assert color in ("green", "yellow", "red")
+
+    @pytest.mark.os_agnostic
+    def test_timezone_aware_datetime_converted_to_utc(self) -> None:
+        """When last_scrub is timezone-aware,
+        it's correctly converted to UTC for calculation."""
+        from datetime import timedelta, timezone
+
+        # Create a datetime 10 days ago in UTC
+        ten_days_utc = datetime.now(timezone.utc) - timedelta(days=10)
+
+        text, color = _format_last_scrub(ten_days_utc)
+
+        assert text == "1w ago"
+        assert color == "green"
+
+    @pytest.mark.os_agnostic
+    def test_boundary_7_days_shows_weeks(self) -> None:
+        """When last_scrub is exactly 7 days ago,
+        returns '1w ago' not '7d ago'."""
+        from datetime import timedelta, timezone
+
+        seven_days = datetime.now(timezone.utc) - timedelta(days=7)
+        text, color = _format_last_scrub(seven_days)
+
+        assert text == "1w ago"
+        assert color == "green"
+
+    @pytest.mark.os_agnostic
+    def test_boundary_30_days_shows_days_not_months(self) -> None:
+        """When last_scrub is exactly 30 days ago,
+        returns days in yellow (not months in red)."""
+        from datetime import timedelta, timezone
+
+        thirty_days = datetime.now(timezone.utc) - timedelta(days=30)
+        text, color = _format_last_scrub(thirty_days)
+
+        assert text == "30d ago"
+        assert color == "yellow"
+
+    @pytest.mark.os_agnostic
+    def test_boundary_60_days_shows_months(self) -> None:
+        """When last_scrub is exactly 60 days ago,
+        returns '2mo ago' in red."""
+        from datetime import timedelta, timezone
+
+        sixty_days = datetime.now(timezone.utc) - timedelta(days=60)
+        text, color = _format_last_scrub(sixty_days)
+
+        assert text == "2mo ago"
+        assert color == "red"

@@ -153,49 +153,6 @@ fi
 
 ---
 
-#### `status` - Display Pool Status
-
-Shows detailed status information for all pools or a specific pool with rich formatting.
-
-**Usage:**
-```bash
-check_zpools status [OPTIONS] [POOL_NAME]
-```
-
-**Options:**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--format` | `table` \| `text` \| `json` | `table` | Output format |
-| `--pool` | TEXT | None | Show specific pool only |
-
-**Examples:**
-```bash
-# Show all pools as rich table (default)
-check_zpools status
-
-# Show specific pool as table
-check_zpools status --pool rpool
-
-# Show all pools as JSON
-check_zpools status --format json
-
-# Show specific pool as text
-check_zpools status --pool tank --format text
-```
-
-**Table Output Example:**
-```
-┏━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
-┃ Pool   ┃ Health  ┃ Capacity ┃ Errors     ┃ Last Scrub   ┃
-┡━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
-│ rpool  │ ONLINE  │ 45.2%    │ 0/0/0      │ 2 days ago   │
-│ tank   │ ONLINE  │ 78.5%    │ 0/0/0      │ 1 week ago   │
-└────────┴─────────┴──────────┴────────────┴──────────────┘
-```
-
----
-
 #### `daemon` - Continuous Monitoring
 
 Starts the monitoring daemon which periodically checks pools and sends email alerts.
@@ -233,8 +190,8 @@ CHECK_ZPOOLS_DAEMON_CHECK_INTERVAL_SECONDS=600 check_zpools daemon --foreground
 
 **Systemd Usage:**
 ```bash
-# Use install-service command instead (see below)
-sudo check_zpools install-service
+# Use service-install command instead (see below)
+sudo check_zpools service-install
 sudo systemctl start check_zpools
 ```
 
@@ -244,13 +201,13 @@ sudo systemctl start check_zpools
 
 > **Note:** Systemd service installation is only available on Linux systems with systemd. Not supported on Windows or macOS.
 
-#### `install-service` - Install Systemd Service
+#### `service-install` - Install Systemd Service
 
 Installs check_zpools as a systemd service for automatic monitoring.
 
 **Usage:**
 ```bash
-sudo check_zpools install-service [OPTIONS]
+sudo check_zpools service-install [OPTIONS]
 ```
 
 **Options:**
@@ -264,22 +221,22 @@ sudo check_zpools install-service [OPTIONS]
 **Examples:**
 ```bash
 # Install, enable, and start service (recommended)
-sudo check_zpools install-service
+sudo check_zpools service-install
 
 # Install but don't start immediately
-sudo check_zpools install-service --no-start
+sudo check_zpools service-install --no-start
 
 # Install but don't enable for automatic boot
-sudo check_zpools install-service --no-enable
+sudo check_zpools service-install --no-enable
 
 # Install without starting or enabling
-sudo check_zpools install-service --no-enable --no-start
+sudo check_zpools service-install --no-enable --no-start
 
 # Install with uvx using @latest (auto-updates to latest version)
-sudo uvx check_zpools@latest install-service --uvx-version @latest
+sudo uvx check_zpools@latest service-install --uvx-version @latest
 
 # Install with uvx pinned to specific version
-sudo uvx check_zpools@1.0.0 install-service --uvx-version @1.0.0
+sudo uvx check_zpools@1.0.0 service-install --uvx-version @1.0.0
 ```
 
 **What it does:**
@@ -306,13 +263,13 @@ The installed service runs as root with the following properties:
 
 ---
 
-#### `uninstall-service` - Remove Systemd Service
+#### `service-uninstall` - Remove Systemd Service
 
 Removes the systemd service and optionally stops/disables it.
 
 **Usage:**
 ```bash
-sudo check_zpools uninstall-service [OPTIONS]
+sudo check_zpools service-uninstall [OPTIONS]
 ```
 
 **Options:**
@@ -325,13 +282,13 @@ sudo check_zpools uninstall-service [OPTIONS]
 **Examples:**
 ```bash
 # Uninstall completely (stop, disable, remove)
-sudo check_zpools uninstall-service
+sudo check_zpools service-uninstall
 
 # Uninstall but leave service running
-sudo check_zpools uninstall-service --no-stop
+sudo check_zpools service-uninstall --no-stop
 
 # Uninstall but keep enabled
-sudo check_zpools uninstall-service --no-disable
+sudo check_zpools service-uninstall --no-disable
 ```
 
 **Note:** This does not remove cache and state directories:
@@ -795,7 +752,7 @@ The system will try each server in order until one succeeds.
 You can use check_zpools as a Python library:
 
 ```python
-from check_zpools.behaviors import check_pools_once, show_pool_status
+from check_zpools.behaviors import check_pools_once
 from check_zpools.config import get_config
 from check_zpools.models import Severity
 
@@ -820,9 +777,6 @@ elif result.overall_severity == Severity.WARNING:
 else:
     print("All pools healthy")
     exit(0)
-
-# Display pool status programmatically
-show_pool_status(output_format="table")
 
 # Access configuration
 config = get_config()
@@ -902,7 +856,7 @@ sudo check_zpools check
 sudo check_zpools daemon --foreground
 
 # For systemd service (recommended):
-sudo check_zpools install-service
+sudo check_zpools service-install
 ```
 
 #### Email delivery failures

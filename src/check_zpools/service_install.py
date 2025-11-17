@@ -43,6 +43,10 @@ SERVICE_FILE_PATH = SYSTEMD_SYSTEM_DIR / SERVICE_NAME
 CACHE_DIR = Path("/var/cache/check_zpools")
 LIB_DIR = Path("/var/lib/check_zpools")
 
+# uvx shim detection threshold (bytes)
+# Real Python entry points are typically larger; uvx shims are minimal wrappers
+UVX_SHIM_MAX_SIZE = 1000
+
 
 def _check_root_privileges() -> None:
     """Verify script is running with root privileges.
@@ -90,61 +94,48 @@ def _detect_invocation_method() -> tuple[str, Path | None]:
     # First, try to get the path from how we were invoked
     # This handles cases like './check_zpools' or '/path/to/check_zpools'
     invoked_path = Path(sys.argv[0]).resolve()
-    logger.info(f"[DEBUG] sys.argv[0] = {sys.argv[0]}")
-    logger.info(f"[DEBUG] invoked_path (resolved) = {invoked_path}")
-    logger.info(f"[DEBUG] invoked_path.exists() = {invoked_path.exists()}")
-    logger.info(f"[DEBUG] invoked_path.name = {invoked_path.name}")
 
     if invoked_path.exists() and invoked_path.name in ("check_zpools", "__main__.py"):
         # We were invoked directly, use this path
         exec_path_str = str(invoked_path)
         exec_path_resolved = invoked_path
-        logger.info(f"[DEBUG] Using invoked path: {invoked_path}")
+        logger.debug(f"Using invoked path: {invoked_path}")
     else:
-        logger.info("[DEBUG] Invoked path not usable, falling back to PATH search")
         # Fall back to searching PATH
         exec_path_str = shutil.which("check_zpools")
-        logger.info(f"[DEBUG] shutil.which('check_zpools') = {exec_path_str}")
 
         # If check_zpools is not directly in PATH, it might be uvx-only
         if exec_path_str is None:
             # Check if uvx is available
             uvx_path = shutil.which("uvx")
-            logger.info(f"[DEBUG] shutil.which('uvx') = {uvx_path}")
             if uvx_path is not None:
-                logger.info("[DEBUG] check_zpools not in PATH, but uvx found - assuming uvx installation - RETURNING (uvx, None)")
+                logger.debug("check_zpools not in PATH, but uvx found - assuming uvx installation")
                 return ("uvx", None)
 
             logger.error("Could not find check_zpools executable in PATH")
             raise FileNotFoundError("check_zpools executable not found in PATH.\nPlease ensure it is installed and accessible.")
 
         exec_path_resolved = Path(exec_path_str).resolve()
-        logger.info(f"[DEBUG] exec_path_resolved (from PATH) = {exec_path_resolved}")
 
     # Check if this is actually a uvx shim/wrapper
     # uvx creates wrappers in ~/.local/bin that aren't real installations
-    logger.info(f"[DEBUG] Checking for uvx shim: parent.name={exec_path_resolved.parent.name}")
     if exec_path_resolved.parent.name == ".local" and (exec_path_resolved.parent.parent / ".local" / "bin").exists():
         # Could be uvx or regular pip install --user
         # Check if there's actual package data or just a shim
         try:
             # If this is a uvx shim, it will be very small and just redirect
-            file_size = exec_path_resolved.stat().st_size
-            logger.info(f"[DEBUG] File size: {file_size} bytes")
-            if file_size < 1000:  # Real Python scripts are usually larger
-                logger.info("[DEBUG] Detected uvx shim in ~/.local/bin - RETURNING (uvx, None)")
+            if exec_path_resolved.stat().st_size < UVX_SHIM_MAX_SIZE:
+                logger.debug("Detected uvx shim in ~/.local/bin")
                 return ("uvx", None)
-        except OSError as e:
-            logger.info(f"[DEBUG] OSError checking file size: {e}")
+        except OSError:
             pass
 
     # Check if the executable is in uvx cache BEFORE checking venv
     # IMPORTANT: uvx creates temporary venvs, so we must check cache path first!
     # uvx stores tools in ~/.cache/uv/ or %LOCALAPPDATA%/uv/ (Windows)
     exec_path_str = str(exec_path_resolved)
-    logger.info(f"[DEBUG] Checking for uvx cache in path: {exec_path_str}")
     if "cache/uv/" in exec_path_str or "cache\\uv\\" in exec_path_str:
-        logger.info(f"[DEBUG] Detected uvx cache installation (cache/uv/ in path) - RETURNING (uvx, {exec_path_resolved})")
+        logger.debug(f"Detected uvx cache installation: {exec_path_resolved}")
         # Return the detected path so we can find uvx in the same bin directory
         return ("uvx", exec_path_resolved)
 
@@ -178,6 +169,69 @@ def _detect_invocation_method() -> tuple[str, Path | None]:
     return ("direct", exec_path_resolved)
 
 
+def _find_uvx_executable(check_zpools_path: Path | None) -> Path:
+    """Find uvx executable respecting user's invocation choice.
+
+    Search Priority (respects user intent)
+        1. Parent process (uvx that launched check_zpools) - PRIMARY
+        2. Current working directory (./uvx)
+        3. Same bin directory as check_zpools
+        4. System PATH - LAST RESORT
+
+    Parameters
+        check_zpools_path: Path to detected check_zpools executable (may be None)
+
+    Returns
+        Absolute path to uvx executable
+
+    Raises
+        FileNotFoundError: When uvx cannot be found in any location
+    """
+    search_locations: list[Path] = []
+
+    # 1. PRIORITY: Parent process (user's explicit choice)
+    try:
+        import psutil
+
+        current_process = psutil.Process()
+        parent_process = current_process.parent()
+        if parent_process:
+            parent_cmdline = parent_process.cmdline()
+            if parent_cmdline and len(parent_cmdline) > 0:
+                potential_uvx = Path(parent_cmdline[0])
+                if potential_uvx.name in ("uvx", "uvx.exe"):
+                    search_locations.append(potential_uvx)
+                    logger.debug(f"Found uvx in parent process: {potential_uvx}")
+    except (ImportError, Exception) as e:
+        logger.debug(f"Could not get parent process info: {e}")
+
+    # 2. Current working directory
+    search_locations.append(Path.cwd() / "uvx")
+
+    # 3. Same bin directory as check_zpools
+    if check_zpools_path and check_zpools_path.parent.name == "bin":
+        search_locations.append(check_zpools_path.parent / "uvx")
+
+    # 4. LAST RESORT: System PATH
+    uvx_path = shutil.which("uvx")
+    if uvx_path is not None:
+        search_locations.append(Path(uvx_path))
+
+    # Try each location in priority order
+    for potential_uvx in search_locations:
+        if potential_uvx.exists():
+            logger.debug(f"Found uvx at: {potential_uvx}")
+            return potential_uvx.resolve()
+
+    # Not found anywhere
+    raise FileNotFoundError(
+        "uvx installation detected but 'uvx' command not found.\n"
+        "Please ensure uvx is installed and accessible.\n"
+        f"Detected check_zpools path: {check_zpools_path}\n"
+        f"Searched locations: {search_locations}"
+    )
+
+
 def _find_executable() -> Path:
     """Locate the check_zpools executable in PATH.
 
@@ -193,55 +247,7 @@ def _find_executable() -> Path:
     method, path = _detect_invocation_method()
 
     if method == "uvx":
-        # For uvx, we need the uvx command
-        uvx_path = shutil.which("uvx")
-        logger.info(f"[DEBUG] shutil.which('uvx') in _get_executable_path = {uvx_path}")
-        logger.info(f"[DEBUG] Path.cwd() = {Path.cwd()}")
-
-        if uvx_path is None:
-            # uvx not in PATH - try to find it by examining parent process
-            # This handles cases like: ./uvx check_zpools install-service
-            search_locations = []
-
-            # Try to get parent process command line to find uvx
-            try:
-                import psutil
-
-                current_process = psutil.Process()
-                parent_process = current_process.parent()
-                if parent_process:
-                    parent_cmdline = parent_process.cmdline()
-                    logger.info(f"[DEBUG] Parent process cmdline: {parent_cmdline}")
-                    if parent_cmdline and len(parent_cmdline) > 0:
-                        # First element should be the uvx executable
-                        potential_uvx = Path(parent_cmdline[0])
-                        if potential_uvx.name in ("uvx", "uvx.exe"):
-                            search_locations.append(potential_uvx)
-            except (ImportError, Exception) as e:
-                logger.info(f"[DEBUG] Could not get parent process info: {e}")
-
-            # Fallback: check current working directory
-            search_locations.append(Path.cwd() / "uvx")
-
-            # Also check in the same directory as the detected check_zpools if available
-            if path and path.parent.name == "bin":
-                search_locations.append(path.parent / "uvx")
-
-            logger.info(f"[DEBUG] Searching for uvx in locations: {search_locations}")
-            for potential_uvx in search_locations:
-                logger.info(f"[DEBUG] Checking {potential_uvx} - exists: {potential_uvx.exists()}")
-                if potential_uvx.exists():
-                    logger.info(f"[DEBUG] Found uvx at: {potential_uvx} - RETURNING {potential_uvx.resolve()}")
-                    return potential_uvx.resolve()
-
-            raise FileNotFoundError(
-                "uvx installation detected but 'uvx' command not found in PATH.\n"
-                "Please ensure uvx is installed and accessible, or add it to your PATH.\n"
-                f"Detected path: {path}\n"
-                f"Searched locations: {search_locations}"
-            )
-        logger.info(f"[DEBUG] Found uvx in PATH - RETURNING {Path(uvx_path).resolve()}")
-        return Path(uvx_path).resolve()
+        return _find_uvx_executable(path)
 
     if method == "uv":
         # For UV project, we'll use 'uv run check_zpools'
@@ -267,11 +273,12 @@ def _create_service_directories() -> None:
         appropriate permissions (755, owned by root).
     """
     for directory in [CACHE_DIR, LIB_DIR]:
-        if not directory.exists():
-            logger.info(f"Creating directory: {directory}")
-            directory.mkdir(parents=True, mode=0o755, exist_ok=True)
-        else:
+        if directory.exists():
             logger.debug(f"Directory already exists: {directory}")
+            continue
+
+        logger.info(f"Creating directory: {directory}")
+        directory.mkdir(parents=True, mode=0o755, exist_ok=True)
 
 
 def _generate_service_file_content(

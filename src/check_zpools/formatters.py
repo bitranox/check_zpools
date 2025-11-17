@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
 
 from rich.console import Console
 from rich.table import Table
@@ -135,9 +136,8 @@ def display_check_result_text(result: CheckResult, console: Console | None = Non
     table.add_column("Health", justify="center")
     table.add_column("Capacity", justify="right")
     table.add_column("Size", justify="right")
-    table.add_column("Read Errors", justify="right")
-    table.add_column("Write Errors", justify="right")
-    table.add_column("Checksum Errors", justify="right")
+    table.add_column("Errors (R/W/C)", justify="right")
+    table.add_column("Last Scrub", justify="right")
 
     for pool in result.pools:
         # Determine colors
@@ -148,18 +148,24 @@ def display_check_result_text(result: CheckResult, console: Console | None = Non
         # Format size in human-readable format
         size_gb = pool.size_bytes / (1024**3)
         if size_gb >= 1024:
-            size_str = f"{size_gb / 1024:.1f}T"
+            size_tb = size_gb / 1024
+            size_str = f"{size_tb:.2f} TB"
         else:
-            size_str = f"{size_gb:.1f}G"
+            size_str = f"{size_gb:.2f} GB"
+
+        # Format errors as R/W/C
+        errors_str = f"{pool.read_errors}/{pool.write_errors}/{pool.checksum_errors}"
+
+        # Format last scrub time
+        scrub_text, scrub_color = _format_last_scrub(pool.last_scrub)
 
         table.add_row(
             pool.name,
             f"[{health_color}]{pool.health.value}[/{health_color}]",
             f"[{capacity_color}]{pool.capacity_percent:.1f}%[/{capacity_color}]",
             size_str,
-            f"[{error_color}]{pool.read_errors}[/{error_color}]",
-            f"[{error_color}]{pool.write_errors}[/{error_color}]",
-            f"[{error_color}]{pool.checksum_errors}[/{error_color}]",
+            f"[{error_color}]{errors_str}[/{error_color}]",
+            f"[{scrub_color}]{scrub_text}[/{scrub_color}]",
         )
 
     console.print(table)
@@ -175,6 +181,60 @@ def display_check_result_text(result: CheckResult, console: Console | None = Non
 
     # Summary
     console.print(f"\nPools Checked: {len(result.pools)}")
+
+
+def _format_last_scrub(last_scrub: datetime | None) -> tuple[str, str]:
+    """Format last scrub timestamp as relative time with color coding.
+
+    Parameters
+    ----------
+    last_scrub:
+        Timestamp of last scrub, or None if never scrubbed.
+
+    Returns
+    -------
+    tuple[str, str]
+        Tuple of (formatted_text, color_name).
+        - formatted_text: Human-readable relative time or "Never"
+        - color_name: Color for Rich markup based on age
+    """
+    if last_scrub is None:
+        return ("Never", "yellow")
+
+    # Calculate time difference
+    now = datetime.now(timezone.utc)
+    # Ensure last_scrub is timezone-aware
+    if last_scrub.tzinfo is None:
+        last_scrub_aware = last_scrub.replace(tzinfo=timezone.utc)
+    else:
+        last_scrub_aware = last_scrub
+
+    delta = now - last_scrub_aware
+    days = delta.days
+
+    # Format relative time
+    if days == 0:
+        text = "Today"
+        color = "green"
+    elif days == 1:
+        text = "Yesterday"
+        color = "green"
+    elif days < 7:
+        text = f"{days}d ago"
+        color = "green"
+    elif days < 30:
+        weeks = days // 7
+        text = f"{weeks}w ago"
+        color = "green"
+    elif days < 60:
+        text = f"{days}d ago"
+        color = "yellow"  # Warning: approaching 2 months
+    else:
+        months = days // 30
+        text = f"{months}mo ago"
+        color = "red"  # Critical: very old scrub
+
+    return (text, color)
 
 
 def _get_severity_color(severity: Severity) -> str:
