@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import StringIO
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -349,7 +350,8 @@ class TestGetStateFilePath:
 
         result = behaviors._get_state_file_path(config)
 
-        assert str(result) == "/custom/path/state.json"
+        # Use Path comparison for cross-platform compatibility
+        assert result == Path("/custom/path/state.json")
 
     def test_get_state_file_path_with_default(self) -> None:
         """Should use default path when not specified."""
