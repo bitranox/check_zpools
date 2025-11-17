@@ -8,6 +8,7 @@ The email alerting system follows clean code principles with:
 - **Single Responsibility Principle**: Each method handles one specific formatting concern
 - **DRY (Don't Repeat Yourself)**: Shared logic extracted into reusable helper methods
 - **Self-Documenting Code**: Named constants instead of magic numbers
+- **Configuration-Driven**: Thresholds passed as parameters, not hardcoded
 
 ### Module-Level Constants
 
@@ -21,6 +22,30 @@ _BYTES_PER_PB = 1024 ** 5
 ```
 
 These constants provide self-documenting byte conversions and eliminate magic numbers throughout the codebase.
+
+### Configuration-Driven Thresholds
+
+The `EmailAlerter` class accepts threshold parameters in its constructor:
+
+```python
+def __init__(
+    self,
+    email_config: EmailConfig,
+    alert_config: dict[str, Any],
+    capacity_warning_percent: int = 80,
+    capacity_critical_percent: int = 90,
+    scrub_max_age_days: int = 30,
+):
+```
+
+These thresholds are:
+- Passed from `MonitorConfig` during daemon initialization
+- Used in `_format_notes_section()` for dynamic warning messages
+- Displayed in user-facing warning messages (e.g., "≥90%" shows actual threshold)
+
+**Why**: Eliminates hardcoded threshold values (previously 90, 80, 30) and ensures
+email alerts use the same thresholds as pool monitoring, maintaining consistency
+across the entire system.
 
 ### Email Formatting Architecture
 
@@ -79,6 +104,46 @@ This provides:
 - Clear intent (what unit we're converting to)
 - Easy maintenance (change definition in one place)
 - Consistency across all calculations
+
+## Behaviors Module (`behaviors.py`)
+
+### Configuration-Driven Display
+
+The `show_pool_status()` function loads capacity thresholds from configuration
+to color-code pool capacity display:
+
+```python
+# Load config to get capacity thresholds for color-coding
+config_dict = get_config().as_dict()
+capacity = config_dict.get("zfs", {}).get("capacity", {})
+capacity_warning = capacity.get("warning_percent", 80)
+capacity_critical = capacity.get("critical_percent", 90)
+
+# Apply thresholds
+if pool.capacity_percent >= capacity_critical:
+    cap_style = "red"
+elif pool.capacity_percent >= capacity_warning:
+    cap_style = "yellow"
+```
+
+**Why**: Eliminates hardcoded threshold values (previously 90 and 80) and ensures
+status display uses the same thresholds as monitoring and alerting.
+
+### Daemon Initialization
+
+When initializing `EmailAlerter`, threshold values are passed from `MonitorConfig`:
+
+```python
+alerter = EmailAlerter(
+    email_config,
+    alert_config,
+    capacity_warning_percent=monitor_config.capacity_warning_percent,
+    capacity_critical_percent=monitor_config.capacity_critical_percent,
+    scrub_max_age_days=monitor_config.scrub_max_age_days,
+)
+```
+
+This ensures alert formatting uses the same thresholds as pool monitoring.
 
 ## Daemon Module (`daemon.py`)
 
@@ -147,6 +212,53 @@ Extracts scrub information from pool status data:
 - `scrub_in_progress` (bool)
 
 These helpers eliminate duplication between `_parse_pool_from_list()` and `_parse_pool_from_status()`.
+
+## CLI Errors Module (`cli_errors.py`)
+
+### Purpose
+
+Provides shared error handling utilities to eliminate code duplication across CLI
+commands.
+
+### Design Principle
+
+**DRY (Don't Repeat Yourself)**: Identical exception handling patterns appeared in
+multiple CLI commands. Extracting to shared utilities ensures consistency and
+reduces maintenance burden.
+
+### Functions
+
+#### `handle_zfs_not_available(exc, operation) -> NoReturn`
+
+Handles `ZFSNotAvailableError` exceptions with consistent logging and messaging.
+
+**Benefits:**
+- Single source of truth for ZFS unavailability errors
+- Consistent error messages across all commands
+- Centralized logging format
+
+#### `handle_generic_error(exc, operation) -> NoReturn`
+
+Handles unexpected exceptions with full traceback logging and user-friendly messaging.
+
+**Benefits:**
+- Consistent error handling across all commands
+- Full traceback capture for debugging
+- Operation-specific context in error messages
+
+### Usage
+
+```python
+try:
+    result = check_pools_once()
+except ZFSNotAvailableError as exc:
+    handle_zfs_not_available(exc, operation="Check")
+except Exception as exc:
+    handle_generic_error(exc, operation="Check")
+```
+
+**Refactoring Impact**: Reduced each exception handler from 6-8 lines to 2 lines,
+eliminating 18-24 lines of duplicated code across 3 commands.
 
 ## Formatters Module (`formatters.py`)
 

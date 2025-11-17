@@ -60,14 +60,30 @@ class EmailAlerter:
         SMTP configuration for sending emails.
     alert_config:
         Alert-specific configuration (recipients, subject prefix, etc).
+    capacity_warning_percent:
+        Capacity percentage threshold for warning alerts (default: 80).
+    capacity_critical_percent:
+        Capacity percentage threshold for critical alerts (default: 90).
+    scrub_max_age_days:
+        Maximum days since last scrub before warning (default: 30).
     """
 
-    def __init__(self, email_config: EmailConfig, alert_config: dict[str, Any]):
+    def __init__(
+        self,
+        email_config: EmailConfig,
+        alert_config: dict[str, Any],
+        capacity_warning_percent: int = 80,
+        capacity_critical_percent: int = 90,
+        scrub_max_age_days: int = 30,
+    ):
         self.email_config = email_config
         self.subject_prefix = alert_config.get("subject_prefix", "[ZFS Alert]")
         self.recipients = alert_config.get("alert_recipients", [])
         self.include_ok_alerts = alert_config.get("send_ok_emails", False)
         self.include_recovery_alerts = alert_config.get("send_recovery_emails", True)
+        self.capacity_warning_percent = capacity_warning_percent
+        self.capacity_critical_percent = capacity_critical_percent
+        self.scrub_max_age_days = scrub_max_age_days
 
     def send_alert(self, issue: PoolIssue, pool: PoolStatus) -> bool:
         """Send email alert for a specific pool issue.
@@ -604,21 +620,21 @@ class EmailAlerter:
         capacity_pct = pool.capacity_percent
         total_errors = pool.read_errors + pool.write_errors + pool.checksum_errors
 
-        # Capacity warnings
-        if capacity_pct >= 90:
-            notes.append("⚠ Capacity critically high (≥90%)")
-        elif capacity_pct >= 80:
-            notes.append("⚠ Capacity high (≥80%)")
+        # Capacity warnings based on configured thresholds
+        if capacity_pct >= self.capacity_critical_percent:
+            notes.append(f"⚠ Capacity critically high (≥{self.capacity_critical_percent}%)")
+        elif capacity_pct >= self.capacity_warning_percent:
+            notes.append(f"⚠ Capacity high (≥{self.capacity_warning_percent}%)")
 
         # Error warnings
         if total_errors > 0:
             notes.append(f"⚠ {total_errors} I/O or checksum errors detected")
 
-        # Scrub age warnings
+        # Scrub age warnings based on configured threshold
         scrub_age_days = self._calculate_scrub_age_days(pool)
         if scrub_age_days is not None:
-            if scrub_age_days > 30:
-                notes.append(f"⚠ Scrub is {scrub_age_days} days old (recommended: <30 days)")
+            if scrub_age_days > self.scrub_max_age_days:
+                notes.append(f"⚠ Scrub is {scrub_age_days} days old (recommended: <{self.scrub_max_age_days} days)")
         else:
             notes.append("⚠ Pool has never been scrubbed")
 

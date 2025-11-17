@@ -290,10 +290,16 @@ def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -
     monitor_config = _build_monitor_config(config)
     monitor = PoolMonitor(monitor_config)
 
-    # Initialize alerting
+    # Initialize alerting with threshold values from monitor config
     email_config = load_email_config_from_dict(config)
     alert_config = config.get("alerts", {})
-    alerter = EmailAlerter(email_config, alert_config)
+    alerter = EmailAlerter(
+        email_config,
+        alert_config,
+        capacity_warning_percent=monitor_config.capacity_warning_percent,
+        capacity_critical_percent=monitor_config.capacity_critical_percent,
+        scrub_max_age_days=monitor_config.scrub_max_age_days,
+    )
 
     # Initialize state management
     state_file = _get_state_file_path(config)
@@ -350,6 +356,12 @@ def show_pool_status(pool_name: str | None = None, output_format: str = "table")
         When zpool command is not available.
     """
     logger.info("Displaying pool status", extra={"pool": pool_name, "format": output_format})
+
+    # Load config to get capacity thresholds for color-coding
+    config_dict = get_config().as_dict()
+    capacity = config_dict.get("zfs", {}).get("capacity", {})
+    capacity_warning = capacity.get("warning_percent", 80)
+    capacity_critical = capacity.get("critical_percent", 90)
 
     client = ZFSClient()
     parser = ZFSParser()
@@ -422,11 +434,11 @@ def show_pool_status(pool_name: str | None = None, output_format: str = "table")
             elif pool.health.value in ("FAULTED", "UNAVAIL"):
                 health_style = "red"
 
-            # Format capacity with color
+            # Format capacity with color based on configured thresholds
             cap_style = "green"
-            if pool.capacity_percent >= 90:
+            if pool.capacity_percent >= capacity_critical:
                 cap_style = "red"
-            elif pool.capacity_percent >= 80:
+            elif pool.capacity_percent >= capacity_warning:
                 cap_style = "yellow"
 
             # Format size

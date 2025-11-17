@@ -56,6 +56,7 @@ from .behaviors import (
     run_daemon,
     show_pool_status,
 )
+from .cli_errors import handle_generic_error, handle_zfs_not_available
 from .config import get_config
 from .config_deploy import deploy_configuration
 from .config_show import display_config
@@ -1037,17 +1038,9 @@ def cli_check(format: str) -> None:
                 raise SystemExit(exit_code)
 
         except ZFSNotAvailableError as exc:
-            logger.error("ZFS not available", extra={"error": str(exc)})
-            click.echo(f"\nError: {exc}", err=True)
-            raise SystemExit(1)
+            handle_zfs_not_available(exc, operation="Check")
         except Exception as exc:
-            logger.error(
-                "Check failed",
-                extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
-            )
-            click.echo(f"\nError: {exc}", err=True)
-            raise SystemExit(1)
+            handle_generic_error(exc, operation="Check")
 
 
 @cli.command("daemon", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -1080,17 +1073,9 @@ def cli_daemon(foreground: bool) -> None:
         try:
             run_daemon(foreground=foreground)
         except ZFSNotAvailableError as exc:
-            logger.error("ZFS not available", extra={"error": str(exc)})
-            click.echo(f"\nError: {exc}", err=True)
-            raise SystemExit(1)
+            handle_zfs_not_available(exc, operation="Daemon")
         except Exception as exc:
-            logger.error(
-                "Daemon failed",
-                extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
-            )
-            click.echo(f"\nError: {exc}", err=True)
-            raise SystemExit(1)
+            handle_generic_error(exc, operation="Daemon")
 
 
 @cli.command("status", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -1132,17 +1117,9 @@ def cli_status(format: str, pool: Optional[str]) -> None:
         try:
             show_pool_status(pool_name=pool, output_format=format)
         except ZFSNotAvailableError as exc:
-            logger.error("ZFS not available", extra={"error": str(exc)})
-            click.echo(f"\nError: {exc}", err=True)
-            raise SystemExit(1)
+            handle_zfs_not_available(exc, operation="Status")
         except Exception as exc:
-            logger.error(
-                "Status display failed",
-                extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
-            )
-            click.echo(f"\nError: {exc}", err=True)
-            raise SystemExit(1)
+            handle_generic_error(exc, operation="Status")
 
 
 def _load_and_validate_email_config() -> EmailConfig:
