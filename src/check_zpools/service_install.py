@@ -183,7 +183,18 @@ def _find_executable() -> Path:
         # For uvx, we need the uvx command
         uvx_path = shutil.which("uvx")
         if uvx_path is None:
-            raise FileNotFoundError("uvx installation detected but 'uvx' command not found in PATH")
+            # uvx not in PATH - check if it's in the same directory as the detected path
+            # This handles cases like: ./uvx check_zpools install-service
+            if path and path.parent.name == "bin":
+                potential_uvx = path.parent / "uvx"
+                if potential_uvx.exists():
+                    logger.info(f"Found uvx in same directory as check_zpools: {potential_uvx}")
+                    return potential_uvx.resolve()
+            raise FileNotFoundError(
+                "uvx installation detected but 'uvx' command not found in PATH.\n"
+                "Please ensure uvx is installed and accessible, or add it to your PATH.\n"
+                f"Detected path: {path}"
+            )
         return Path(uvx_path).resolve()
 
     if method == "uv":

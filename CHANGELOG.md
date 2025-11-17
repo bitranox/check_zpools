@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.1.3] - 2025-11-17
+- **Service Installation (uvx not in PATH)**: Fixed installation failure when uvx is invoked with relative/absolute path (e.g., `./uvx check_zpools install-service`) - now searches for uvx in the same directory as the detected check_zpools executable when uvx is not found in PATH
+
 ## [1.1.2] - 2025-11-17
 ### Fixed
 - **Service Installation (uvx detection)**: Fixed uvx detection being incorrectly identified as venv installation - reordered detection checks to check for uvx cache paths (`cache/uv/`) BEFORE checking for virtual environments, since uvx creates temporary venvs. Service file now correctly uses `uvx check_zpools` instead of ephemeral cache paths like `/root/.cache/uv/archive-v0/.../bin/check_zpools`
