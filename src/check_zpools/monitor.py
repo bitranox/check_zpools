@@ -340,7 +340,8 @@ class PoolMonitor:
         issues: list[PoolIssue] = []
 
         # Check read errors
-        if pool.read_errors >= self.config.read_errors_warning:
+        # Only trigger warning if errors are present (> 0) AND meet threshold
+        if pool.read_errors > 0 and pool.read_errors >= self.config.read_errors_warning:
             issues.append(
                 PoolIssue(
                     pool_name=pool.name,
@@ -355,7 +356,8 @@ class PoolMonitor:
             )
 
         # Check write errors
-        if pool.write_errors >= self.config.write_errors_warning:
+        # Only trigger warning if errors are present (> 0) AND meet threshold
+        if pool.write_errors > 0 and pool.write_errors >= self.config.write_errors_warning:
             issues.append(
                 PoolIssue(
                     pool_name=pool.name,
@@ -370,7 +372,8 @@ class PoolMonitor:
             )
 
         # Check checksum errors (more serious)
-        if pool.checksum_errors >= self.config.checksum_errors_warning:
+        # Only trigger warning if errors are present (> 0) AND meet threshold
+        if pool.checksum_errors > 0 and pool.checksum_errors >= self.config.checksum_errors_warning:
             issues.append(
                 PoolIssue(
                     pool_name=pool.name,

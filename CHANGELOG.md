@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.0.2] - 2025-11-17
+
+### Fixed
+- **Error Monitoring Logic**: Fixed false positives where pools with 0 errors were triggering warnings - now only warns when errors are actually present (> 0)
+
+
 ## [1.0.1] - 2025-11-17
 
 ### Fixed
@@ -13,6 +19,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Scrub timestamp parsing supports Unix timestamps and human-readable datetime strings
   - Convert `scrub_errors` string values to integers to prevent type comparison errors
 - **CLI Output**: Fixed color rendering in `check` command - now properly displays colored output using Rich Console instead of showing markup tags
+
 
 ### Added
 - `python-dateutil>=2.8.2` dependency for robust datetime string parsing
