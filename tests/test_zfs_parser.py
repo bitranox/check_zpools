@@ -309,63 +309,69 @@ class TestHelperMethods:
         assert parser._parse_size_to_bytes("1000000") == 1000000
         assert parser._parse_size_to_bytes("12345") == 12345
 
-    @pytest.mark.parametrize("size_str,expected_bytes", [
-        # Plain numbers
-        ("0", 0),
-        ("1", 1),
-        ("1000", 1000),
-        ("1000000", 1000000),
-        ("1234567890", 1234567890),
-        # Decimal numbers
-        ("1.5", 1),
-        ("10.5", 10),
-        ("100.9", 100),
-        # Kilobytes (1K = 1024 bytes)
-        ("1K", 1024),
-        ("10K", 10240),
-        ("1.5K", 1536),
-        # Megabytes (1M = 1024^2 bytes)
-        ("1M", 1048576),
-        ("10M", 10485760),
-        ("1.5M", 1572864),
-        # Gigabytes (1G = 1024^3 bytes)
-        ("1G", 1073741824),
-        ("10G", 10737418240),
-        ("1.5G", 1610612736),
-        # Terabytes (1T = 1024^4 bytes)
-        ("1T", 1099511627776),
-        ("2T", 2199023255552),
-        ("1.5T", 1649267441664),
-        # Petabytes (1P = 1024^5 bytes)
-        ("1P", 1125899906842624),
-        ("2P", 2251799813685248),
-        # Case insensitivity
-        ("1k", 1024),
-        ("1m", 1048576),
-        ("1g", 1073741824),
-        ("1t", 1099511627776),
-        # Whitespace handling
-        ("1 K", 1024),
-        (" 1K ", 1024),
-        ("1K ", 1024),
-        (" 1K", 1024),
-    ])
+    @pytest.mark.parametrize(
+        "size_str,expected_bytes",
+        [
+            # Plain numbers
+            ("0", 0),
+            ("1", 1),
+            ("1000", 1000),
+            ("1000000", 1000000),
+            ("1234567890", 1234567890),
+            # Decimal numbers
+            ("1.5", 1),
+            ("10.5", 10),
+            ("100.9", 100),
+            # Kilobytes (1K = 1024 bytes)
+            ("1K", 1024),
+            ("10K", 10240),
+            ("1.5K", 1536),
+            # Megabytes (1M = 1024^2 bytes)
+            ("1M", 1048576),
+            ("10M", 10485760),
+            ("1.5M", 1572864),
+            # Gigabytes (1G = 1024^3 bytes)
+            ("1G", 1073741824),
+            ("10G", 10737418240),
+            ("1.5G", 1610612736),
+            # Terabytes (1T = 1024^4 bytes)
+            ("1T", 1099511627776),
+            ("2T", 2199023255552),
+            ("1.5T", 1649267441664),
+            # Petabytes (1P = 1024^5 bytes)
+            ("1P", 1125899906842624),
+            ("2P", 2251799813685248),
+            # Case insensitivity
+            ("1k", 1024),
+            ("1m", 1048576),
+            ("1g", 1073741824),
+            ("1t", 1099511627776),
+            # Whitespace handling
+            ("1 K", 1024),
+            (" 1K ", 1024),
+            ("1K ", 1024),
+            (" 1K", 1024),
+        ],
+    )
     def test_parse_size_with_suffix(self, parser: ZFSParser, size_str: str, expected_bytes: int) -> None:
         """Verify size strings with suffixes are parsed correctly."""
         result = parser._parse_size_to_bytes(size_str)
         assert result == expected_bytes
 
-    @pytest.mark.parametrize("invalid_str", [
-        "",                # Empty
-        "   ",             # Whitespace only
-        "abc",             # No number
-        "K",               # Suffix only
-        "1X",              # Invalid suffix
-        "1 2 K",           # Multiple numbers
-        "K1",              # Suffix before number
-        "1KK",             # Multiple suffixes
-        "-1K",             # Negative (invalid in ZFS context)
-    ])
+    @pytest.mark.parametrize(
+        "invalid_str",
+        [
+            "",  # Empty
+            "   ",  # Whitespace only
+            "abc",  # No number
+            "K",  # Suffix only
+            "1X",  # Invalid suffix
+            "1 2 K",  # Multiple numbers
+            "K1",  # Suffix before number
+            "1KK",  # Multiple suffixes
+            "-1K",  # Negative (invalid in ZFS context)
+        ],
+    )
     def test_parse_size_invalid_format(self, parser: ZFSParser, invalid_str: str) -> None:
         """Verify invalid size strings raise ValueError."""
         with pytest.raises(ValueError, match="Cannot parse size string"):

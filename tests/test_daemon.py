@@ -13,7 +13,7 @@ from __future__ import annotations
 import signal
 import threading
 from datetime import UTC, datetime
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 
@@ -25,11 +25,7 @@ from check_zpools.models import CheckResult, PoolHealth, PoolIssue, PoolStatus, 
 def healthy_pool_json() -> dict:
     """Realistic JSON for a healthy pool (from zpool status -j)."""
     return {
-        "output_version": {
-            "command": "zpool status",
-            "vers_major": 0,
-            "vers_minor": 1
-        },
+        "output_version": {"command": "zpool status", "vers_major": 0, "vers_minor": 1},
         "pools": {
             "rpool": {
                 "name": "rpool",
@@ -39,22 +35,15 @@ def healthy_pool_json() -> dict:
                 "txg": "2888298",
                 "spa_version": "5000",
                 "zpl_version": "5",
-                "vdev_tree": {
-                    "type": "root",
-                    "stats": {
-                        "read_errors": 0,
-                        "write_errors": 0,
-                        "checksum_errors": 0
-                    }
-                },
+                "vdev_tree": {"type": "root", "stats": {"read_errors": 0, "write_errors": 0, "checksum_errors": 0}},
                 "scan": {
                     "state": "finished",
                     "start_time": int(datetime.now(UTC).timestamp()) - 86400,  # 1 day ago
                     "end_time": int(datetime.now(UTC).timestamp()) - 86400,
                     "errors": 0,
-                }
+                },
             }
-        }
+        },
     }
 
 
@@ -62,11 +51,7 @@ def healthy_pool_json() -> dict:
 def degraded_pool_json() -> dict:
     """Realistic JSON for a degraded pool (from zpool status -j)."""
     return {
-        "output_version": {
-            "command": "zpool status",
-            "vers_major": 0,
-            "vers_minor": 1
-        },
+        "output_version": {"command": "zpool status", "vers_major": 0, "vers_minor": 1},
         "pools": {
             "rpool": {
                 "name": "rpool",
@@ -76,22 +61,15 @@ def degraded_pool_json() -> dict:
                 "txg": "2966143",
                 "spa_version": "5000",
                 "zpl_version": "5",
-                "vdev_tree": {
-                    "type": "root",
-                    "stats": {
-                        "read_errors": 5,
-                        "write_errors": 2,
-                        "checksum_errors": 1
-                    }
-                },
+                "vdev_tree": {"type": "root", "stats": {"read_errors": 5, "write_errors": 2, "checksum_errors": 1}},
                 "scan": {
                     "state": "finished",
                     "start_time": int(datetime.now(UTC).timestamp()) - 86400,
                     "end_time": int(datetime.now(UTC).timestamp()) - 86400,
                     "errors": 3,
-                }
+                },
             }
-        }
+        },
     }
 
 
@@ -99,11 +77,7 @@ def degraded_pool_json() -> dict:
 def pool_list_json() -> dict:
     """Realistic JSON from zpool list -j command."""
     return {
-        "output_version": {
-            "command": "zpool list",
-            "vers_major": 0,
-            "vers_minor": 1
-        },
+        "output_version": {"command": "zpool list", "vers_major": 0, "vers_minor": 1},
         "pools": {
             "rpool": {
                 "name": "rpool",
@@ -114,24 +88,18 @@ def pool_list_json() -> dict:
                 "spa_version": "5000",
                 "zpl_version": "5",
                 "properties": {
-                    "health": {
-                        "value": "ONLINE"
-                    },
+                    "health": {"value": "ONLINE"},
                     "size": {
                         "value": str(1024**4)  # 1 TB
                     },
                     "allocated": {
                         "value": str(int(0.5 * 1024**4))  # 50% used
                     },
-                    "free": {
-                        "value": str(int(0.5 * 1024**4))
-                    },
-                    "capacity": {
-                        "value": "50"
-                    }
-                }
+                    "free": {"value": str(int(0.5 * 1024**4))},
+                    "capacity": {"value": "50"},
+                },
             }
-        }
+        },
     }
 
 
@@ -548,6 +516,7 @@ class TestDaemonLoop:
 
     def test_monitoring_loop_executes_check_cycles(self, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
         """Monitoring loop should execute check cycles."""
+
         # Run loop in thread and stop after short time
         def run_loop():
             daemon._run_monitoring_loop()

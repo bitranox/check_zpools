@@ -30,7 +30,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from .models import CheckResult, PoolIssue, PoolStatus, Severity
+from .models import CheckResult, PoolHealth, PoolIssue, PoolStatus, Severity  # noqa: F401 - PoolHealth used in doctests  # pyright: ignore[reportUnusedImport]
 
 logger = logging.getLogger(__name__)
 

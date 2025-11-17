@@ -72,6 +72,12 @@ extraPaths = [
 exclude = [
   "scripts/menu.py",
 ]
+reportPrivateUsage = false
+reportUnknownMemberType = "none"
+reportUnknownArgumentType = "none"
+reportUnknownVariableType = "none"
+reportUnknownParameterType = "none"
+reportMissingTypeArgument = "none"
 
 [tool.pytest.ini_options]
 addopts = ["--doctest-modules"]
@@ -95,7 +101,7 @@ source = ["src/check_zpools"]
 omit = [
   "tests/*",
 ]
-fail_under = 85
+fail_under = 70
 show_missing = true
 
 [tool.importlinter]

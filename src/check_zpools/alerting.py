@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 
 # Binary unit multipliers (powers of 1024)
 _BYTES_PER_KB = 1024
-_BYTES_PER_MB = 1024 ** 2
-_BYTES_PER_GB = 1024 ** 3
-_BYTES_PER_TB = 1024 ** 4
-_BYTES_PER_PB = 1024 ** 5
+_BYTES_PER_MB = 1024**2
+_BYTES_PER_GB = 1024**3
+_BYTES_PER_TB = 1024**4
+_BYTES_PER_PB = 1024**5
 
 
 class EmailAlerter:
@@ -266,7 +266,7 @@ class EmailAlerter:
         hostname = socket.gethostname()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
 
-        lines = []
+        lines: list[str] = []
 
         # Delegate sections to specialized methods
         # Each method returns a list of lines to avoid double-joining
@@ -276,19 +276,19 @@ class EmailAlerter:
         lines.extend(self._format_alert_footer(hostname))
 
         # Add complete pool status section
-        lines.extend([
-            "",
-            "=" * 70,
-            "COMPLETE POOL STATUS",
-            "=" * 70,
-        ])
+        lines.extend(
+            [
+                "",
+                "=" * 70,
+                "COMPLETE POOL STATUS",
+                "=" * 70,
+            ]
+        )
         lines.append(self._format_complete_pool_status(pool))
 
         return "\n".join(lines)
 
-    def _format_alert_header(
-        self, issue: PoolIssue, pool: PoolStatus, hostname: str, timestamp: str
-    ) -> list[str]:
+    def _format_alert_header(self, issue: PoolIssue, pool: PoolStatus, hostname: str, timestamp: str) -> list[str]:
         """Format alert email header with issue details.
 
         Parameters
@@ -391,25 +391,33 @@ class EmailAlerter:
         ]
 
         if issue.category == "capacity":
-            lines.extend([
-                "  2. Identify and remove unnecessary files",
-                "  3. Consider adding more storage capacity",
-            ])
+            lines.extend(
+                [
+                    "  2. Identify and remove unnecessary files",
+                    "  3. Consider adding more storage capacity",
+                ]
+            )
         elif issue.category == "errors":
-            lines.extend([
-                "  2. Check system logs for hardware issues",
-                "  3. Consider running 'zpool scrub' if not in progress",
-            ])
+            lines.extend(
+                [
+                    "  2. Check system logs for hardware issues",
+                    "  3. Consider running 'zpool scrub' if not in progress",
+                ]
+            )
         elif issue.category == "scrub":
-            lines.extend([
-                f"  2. Run 'zpool scrub {pool.name}' to start scrub",
-                "  3. Schedule regular scrubs via cron or systemd timer",
-            ])
+            lines.extend(
+                [
+                    f"  2. Run 'zpool scrub {pool.name}' to start scrub",
+                    "  3. Schedule regular scrubs via cron or systemd timer",
+                ]
+            )
         elif issue.category == "health":
-            lines.extend([
-                "  2. Check for failed or degraded devices",
-                "  3. Replace failed drives if necessary",
-            ])
+            lines.extend(
+                [
+                    "  2. Check for failed or degraded devices",
+                    "  3. Replace failed drives if necessary",
+                ]
+            )
 
         return lines
 
@@ -457,14 +465,16 @@ class EmailAlerter:
         str
             Complete formatted pool status.
         """
-        lines = []
+        lines: list[str] = []
 
         # Pool header
-        lines.extend([
-            f"Pool: {pool.name}",
-            f"State: {pool.health.value}",
-            "",
-        ])
+        lines.extend(
+            [
+                f"Pool: {pool.name}",
+                f"State: {pool.health.value}",
+                "",
+            ]
+        )
 
         # Delegate each section to specialized methods
         # Each method returns a list of lines to avoid double-joining
@@ -546,29 +556,29 @@ class EmailAlerter:
         list[str]
             List of formatted lines for scrub status section.
         """
-        lines = []
+        lines: list[str] = []
 
         if pool.last_scrub:
             scrub_date = pool.last_scrub.strftime("%Y-%m-%d %H:%M:%S %Z")
             scrub_age_days = self._calculate_scrub_age_days(pool)
             scrub_status = "IN PROGRESS" if pool.scrub_in_progress else "Completed"
-            scrub_errors_status = (
-                f"{pool.scrub_errors} errors found"
-                if pool.scrub_errors > 0
-                else "No errors found"
-            )
+            scrub_errors_status = f"{pool.scrub_errors} errors found" if pool.scrub_errors > 0 else "No errors found"
 
-            lines.extend([
-                f"Scrub Status: {scrub_status}",
-                f"  Last Scrub:   {scrub_date}",
-                f"  Age:          {scrub_age_days} days",
-                f"  Errors:       {scrub_errors_status}",
-            ])
+            lines.extend(
+                [
+                    f"Scrub Status: {scrub_status}",
+                    f"  Last Scrub:   {scrub_date}",
+                    f"  Age:          {scrub_age_days} days",
+                    f"  Errors:       {scrub_errors_status}",
+                ]
+            )
         else:
-            lines.extend([
-                "Scrub Status: Never scrubbed",
-                "  WARNING: No scrub has been performed on this pool",
-            ])
+            lines.extend(
+                [
+                    "Scrub Status: Never scrubbed",
+                    "  WARNING: No scrub has been performed on this pool",
+                ]
+            )
 
         if pool.scrub_in_progress:
             lines.append("  NOTE: A scrub is currently in progress")
@@ -616,7 +626,7 @@ class EmailAlerter:
         list[str]
             List of formatted lines for notes section (empty list if no notes).
         """
-        notes = []
+        notes: list[str] = []
         capacity_pct = pool.capacity_percent
         total_errors = pool.read_errors + pool.write_errors + pool.checksum_errors
 

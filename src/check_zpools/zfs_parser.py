@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 # Pre-compiled regex patterns for performance
 # Pattern for parsing size strings with binary suffixes (e.g., "1.5T", "500G")
-_SIZE_PATTERN = re.compile(r'^([0-9.]+)\s*([KMGTP])$')
+_SIZE_PATTERN = re.compile(r"^([0-9.]+)\s*([KMGTP])$")
 
 
 class ZFSParseError(ValueError):
@@ -405,10 +405,7 @@ class ZFSParser:
         match = _SIZE_PATTERN.match(size_str.strip().upper())
 
         if not match:
-            raise ValueError(
-                f"Cannot parse size string '{size_str}' - "
-                f"expected number or number+suffix (K/M/G/T/P)"
-            )
+            raise ValueError(f"Cannot parse size string '{size_str}' - expected number or number+suffix (K/M/G/T/P)")
 
         value_str, suffix = match.groups()
 
@@ -419,20 +416,17 @@ class ZFSParser:
 
         # Binary multipliers (1K = 1024 bytes, not 1000)
         multipliers = {
-            'K': 1024,
-            'M': 1024 ** 2,
-            'G': 1024 ** 3,
-            'T': 1024 ** 4,
-            'P': 1024 ** 5,
+            "K": 1024,
+            "M": 1024**2,
+            "G": 1024**3,
+            "T": 1024**4,
+            "P": 1024**5,
         }
 
         multiplier = multipliers[suffix]
         result = int(value * multiplier)
 
-        logger.debug(
-            f"Parsed size string: '{size_str}' → {result} bytes",
-            extra={"size_str": size_str, "value": value, "suffix": suffix, "bytes": result}
-        )
+        logger.debug(f"Parsed size string: '{size_str}' → {result} bytes", extra={"size_str": size_str, "value": value, "suffix": suffix, "bytes": result})
 
         return result
 
@@ -507,9 +501,7 @@ class ZFSParser:
         try:
             return PoolHealth(health_value)
         except ValueError:
-            logger.warning(
-                f"Unknown health state '{health_value}' for pool {pool_name}, using OFFLINE"
-            )
+            logger.warning(f"Unknown health state '{health_value}' for pool {pool_name}, using OFFLINE")
             return PoolHealth.OFFLINE
 
     def _extract_capacity_metrics(self, props: dict[str, Any]) -> dict[str, Any]:

@@ -15,7 +15,6 @@ Contents
 from __future__ import annotations
 
 import json
-from datetime import datetime
 
 from .models import CheckResult, Severity
 
@@ -71,10 +70,10 @@ def format_check_result_text(result: CheckResult) -> str:
     str
         Multi-line text output with color markup.
     """
-    lines = []
+    lines: list[str] = []
 
     # Header
-    timestamp_str = result.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    timestamp_str = result.timestamp.strftime("%Y-%m-%d %H:%M:%S")
     lines.append(f"\nZFS Pool Check - {timestamp_str}")
     lines.append(f"Overall Status: {result.overall_severity.value.upper()}\n")
 
@@ -83,10 +82,7 @@ def format_check_result_text(result: CheckResult) -> str:
         lines.append("Issues Found:")
         for issue in result.issues:
             severity_color = _get_severity_color(issue.severity)
-            lines.append(
-                f"  [{severity_color}]{issue.severity.value}[/{severity_color}] "
-                f"{issue.pool_name}: {issue.message}"
-            )
+            lines.append(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
     else:
         lines.append("[green]No issues detected[/green]")
 
