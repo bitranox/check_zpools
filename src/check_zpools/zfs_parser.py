@@ -27,6 +27,7 @@ Architecture Notes
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, cast
@@ -34,6 +35,10 @@ from typing import Any, cast
 from .models import PoolHealth, PoolStatus
 
 logger = logging.getLogger(__name__)
+
+# Pre-compiled regex patterns for performance
+# Pattern for parsing size strings with binary suffixes (e.g., "1.5T", "500G")
+_SIZE_PATTERN = re.compile(r'^([0-9.]+)\s*([KMGTP])$')
 
 
 class ZFSParseError(ValueError):
@@ -266,33 +271,19 @@ class ZFSParser:
 
         # Extract health state
         health_value = self._get_property_value(props, "health", "UNKNOWN")
-        try:
-            health = PoolHealth(health_value)
-        except ValueError:
-            logger.warning(f"Unknown health state '{health_value}' for pool {pool_name}, using OFFLINE")
-            health = PoolHealth.OFFLINE
+        health = self._parse_health_state(health_value, pool_name)
 
         # Extract capacity metrics
-        capacity_str = self._get_property_value(props, "capacity", "0")
-        capacity_percent = float(capacity_str)
-
-        size_str = self._get_property_value(props, "size", "0")
-        size_bytes = self._parse_size_to_bytes(size_str)
-
-        allocated_str = self._get_property_value(props, "allocated", "0")
-        allocated_bytes = self._parse_size_to_bytes(allocated_str)
-
-        free_str = self._get_property_value(props, "free", "0")
-        free_bytes = self._parse_size_to_bytes(free_str)
+        capacity_metrics = self._extract_capacity_metrics(props)
 
         # Create PoolStatus with list data (errors/scrub will be defaults)
         return PoolStatus(
             name=pool_name,
             health=health,
-            capacity_percent=capacity_percent,
-            size_bytes=size_bytes,
-            allocated_bytes=allocated_bytes,
-            free_bytes=free_bytes,
+            capacity_percent=capacity_metrics["capacity_percent"],
+            size_bytes=capacity_metrics["size_bytes"],
+            allocated_bytes=capacity_metrics["allocated_bytes"],
+            free_bytes=capacity_metrics["free_bytes"],
             read_errors=0,  # Not in list output
             write_errors=0,
             checksum_errors=0,
@@ -318,20 +309,13 @@ class ZFSParser:
         """
         # Extract health state
         state = pool_data.get("state", "UNKNOWN")
-        try:
-            health = PoolHealth(state)
-        except ValueError:
-            logger.warning(f"Unknown health state '{state}' for pool {pool_name}")
-            health = PoolHealth.OFFLINE
+        health = self._parse_health_state(state, pool_name)
 
         # Extract error counts from vdev tree
         errors = self._extract_error_counts(pool_data)
 
         # Extract scrub information
-        scan_info = pool_data.get("scan", {})
-        last_scrub = self._parse_scrub_time(scan_info)
-        scrub_errors = scan_info.get("errors", 0)
-        scrub_in_progress = scan_info.get("state", "") == "scanning"
+        scrub_info = self._extract_scrub_info(pool_data)
 
         # Create PoolStatus with status data (capacity will be defaults)
         return PoolStatus(
@@ -344,9 +328,9 @@ class ZFSParser:
             read_errors=errors["read"],
             write_errors=errors["write"],
             checksum_errors=errors["checksum"],
-            last_scrub=last_scrub,
-            scrub_errors=scrub_errors,
-            scrub_in_progress=scrub_in_progress,
+            last_scrub=scrub_info["last_scrub"],
+            scrub_errors=scrub_info["scrub_errors"],
+            scrub_in_progress=scrub_info["scrub_in_progress"],
         )
 
     def _get_property_value(self, props: dict[str, Any], key: str, default: str) -> str:
@@ -386,21 +370,71 @@ class ZFSParser:
         Parameters
         ----------
         size_str:
-            Size as string (may be numeric or with suffix like "1.5T")
+            Size as string. May be numeric ("1000000") or with suffix ("1.5T").
+            Supports binary suffixes: K (1024), M (1024^2), G (1024^3),
+            T (1024^4), P (1024^5).
 
         Returns
         -------
         int:
             Size in bytes
+
+        Raises
+        ------
+        ValueError:
+            If size_str cannot be parsed as number or number+suffix
+
+        Examples
+        --------
+        >>> parser = ZFSParser()
+        >>> parser._parse_size_to_bytes("1000000")
+        1000000
+        >>> parser._parse_size_to_bytes("1.5T")
+        1649267441664
+        >>> parser._parse_size_to_bytes("500G")
+        536870912000
         """
+        # Try parsing as plain number first (most common case)
         try:
-            # If it's already a number, return it
             return int(float(size_str))
         except ValueError:
-            # Try to parse with suffix (K, M, G, T, P)
-            # This is a simplified version; ZFS may use different formats
-            logger.debug(f"Parsing size string: {size_str}")
-            return int(float(size_str))  # Placeholder for now
+            pass
+
+        # Parse with suffix (e.g., "1.5T", "500G", "10M")
+        # Use pre-compiled pattern for performance
+        match = _SIZE_PATTERN.match(size_str.strip().upper())
+
+        if not match:
+            raise ValueError(
+                f"Cannot parse size string '{size_str}' - "
+                f"expected number or number+suffix (K/M/G/T/P)"
+            )
+
+        value_str, suffix = match.groups()
+
+        try:
+            value = float(value_str)
+        except ValueError as exc:
+            raise ValueError(f"Invalid numeric value in size string '{size_str}'") from exc
+
+        # Binary multipliers (1K = 1024 bytes, not 1000)
+        multipliers = {
+            'K': 1024,
+            'M': 1024 ** 2,
+            'G': 1024 ** 3,
+            'T': 1024 ** 4,
+            'P': 1024 ** 5,
+        }
+
+        multiplier = multipliers[suffix]
+        result = int(value * multiplier)
+
+        logger.debug(
+            f"Parsed size string: '{size_str}' → {result} bytes",
+            extra={"size_str": size_str, "value": value, "suffix": suffix, "bytes": result}
+        )
+
+        return result
 
     def _extract_error_counts(self, pool_data: dict[str, Any]) -> dict[str, int]:
         """Extract total error counts from vdev tree.
@@ -454,6 +488,85 @@ class ZFSParser:
                 return None
 
         return None
+
+    def _parse_health_state(self, health_value: str, pool_name: str) -> PoolHealth:
+        """Parse health state string into PoolHealth enum.
+
+        Parameters
+        ----------
+        health_value:
+            Raw health state string from ZFS.
+        pool_name:
+            Pool name for logging.
+
+        Returns
+        -------
+        PoolHealth:
+            Parsed health state, defaults to OFFLINE if unknown.
+        """
+        try:
+            return PoolHealth(health_value)
+        except ValueError:
+            logger.warning(
+                f"Unknown health state '{health_value}' for pool {pool_name}, using OFFLINE"
+            )
+            return PoolHealth.OFFLINE
+
+    def _extract_capacity_metrics(self, props: dict[str, Any]) -> dict[str, Any]:
+        """Extract capacity metrics from pool properties.
+
+        Parameters
+        ----------
+        props:
+            Pool properties from zpool list JSON.
+
+        Returns
+        -------
+        dict:
+            Dictionary with capacity_percent, size_bytes, allocated_bytes, free_bytes.
+        """
+        capacity_str = self._get_property_value(props, "capacity", "0")
+        capacity_percent = float(capacity_str)
+
+        size_str = self._get_property_value(props, "size", "0")
+        size_bytes = self._parse_size_to_bytes(size_str)
+
+        allocated_str = self._get_property_value(props, "allocated", "0")
+        allocated_bytes = self._parse_size_to_bytes(allocated_str)
+
+        free_str = self._get_property_value(props, "free", "0")
+        free_bytes = self._parse_size_to_bytes(free_str)
+
+        return {
+            "capacity_percent": capacity_percent,
+            "size_bytes": size_bytes,
+            "allocated_bytes": allocated_bytes,
+            "free_bytes": free_bytes,
+        }
+
+    def _extract_scrub_info(self, pool_data: dict[str, Any]) -> dict[str, Any]:
+        """Extract scrub information from pool status data.
+
+        Parameters
+        ----------
+        pool_data:
+            Pool data from zpool status JSON.
+
+        Returns
+        -------
+        dict:
+            Dictionary with last_scrub, scrub_errors, scrub_in_progress.
+        """
+        scan_info = pool_data.get("scan", {})
+        last_scrub = self._parse_scrub_time(scan_info)
+        scrub_errors = scan_info.get("errors", 0)
+        scrub_in_progress = scan_info.get("state", "") == "scanning"
+
+        return {
+            "last_scrub": last_scrub,
+            "scrub_errors": scrub_errors,
+            "scrub_in_progress": scrub_in_progress,
+        }
 
 
 __all__ = [

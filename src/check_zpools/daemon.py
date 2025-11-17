@@ -30,7 +30,7 @@ from typing import Any
 
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
-from .models import CheckResult, Severity
+from .models import CheckResult, PoolIssue, Severity
 from .monitor import PoolMonitor
 from .zfs_client import ZFSClient
 from .zfs_parser import ZFSParser
@@ -270,13 +270,16 @@ class ZPoolDaemon:
             },
         )
 
-        # Process results
-        self._handle_check_result(result, pools)
-
-        # Detect and notify recoveries
+        # Detect and notify recoveries BEFORE updating previous_issues
         self._detect_recoveries(result)
 
-    def _handle_check_result(self, result: CheckResult, pools: dict[str, Any]) -> None:
+        # Process results and send alerts
+        current_issues = self._handle_check_result(result, pools)
+
+        # Update previous issues for next cycle (after recovery detection)
+        self.previous_issues = current_issues
+
+    def _handle_check_result(self, result: CheckResult, pools: dict[str, Any]) -> dict[str, set[str]]:
         """Process check result by sending alerts for actionable issues.
 
         Why
@@ -290,6 +293,7 @@ class ZPoolDaemon:
         2. Check alert state to determine if alert should send
         3. Send alert emails
         4. Record alert state
+        5. Return current issues for tracking
 
         Parameters
         ----------
@@ -297,6 +301,11 @@ class ZPoolDaemon:
             Check result containing issues.
         pools:
             Pool status dict for issue context.
+
+        Returns
+        -------
+        dict[str, set[str]]:
+            Dictionary mapping pool names to sets of issue categories.
         """
         # Track current issues for recovery detection
         current_issues: dict[str, set[str]] = {}
@@ -307,23 +316,11 @@ class ZPoolDaemon:
                 current_issues[issue.pool_name] = set()
             current_issues[issue.pool_name].add(issue.category)
 
-            # Skip OK severity unless configured to send
-            if issue.severity == Severity.OK and not self.send_ok_emails:
-                logger.debug(
-                    "Skipping OK issue (send_ok_emails disabled)",
-                    extra={"pool": issue.pool_name, "category": issue.category},
-                )
+            # Check if alert should be sent
+            if not self._should_send_alert(issue):
                 continue
 
-            # Check if we should send alert based on state
-            if not self.state_manager.should_alert(issue):
-                logger.debug(
-                    "Suppressing duplicate alert",
-                    extra={"pool": issue.pool_name, "category": issue.category},
-                )
-                continue
-
-            # Send alert
+            # Get pool status
             pool = pools.get(issue.pool_name)
             if not pool:
                 logger.warning(
@@ -332,25 +329,74 @@ class ZPoolDaemon:
                 )
                 continue
 
-            success = self.alerter.send_alert(issue, pool)
-            if success:
-                self.state_manager.record_alert(issue)
-                logger.info(
-                    "Alert sent and recorded",
-                    extra={
-                        "pool": issue.pool_name,
-                        "category": issue.category,
-                        "severity": issue.severity.value,
-                    },
-                )
-            else:
-                logger.warning(
-                    "Failed to send alert",
-                    extra={"pool": issue.pool_name, "category": issue.category},
-                )
+            # Send alert and record state
+            self._send_alert_for_issue(issue, pool)
 
-        # Update current issues for next cycle
-        self.previous_issues = current_issues
+        # Return current issues for tracking
+        return current_issues
+
+    def _should_send_alert(self, issue: PoolIssue) -> bool:
+        """Determine if an alert should be sent for an issue.
+
+        Why
+        ---
+        Filters out OK-severity issues (if configured) and duplicate alerts
+        within the resend interval to reduce alert fatigue.
+
+        Parameters
+        ----------
+        issue:
+            Issue to check.
+
+        Returns
+        -------
+        bool:
+            True if alert should be sent, False otherwise.
+        """
+        # Skip OK severity unless configured to send
+        if issue.severity == Severity.OK and not self.send_ok_emails:
+            logger.debug(
+                "Skipping OK issue (send_ok_emails disabled)",
+                extra={"pool": issue.pool_name, "category": issue.category},
+            )
+            return False
+
+        # Check if we should send alert based on state
+        if not self.state_manager.should_alert(issue):
+            logger.debug(
+                "Suppressing duplicate alert",
+                extra={"pool": issue.pool_name, "category": issue.category},
+            )
+            return False
+
+        return True
+
+    def _send_alert_for_issue(self, issue: PoolIssue, pool: Any) -> None:
+        """Send alert email and record state.
+
+        Parameters
+        ----------
+        issue:
+            Issue to alert about.
+        pool:
+            Pool status for context.
+        """
+        success = self.alerter.send_alert(issue, pool)
+        if success:
+            self.state_manager.record_alert(issue)
+            logger.info(
+                "Alert sent and recorded",
+                extra={
+                    "pool": issue.pool_name,
+                    "category": issue.category,
+                    "severity": issue.severity.value,
+                },
+            )
+        else:
+            logger.warning(
+                "Failed to send alert",
+                extra={"pool": issue.pool_name, "category": issue.category},
+            )
 
     def _detect_recoveries(self, result: CheckResult) -> None:
         """Detect and notify when previously alerted issues are resolved.
@@ -380,6 +426,9 @@ class ZPoolDaemon:
                 current_issues[issue.pool_name] = set()
             current_issues[issue.pool_name].add(issue.category)
 
+        # Build pool dict for lookups
+        pools_dict = {pool.name: pool for pool in result.pools}
+
         # Find resolved issues
         for pool_name, prev_categories in self.previous_issues.items():
             current_categories = current_issues.get(pool_name, set())
@@ -391,8 +440,9 @@ class ZPoolDaemon:
                     extra={"pool": pool_name, "category": category},
                 )
 
-                # Send recovery email
-                success = self.alerter.send_recovery(pool_name, category)
+                # Send recovery email with current pool status
+                pool_status = pools_dict.get(pool_name)
+                success = self.alerter.send_recovery(pool_name, category, pool_status)
                 if success:
                     # Clear alert state so future issues alert immediately
                     self.state_manager.clear_issue(pool_name, category)

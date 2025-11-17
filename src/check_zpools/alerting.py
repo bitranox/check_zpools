@@ -32,6 +32,13 @@ from .models import PoolIssue, PoolStatus, Severity
 
 logger = logging.getLogger(__name__)
 
+# Binary unit multipliers (powers of 1024)
+_BYTES_PER_KB = 1024
+_BYTES_PER_MB = 1024 ** 2
+_BYTES_PER_GB = 1024 ** 3
+_BYTES_PER_TB = 1024 ** 4
+_BYTES_PER_PB = 1024 ** 5
+
 
 class EmailAlerter:
     """Send email alerts for ZFS pool issues with rich formatting.
@@ -53,14 +60,30 @@ class EmailAlerter:
         SMTP configuration for sending emails.
     alert_config:
         Alert-specific configuration (recipients, subject prefix, etc).
+    capacity_warning_percent:
+        Capacity percentage threshold for warning alerts (default: 80).
+    capacity_critical_percent:
+        Capacity percentage threshold for critical alerts (default: 90).
+    scrub_max_age_days:
+        Maximum days since last scrub before warning (default: 30).
     """
 
-    def __init__(self, email_config: EmailConfig, alert_config: dict[str, Any]):
+    def __init__(
+        self,
+        email_config: EmailConfig,
+        alert_config: dict[str, Any],
+        capacity_warning_percent: int = 80,
+        capacity_critical_percent: int = 90,
+        scrub_max_age_days: int = 30,
+    ):
         self.email_config = email_config
         self.subject_prefix = alert_config.get("subject_prefix", "[ZFS Alert]")
         self.recipients = alert_config.get("alert_recipients", [])
         self.include_ok_alerts = alert_config.get("send_ok_emails", False)
         self.include_recovery_alerts = alert_config.get("send_recovery_emails", True)
+        self.capacity_warning_percent = capacity_warning_percent
+        self.capacity_critical_percent = capacity_critical_percent
+        self.scrub_max_age_days = scrub_max_age_days
 
     def send_alert(self, issue: PoolIssue, pool: PoolStatus) -> bool:
         """Send email alert for a specific pool issue.
@@ -123,7 +146,7 @@ class EmailAlerter:
             )
             return False
 
-    def send_recovery(self, pool_name: str, category: str) -> bool:
+    def send_recovery(self, pool_name: str, category: str, pool: PoolStatus | None = None) -> bool:
         """Send email notification when an issue is resolved.
 
         Why
@@ -134,6 +157,7 @@ class EmailAlerter:
         What
         ---
         Sends a simple email indicating the issue category is now OK.
+        Includes complete pool status if available for context.
 
         Parameters
         ----------
@@ -141,6 +165,8 @@ class EmailAlerter:
             Name of the pool that recovered.
         category:
             Issue category that was resolved.
+        pool:
+            Optional complete pool status for detailed reporting.
 
         Returns
         -------
@@ -156,7 +182,7 @@ class EmailAlerter:
             return False
 
         subject = self._format_recovery_subject(pool_name, category)
-        body = self._format_recovery_body(pool_name, category)
+        body = self._format_recovery_body(pool_name, category, pool)
 
         logger.info(
             "Sending recovery email",
@@ -240,24 +266,47 @@ class EmailAlerter:
         hostname = socket.gethostname()
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
 
-        # Format pool capacity
-        capacity_pct = pool.capacity_percent
-        used_tb = pool.allocated_bytes / (1024**4)
-        total_tb = pool.size_bytes / (1024**4)
-        free_tb = pool.free_bytes / (1024**4)
+        lines = []
 
-        # Format scrub information
-        if pool.last_scrub:
-            scrub_date = pool.last_scrub.strftime("%Y-%m-%d %H:%M:%S")
-            scrub_age = (datetime.now() - pool.last_scrub.replace(tzinfo=None)).days
-            scrub_info = f"{scrub_date} ({scrub_age} days ago, {pool.scrub_errors} errors)"
-        else:
-            scrub_info = "Never"
+        # Delegate sections to specialized methods
+        # Each method returns a list of lines to avoid double-joining
+        lines.extend(self._format_alert_header(issue, pool, hostname, timestamp))
+        lines.extend(self._format_pool_details_section(pool))
+        lines.extend(self._format_recommended_actions_section(issue, pool))
+        lines.extend(self._format_alert_footer(hostname))
 
-        if pool.scrub_in_progress:
-            scrub_info += " [SCRUB IN PROGRESS]"
+        # Add complete pool status section
+        lines.extend([
+            "",
+            "=" * 70,
+            "COMPLETE POOL STATUS",
+            "=" * 70,
+        ])
+        lines.append(self._format_complete_pool_status(pool))
 
-        # Build body sections
+        return "\n".join(lines)
+
+    def _format_alert_header(
+        self, issue: PoolIssue, pool: PoolStatus, hostname: str, timestamp: str
+    ) -> list[str]:
+        """Format alert email header with issue details.
+
+        Parameters
+        ----------
+        issue:
+            The pool issue being reported.
+        pool:
+            Complete pool status for context.
+        hostname:
+            System hostname.
+        timestamp:
+            Formatted timestamp string.
+
+        Returns
+        -------
+        list[str]
+            List of formatted header lines.
+        """
         lines = [
             f"ZFS Pool Alert - {issue.severity.value.upper()}",
             "",
@@ -279,69 +328,343 @@ class EmailAlerter:
             for key, value in issue.details.items():
                 lines.append(f"  {key}: {value}")
 
-        # Add pool statistics
-        lines.extend(
-            [
-                "",
-                "POOL DETAILS:",
-                f"  Capacity: {capacity_pct:.1f}% used ({used_tb:.2f} TB / {total_tb:.2f} TB)",
-                f"  Free Space: {free_tb:.2f} TB",
-                f"  Errors: {pool.read_errors} read, {pool.write_errors} write, {pool.checksum_errors} checksum",
-                f"  Last Scrub: {scrub_info}",
-            ]
-        )
+        return lines
 
-        # Add recommended actions
-        lines.extend(
-            [
-                "",
-                "RECOMMENDED ACTIONS:",
-                f"  1. Run 'zpool status {pool.name}' to investigate",
-            ]
-        )
+    def _format_pool_details_section(self, pool: PoolStatus) -> list[str]:
+        """Format pool statistics section for alert email.
+
+        Parameters
+        ----------
+        pool:
+            Complete pool status for context.
+
+        Returns
+        -------
+        list[str]
+            List of formatted pool details lines.
+        """
+        # Format pool capacity
+        capacity_pct = pool.capacity_percent
+        used_tb = pool.allocated_bytes / _BYTES_PER_TB
+        total_tb = pool.size_bytes / _BYTES_PER_TB
+        free_tb = pool.free_bytes / _BYTES_PER_TB
+
+        # Format scrub information
+        if pool.last_scrub:
+            scrub_date = pool.last_scrub.strftime("%Y-%m-%d %H:%M:%S")
+            scrub_age = self._calculate_scrub_age_days(pool)
+            scrub_info = f"{scrub_date} ({scrub_age} days ago, {pool.scrub_errors} errors)"
+        else:
+            scrub_info = "Never"
+
+        if pool.scrub_in_progress:
+            scrub_info += " [SCRUB IN PROGRESS]"
+
+        return [
+            "",
+            "POOL DETAILS:",
+            f"  Capacity: {capacity_pct:.1f}% used ({used_tb:.2f} TB / {total_tb:.2f} TB)",
+            f"  Free Space: {free_tb:.2f} TB",
+            f"  Errors: {pool.read_errors} read, {pool.write_errors} write, {pool.checksum_errors} checksum",
+            f"  Last Scrub: {scrub_info}",
+        ]
+
+    def _format_recommended_actions_section(self, issue: PoolIssue, pool: PoolStatus) -> list[str]:
+        """Format recommended actions section based on issue category.
+
+        Parameters
+        ----------
+        issue:
+            The pool issue being reported.
+        pool:
+            Complete pool status for context.
+
+        Returns
+        -------
+        list[str]
+            List of formatted recommended action lines.
+        """
+        lines = [
+            "",
+            "RECOMMENDED ACTIONS:",
+            f"  1. Run 'zpool status {pool.name}' to investigate",
+        ]
 
         if issue.category == "capacity":
-            lines.extend(
-                [
-                    "  2. Identify and remove unnecessary files",
-                    "  3. Consider adding more storage capacity",
-                ]
-            )
+            lines.extend([
+                "  2. Identify and remove unnecessary files",
+                "  3. Consider adding more storage capacity",
+            ])
         elif issue.category == "errors":
-            lines.extend(
-                [
-                    "  2. Check system logs for hardware issues",
-                    "  3. Consider running 'zpool scrub' if not in progress",
-                ]
-            )
+            lines.extend([
+                "  2. Check system logs for hardware issues",
+                "  3. Consider running 'zpool scrub' if not in progress",
+            ])
         elif issue.category == "scrub":
-            lines.extend(
-                [
-                    f"  2. Run 'zpool scrub {pool.name}' to start scrub",
-                    "  3. Schedule regular scrubs via cron or systemd timer",
-                ]
-            )
+            lines.extend([
+                f"  2. Run 'zpool scrub {pool.name}' to start scrub",
+                "  3. Schedule regular scrubs via cron or systemd timer",
+            ])
         elif issue.category == "health":
-            lines.extend(
-                [
-                    "  2. Check for failed or degraded devices",
-                    "  3. Replace failed drives if necessary",
-                ]
-            )
+            lines.extend([
+                "  2. Check for failed or degraded devices",
+                "  3. Replace failed drives if necessary",
+            ])
 
-        # Add footer
-        lines.extend(
-            [
-                "",
-                "---",
-                f"Generated by {__init__conf__.title} v{__init__conf__.version}",
-                f"Hostname: {hostname}",
-            ]
-        )
+        return lines
+
+    def _format_alert_footer(self, hostname: str) -> list[str]:
+        """Format alert email footer.
+
+        Parameters
+        ----------
+        hostname:
+            System hostname.
+
+        Returns
+        -------
+        list[str]
+            List of formatted footer lines.
+        """
+        return [
+            "",
+            "---",
+            f"Generated by {__init__conf__.title} v{__init__conf__.version}",
+            f"Hostname: {hostname}",
+        ]
+
+    def _format_complete_pool_status(self, pool: PoolStatus) -> str:
+        """Format complete pool status in zpool-like text format.
+
+        Why
+        ---
+        Provides detailed pool information in email for troubleshooting
+        without requiring SSH access to the server.
+
+        What
+        ---
+        Formats all pool metrics in a structured, readable text format
+        similar to `zpool status` output. Delegates to specialized formatting
+        methods for each section.
+
+        Parameters
+        ----------
+        pool:
+            Pool status to format.
+
+        Returns
+        -------
+        str
+            Complete formatted pool status.
+        """
+        lines = []
+
+        # Pool header
+        lines.extend([
+            f"Pool: {pool.name}",
+            f"State: {pool.health.value}",
+            "",
+        ])
+
+        # Delegate each section to specialized methods
+        # Each method returns a list of lines to avoid double-joining
+        lines.extend(self._format_capacity_section(pool))
+        lines.extend(self._format_error_statistics_section(pool))
+        lines.extend(self._format_scrub_status_section(pool))
+        lines.extend(self._format_health_assessment_section(pool))
+        notes_lines = self._format_notes_section(pool)
+        if notes_lines:  # Only add if not empty
+            lines.extend(notes_lines)
 
         return "\n".join(lines)
 
-    def _format_recovery_body(self, pool_name: str, category: str) -> str:
+    def _format_capacity_section(self, pool: PoolStatus) -> list[str]:
+        """Format capacity information section.
+
+        Parameters
+        ----------
+        pool:
+            Pool status to format.
+
+        Returns
+        -------
+        list[str]
+            List of formatted lines for capacity section.
+        """
+        capacity_pct = pool.capacity_percent
+        used_tb = pool.allocated_bytes / _BYTES_PER_TB
+        total_tb = pool.size_bytes / _BYTES_PER_TB
+        free_tb = pool.free_bytes / _BYTES_PER_TB
+        used_gb = pool.allocated_bytes / _BYTES_PER_GB
+        total_gb = pool.size_bytes / _BYTES_PER_GB
+        free_gb = pool.free_bytes / _BYTES_PER_GB
+
+        return [
+            "Capacity:",
+            f"  Total:     {total_tb:.2f} TB ({total_gb:.2f} GB) [{pool.size_bytes:,} bytes]",
+            f"  Used:      {used_tb:.2f} TB ({used_gb:.2f} GB) [{pool.allocated_bytes:,} bytes]",
+            f"  Free:      {free_tb:.2f} TB ({free_gb:.2f} GB) [{pool.free_bytes:,} bytes]",
+            f"  Usage:     {capacity_pct:.2f}%",
+            "",
+        ]
+
+    def _format_error_statistics_section(self, pool: PoolStatus) -> list[str]:
+        """Format error statistics section.
+
+        Parameters
+        ----------
+        pool:
+            Pool status to format.
+
+        Returns
+        -------
+        list[str]
+            List of formatted lines for error statistics section.
+        """
+        total_errors = pool.read_errors + pool.write_errors + pool.checksum_errors
+        error_status = "ERRORS DETECTED" if total_errors > 0 else "No errors"
+
+        return [
+            f"Error Statistics: {error_status}",
+            f"  Read Errors:      {pool.read_errors:,}",
+            f"  Write Errors:     {pool.write_errors:,}",
+            f"  Checksum Errors:  {pool.checksum_errors:,}",
+            f"  Total Errors:     {total_errors:,}",
+            "",
+        ]
+
+    def _format_scrub_status_section(self, pool: PoolStatus) -> list[str]:
+        """Format scrub status section.
+
+        Parameters
+        ----------
+        pool:
+            Pool status to format.
+
+        Returns
+        -------
+        list[str]
+            List of formatted lines for scrub status section.
+        """
+        lines = []
+
+        if pool.last_scrub:
+            scrub_date = pool.last_scrub.strftime("%Y-%m-%d %H:%M:%S %Z")
+            scrub_age_days = self._calculate_scrub_age_days(pool)
+            scrub_status = "IN PROGRESS" if pool.scrub_in_progress else "Completed"
+            scrub_errors_status = (
+                f"{pool.scrub_errors} errors found"
+                if pool.scrub_errors > 0
+                else "No errors found"
+            )
+
+            lines.extend([
+                f"Scrub Status: {scrub_status}",
+                f"  Last Scrub:   {scrub_date}",
+                f"  Age:          {scrub_age_days} days",
+                f"  Errors:       {scrub_errors_status}",
+            ])
+        else:
+            lines.extend([
+                "Scrub Status: Never scrubbed",
+                "  WARNING: No scrub has been performed on this pool",
+            ])
+
+        if pool.scrub_in_progress:
+            lines.append("  NOTE: A scrub is currently in progress")
+
+        lines.append("")
+
+        return lines
+
+    def _format_health_assessment_section(self, pool: PoolStatus) -> list[str]:
+        """Format health assessment section.
+
+        Parameters
+        ----------
+        pool:
+            Pool status to format.
+
+        Returns
+        -------
+        list[str]
+            List of formatted lines for health assessment section.
+        """
+        if pool.health.is_healthy():
+            health_msg = "✓ Pool is healthy and operating normally"
+        elif pool.health.is_critical():
+            health_msg = "✗ CRITICAL: Pool is in a critical state requiring immediate attention"
+        else:
+            health_msg = "⚠ WARNING: Pool is degraded and should be investigated"
+
+        return [
+            "Health Assessment:",
+            f"  {health_msg}",
+            "",
+        ]
+
+    def _format_notes_section(self, pool: PoolStatus) -> list[str]:
+        """Format additional notes section.
+
+        Parameters
+        ----------
+        pool:
+            Pool status to format.
+
+        Returns
+        -------
+        list[str]
+            List of formatted lines for notes section (empty list if no notes).
+        """
+        notes = []
+        capacity_pct = pool.capacity_percent
+        total_errors = pool.read_errors + pool.write_errors + pool.checksum_errors
+
+        # Capacity warnings based on configured thresholds
+        if capacity_pct >= self.capacity_critical_percent:
+            notes.append(f"⚠ Capacity critically high (≥{self.capacity_critical_percent}%)")
+        elif capacity_pct >= self.capacity_warning_percent:
+            notes.append(f"⚠ Capacity high (≥{self.capacity_warning_percent}%)")
+
+        # Error warnings
+        if total_errors > 0:
+            notes.append(f"⚠ {total_errors} I/O or checksum errors detected")
+
+        # Scrub age warnings based on configured threshold
+        scrub_age_days = self._calculate_scrub_age_days(pool)
+        if scrub_age_days is not None:
+            if scrub_age_days > self.scrub_max_age_days:
+                notes.append(f"⚠ Scrub is {scrub_age_days} days old (recommended: <{self.scrub_max_age_days} days)")
+        else:
+            notes.append("⚠ Pool has never been scrubbed")
+
+        if notes:
+            lines = ["Notes:"]
+            for note in notes:
+                lines.append(f"  {note}")
+            lines.append("")
+            return lines
+
+        return []  # Return empty list instead of empty string
+
+    def _calculate_scrub_age_days(self, pool: PoolStatus) -> int | None:
+        """Calculate days since last scrub.
+
+        Parameters
+        ----------
+        pool:
+            Pool status to check.
+
+        Returns
+        -------
+        int | None
+            Number of days since last scrub, or None if never scrubbed.
+        """
+        if not pool.last_scrub:
+            return None
+        return (datetime.now() - pool.last_scrub.replace(tzinfo=None)).days
+
+    def _format_recovery_body(self, pool_name: str, category: str, pool: PoolStatus | None = None) -> str:
         """Format recovery email body.
 
         Parameters
@@ -350,6 +673,8 @@ class EmailAlerter:
             Name of recovered pool.
         category:
             Issue category that resolved.
+        pool:
+            Optional complete pool status for detailed reporting.
 
         Returns
         -------
@@ -375,5 +700,17 @@ class EmailAlerter:
             f"Generated by {__init__conf__.title} v{__init__conf__.version}",
             f"Hostname: {hostname}",
         ]
+
+        # Add complete pool status if available
+        if pool is not None:
+            lines.extend(
+                [
+                    "",
+                    "=" * 70,
+                    "CURRENT POOL STATUS",
+                    "=" * 70,
+                ]
+            )
+            lines.append(self._format_complete_pool_status(pool))
 
         return "\n".join(lines)

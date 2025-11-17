@@ -1,0 +1,348 @@
+# Code Architecture Documentation
+
+## Email Alerting Module (`alerting.py`)
+
+### Design Principles
+
+The email alerting system follows clean code principles with:
+- **Single Responsibility Principle**: Each method handles one specific formatting concern
+- **DRY (Don't Repeat Yourself)**: Shared logic extracted into reusable helper methods
+- **Self-Documenting Code**: Named constants instead of magic numbers
+- **Configuration-Driven**: Thresholds passed as parameters, not hardcoded
+
+### Module-Level Constants
+
+```python
+# Binary unit multipliers (powers of 1024)
+_BYTES_PER_KB = 1024
+_BYTES_PER_MB = 1024 ** 2
+_BYTES_PER_GB = 1024 ** 3
+_BYTES_PER_TB = 1024 ** 4
+_BYTES_PER_PB = 1024 ** 5
+```
+
+These constants provide self-documenting byte conversions and eliminate magic numbers throughout the codebase.
+
+### Configuration-Driven Thresholds
+
+The `EmailAlerter` class accepts threshold parameters in its constructor:
+
+```python
+def __init__(
+    self,
+    email_config: EmailConfig,
+    alert_config: dict[str, Any],
+    capacity_warning_percent: int = 80,
+    capacity_critical_percent: int = 90,
+    scrub_max_age_days: int = 30,
+):
+```
+
+These thresholds are:
+- Passed from `MonitorConfig` during daemon initialization
+- Used in `_format_notes_section()` for dynamic warning messages
+- Displayed in user-facing warning messages (e.g., "≥90%" shows actual threshold)
+
+**Why**: Eliminates hardcoded threshold values (previously 90, 80, 30) and ensures
+email alerts use the same thresholds as pool monitoring, maintaining consistency
+across the entire system.
+
+### Email Formatting Architecture
+
+#### Return Pattern
+
+All email formatting helper methods follow a consistent pattern:
+- **Helper methods** return `list[str]` (individual lines)
+- **Parent methods** perform single `"\n".join()` operation
+- This prevents double-joining and ensures correct spacing
+
+#### Alert Email Structure
+
+**Main method:** `_format_body(issue, pool) -> str`
+
+Delegates to specialized formatters:
+1. `_format_alert_header()` → Alert header with issue details
+2. `_format_pool_details_section()` → Pool capacity and scrub summary
+3. `_format_recommended_actions_section()` → Context-specific actions
+4. `_format_alert_footer()` → Version and hostname
+5. `_format_complete_pool_status()` → Full pool status details
+
+#### Pool Status Formatting
+
+**Main method:** `_format_complete_pool_status(pool) -> str`
+
+Delegates to specialized formatters:
+1. `_format_capacity_section()` → Capacity in TB/GB/bytes
+2. `_format_error_statistics_section()` → Error counts
+3. `_format_scrub_status_section()` → Scrub timing and results
+4. `_format_health_assessment_section()` → Health status
+5. `_format_notes_section()` → Warnings (empty list if none)
+
+### Helper Methods
+
+#### `_calculate_scrub_age_days(pool) -> int | None`
+
+Calculates days since last scrub. Returns `None` if pool has never been scrubbed.
+
+**Used by:**
+- `_format_pool_details_section()` - For alert email summary
+- `_format_scrub_status_section()` - For detailed scrub status
+- `_format_notes_section()` - For scrub age warnings
+
+This eliminates code duplication across three locations.
+
+### Binary Unit Conversions
+
+All capacity calculations use named constants:
+
+```python
+used_tb = pool.allocated_bytes / _BYTES_PER_TB
+used_gb = pool.allocated_bytes / _BYTES_PER_GB
+```
+
+This provides:
+- Clear intent (what unit we're converting to)
+- Easy maintenance (change definition in one place)
+- Consistency across all calculations
+
+## Behaviors Module (`behaviors.py`)
+
+### Configuration-Driven Display
+
+The `show_pool_status()` function loads capacity thresholds from configuration
+to color-code pool capacity display:
+
+```python
+# Load config to get capacity thresholds for color-coding
+config_dict = get_config().as_dict()
+capacity = config_dict.get("zfs", {}).get("capacity", {})
+capacity_warning = capacity.get("warning_percent", 80)
+capacity_critical = capacity.get("critical_percent", 90)
+
+# Apply thresholds
+if pool.capacity_percent >= capacity_critical:
+    cap_style = "red"
+elif pool.capacity_percent >= capacity_warning:
+    cap_style = "yellow"
+```
+
+**Why**: Eliminates hardcoded threshold values (previously 90 and 80) and ensures
+status display uses the same thresholds as monitoring and alerting.
+
+### Daemon Initialization
+
+When initializing `EmailAlerter`, threshold values are passed from `MonitorConfig`:
+
+```python
+alerter = EmailAlerter(
+    email_config,
+    alert_config,
+    capacity_warning_percent=monitor_config.capacity_warning_percent,
+    capacity_critical_percent=monitor_config.capacity_critical_percent,
+    scrub_max_age_days=monitor_config.scrub_max_age_days,
+)
+```
+
+This ensures alert formatting uses the same thresholds as pool monitoring.
+
+## Daemon Module (`daemon.py`)
+
+### Alert Processing Architecture
+
+**Main method:** `_handle_check_result(result, pools) -> dict[str, set[str]]`
+
+Delegates to specialized methods:
+1. `_should_send_alert(issue)` → Filtering logic
+2. `_send_alert_for_issue(issue, pool)` → Alert delivery
+
+#### `_should_send_alert(issue) -> bool`
+
+Determines if an alert should be sent based on:
+- Severity filtering (skip OK issues if configured)
+- Alert state management (prevent duplicates within resend interval)
+
+#### `_send_alert_for_issue(issue, pool) -> None`
+
+Handles alert delivery and state recording:
+- Sends email via alerter
+- Records successful delivery in state manager
+- Logs result for monitoring
+
+### Benefits
+
+- **Testability**: Each concern can be tested independently
+- **Maintainability**: Clear boundaries between filtering, sending, and recording
+- **Readability**: Method names clearly describe intent
+
+## Parser Module (`zfs_parser.py`)
+
+### Regex Optimization
+
+Pre-compiled regex pattern for performance:
+
+```python
+# Module-level constant
+_SIZE_PATTERN = re.compile(r'^([0-9.]+)\s*([KMGTP])$')
+```
+
+**Used in:** `_parse_size_to_bytes(size_str) -> int`
+
+Benefits:
+- Pattern compiled once at module import
+- Eliminates repeated compilation overhead
+- Critical for daemon mode (continuous parsing)
+
+### Helper Methods
+
+#### `_parse_health_state(health_value, pool_name) -> PoolHealth`
+
+Parses health state strings into enum values with fallback to OFFLINE for unknown states.
+
+#### `_extract_capacity_metrics(props) -> dict`
+
+Extracts and converts capacity metrics from pool properties:
+- `capacity_percent` (float)
+- `size_bytes`, `allocated_bytes`, `free_bytes` (int)
+
+#### `_extract_scrub_info(pool_data) -> dict`
+
+Extracts scrub information from pool status data:
+- `last_scrub` (datetime | None)
+- `scrub_errors` (int)
+- `scrub_in_progress` (bool)
+
+These helpers eliminate duplication between `_parse_pool_from_list()` and `_parse_pool_from_status()`.
+
+## CLI Errors Module (`cli_errors.py`)
+
+### Purpose
+
+Provides shared error handling utilities to eliminate code duplication across CLI
+commands.
+
+### Design Principle
+
+**DRY (Don't Repeat Yourself)**: Identical exception handling patterns appeared in
+multiple CLI commands. Extracting to shared utilities ensures consistency and
+reduces maintenance burden.
+
+### Functions
+
+#### `handle_zfs_not_available(exc, operation) -> NoReturn`
+
+Handles `ZFSNotAvailableError` exceptions with consistent logging and messaging.
+
+**Benefits:**
+- Single source of truth for ZFS unavailability errors
+- Consistent error messages across all commands
+- Centralized logging format
+
+#### `handle_generic_error(exc, operation) -> NoReturn`
+
+Handles unexpected exceptions with full traceback logging and user-friendly messaging.
+
+**Benefits:**
+- Consistent error handling across all commands
+- Full traceback capture for debugging
+- Operation-specific context in error messages
+
+### Usage
+
+```python
+try:
+    result = check_pools_once()
+except ZFSNotAvailableError as exc:
+    handle_zfs_not_available(exc, operation="Check")
+except Exception as exc:
+    handle_generic_error(exc, operation="Check")
+```
+
+**Refactoring Impact**: Reduced each exception handler from 6-8 lines to 2 lines,
+eliminating 18-24 lines of duplicated code across 3 commands.
+
+## Formatters Module (`formatters.py`)
+
+### Purpose
+
+Centralizes all output formatting logic to keep the CLI module minimal and focused
+on command wiring.
+
+### Design Principle
+
+**Separation of Concerns**: The CLI module handles command routing and option parsing,
+while formatters handle output generation. This keeps each module focused on a single
+responsibility.
+
+### Functions
+
+#### `format_check_result_json(result) -> str`
+
+Formats check results as JSON with proper indentation.
+
+**Returns:**
+- timestamp (ISO format)
+- pools (name, health, capacity)
+- issues (pool_name, severity, category, message, details)
+- overall_severity
+
+#### `format_check_result_text(result) -> str`
+
+Formats check results as human-readable text with:
+- Timestamp header
+- Overall status
+- Color-coded issue list (red/yellow/green)
+- Summary (pools checked count)
+
+#### `get_exit_code_for_severity(severity) -> int`
+
+Maps severity levels to standard exit codes:
+- OK → 0
+- WARNING → 1
+- CRITICAL → 2
+
+#### `_get_severity_color(severity) -> str` (private)
+
+Maps severity to rich console color markup (red/yellow/green).
+
+### Benefits
+
+- **Testability**: Format functions can be unit tested independently
+- **Reusability**: Formatters can be used by multiple CLI commands
+- **Maintainability**: Changes to output format isolated to one module
+- **CLI Simplicity**: CLI commands reduced from 60+ lines to ~25 lines
+
+## Code Quality Standards
+
+### Type Hints
+
+All methods include complete type hints:
+- Parameter types
+- Return types
+- Union types where applicable (`int | None`)
+
+### Documentation
+
+Methods include structured docstrings:
+- Purpose statement (Why)
+- Implementation details (What)
+- Parameter descriptions
+- Return value descriptions
+
+### Testing Recommendations
+
+1. **Snapshot tests** for email formatting to catch spacing regressions
+2. **Unit tests** for helper methods (scrub age, capacity calculations)
+3. **Integration tests** for complete alert flow
+
+### Performance Considerations
+
+1. **Pre-compiled regex** for size parsing (daemon mode optimization)
+2. **LRU cache** on size parsing method (existing optimization)
+3. **Single join operation** for string formatting (memory efficiency)
+
+## Future Enhancements
+
+Potential improvements to consider:
+1. Pass timestamp as parameter to eliminate multiple `datetime.now()` calls
+2. Add examples in docstrings showing expected output
+3. Implement snapshot/golden file tests for email formatting
