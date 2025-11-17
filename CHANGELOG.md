@@ -4,7 +4,6 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [1.1.2] - 2025-11-17
-
 ### Fixed
 - **Service Installation (uvx detection)**: Fixed uvx detection being incorrectly identified as venv installation - reordered detection checks to check for uvx cache paths (`cache/uv/`) BEFORE checking for virtual environments, since uvx creates temporary venvs. Service file now correctly uses `uvx check_zpools` instead of ephemeral cache paths like `/root/.cache/uv/archive-v0/.../bin/check_zpools`
 
@@ -19,7 +18,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ### Changed
 - **Config Display Enhancement**: `config` command now shows the source layer and file path for each configuration value, making it easier to understand where settings are coming from (e.g., `[defaults: /path/to/defaultconfig.toml]`, `[user: ~/.config/...]`, `[env]`)
 - **Email Configuration**: Added `[email]` section to defaultconfig.toml with all SMTP settings and secure defaults (empty password, localhost defaults)
-- **Environment Variable Names**: Corrected all environment variable prefixes to `CHECK_ZPOOLS_*` format throughout documentation
+- **Environment Variable Names**: Corrected all environment variable prefixes to `CHECK_ZPOOLS_*` format throughot documentation
 ### Fixed
 - **Service Installation**: Fixed installation failure when invoked with relative/absolute path (e.g., `./check_zpools install-service`) - now uses `sys.argv[0]` to detect invocation path instead of only searching PATH
 - **Email Configuration Documentation**: Added comprehensive security warnings and best practices for SMTP password configuration, emphasizing environment variables over config files
