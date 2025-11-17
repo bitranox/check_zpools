@@ -77,14 +77,27 @@ def format_check_result_text(result: CheckResult) -> str:
     lines.append(f"\nZFS Pool Check - {timestamp_str}")
     lines.append(f"Overall Status: {result.overall_severity.value.upper()}\n")
 
+    # Pool Status Summary
+    lines.append("Pool Status:")
+    for pool in result.pools:
+        health_color = "green" if pool.health.is_healthy() else "red"
+        capacity_color = "green" if pool.capacity_percent < 80 else ("yellow" if pool.capacity_percent < 90 else "red")
+
+        lines.append(
+            f"  [{health_color}]{pool.name}[/{health_color}]: "
+            f"{pool.health.value} | "
+            f"Capacity: [{capacity_color}]{pool.capacity_percent:.1f}%[/{capacity_color}] | "
+            f"Errors: {pool.read_errors}R/{pool.write_errors}W/{pool.checksum_errors}C"
+        )
+
     # Issues
     if result.issues:
-        lines.append("Issues Found:")
+        lines.append("\nIssues Found:")
         for issue in result.issues:
             severity_color = _get_severity_color(issue.severity)
             lines.append(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
     else:
-        lines.append("[green]No issues detected[/green]")
+        lines.append("\n[green]No issues detected[/green]")
 
     # Summary
     lines.append(f"\nPools Checked: {len(result.pools)}")

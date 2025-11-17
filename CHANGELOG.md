@@ -3,14 +3,15 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
-## [1.0.2] - 2025-11-17
+## [1.0.3] - 2025-11-17
+### Changed
+- **CLI Output Enhancement**: `check` command now displays status summary for each pool (health, capacity, error counts) even when no issues are detected, providing better visibility into pool states
 
+## [1.0.2] - 2025-11-17
 ### Fixed
 - **Error Monitoring Logic**: Fixed false positives where pools with 0 errors were triggering warnings - now only warns when errors are actually present (> 0)
 
-
 ## [1.0.1] - 2025-11-17
-
 ### Fixed
 - **ZFS Parser Compatibility**: Fixed parsing for newer ZFS JSON output format
   - Capacity parsing now handles "%" suffix in capacity values (e.g., "2%" → 2.0)
@@ -19,7 +20,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Scrub timestamp parsing supports Unix timestamps and human-readable datetime strings
   - Convert `scrub_errors` string values to integers to prevent type comparison errors
 - **CLI Output**: Fixed color rendering in `check` command - now properly displays colored output using Rich Console instead of showing markup tags
-
 
 ### Added
 - `python-dateutil>=2.8.2` dependency for robust datetime string parsing
@@ -31,7 +31,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Generates systemd service files tailored to the detected installation method
 
 ## [1.0.0] - 2025-11-17
-
 ### Added - ZFS Pool Monitoring
 - **ZFS Data Models** (`models.py`): Comprehensive data structures for pool status and issues
   - `PoolHealth`, `Severity` enumerations
