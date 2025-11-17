@@ -59,6 +59,7 @@ from .behaviors import (
 from .config import get_config
 from .config_deploy import deploy_configuration
 from .config_show import display_config
+from .formatters import format_check_result_json, format_check_result_text, get_exit_code_for_severity
 from .logging_setup import init_logging
 from .mail import EmailConfig, load_email_config_from_dict, send_email, send_notification
 from .service_install import install_service, show_service_status, uninstall_service
@@ -1026,52 +1027,14 @@ def cli_check(format: str) -> None:
         try:
             result = check_pools_once()
 
-            if format == "json":
-                import json
+            # Format and display output
+            output = format_check_result_json(result) if format == "json" else format_check_result_text(result)
+            click.echo(output)
 
-                data = {
-                    "timestamp": result.timestamp.isoformat(),
-                    "pools": [
-                        {
-                            "name": pool.name,
-                            "health": pool.health.value,
-                            "capacity_percent": pool.capacity_percent,
-                        }
-                        for pool in result.pools
-                    ],
-                    "issues": [
-                        {
-                            "pool_name": issue.pool_name,
-                            "severity": issue.severity.value,
-                            "category": issue.category,
-                            "message": issue.message,
-                            "details": issue.details,
-                        }
-                        for issue in result.issues
-                    ],
-                    "overall_severity": result.overall_severity.value,
-                }
-                click.echo(json.dumps(data, indent=2))
-            else:
-                # Text format
-                click.echo(f"\nZFS Pool Check - {result.timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-                click.echo(f"Overall Status: {result.overall_severity.value.upper()}\n")
-
-                if result.issues:
-                    click.echo("Issues Found:")
-                    for issue in result.issues:
-                        severity_color = "red" if issue.severity.value == "CRITICAL" else "yellow" if issue.severity.value == "WARNING" else "green"
-                        click.echo(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
-                else:
-                    click.echo("[green]No issues detected[/green]")
-
-                click.echo(f"\nPools Checked: {len(result.pools)}")
-
-            # Set exit code based on severity
-            if result.overall_severity.value == "CRITICAL":
-                raise SystemExit(2)
-            elif result.overall_severity.value == "WARNING":
-                raise SystemExit(1)
+            # Exit with appropriate code
+            exit_code = get_exit_code_for_severity(result.overall_severity)
+            if exit_code != 0:
+                raise SystemExit(exit_code)
 
         except ZFSNotAvailableError as exc:
             logger.error("ZFS not available", extra={"error": str(exc)})
