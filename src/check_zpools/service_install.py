@@ -60,7 +60,8 @@ def _check_root_privileges() -> None:
     if platform.system() == "Windows":
         raise NotImplementedError("Systemd service installation is not supported on Windows")
 
-    if os.geteuid() != 0:
+    # Use hasattr check for type checker compatibility across platforms
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:  # type: ignore[attr-defined]
         logger.error("Service installation requires root privileges")
         raise PermissionError("This command must be run as root (use sudo).\nExample: sudo check_zpools install-service")
 
