@@ -169,6 +169,68 @@ def _detect_invocation_method() -> tuple[str, Path | None]:
     return ("direct", exec_path_resolved)
 
 
+def _extract_uvx_version_from_process_tree() -> str | None:
+    """Extract uvx version specifier from parent process command line.
+
+    When running via uvx with a version (e.g., `uvx check_zpools@latest service-install`),
+    this function detects the version specifier from the process tree.
+
+    Returns
+        Version specifier (e.g., '@latest', '@1.0.0') or None if not found.
+
+    Examples
+        >>> # When invoked as: uvx check_zpools@latest service-install
+        >>> _extract_uvx_version_from_process_tree()  # doctest: +SKIP
+        '@latest'
+    """
+    try:
+        import psutil
+        import re
+
+        current_process = psutil.Process()
+        ancestor = current_process.parent()
+        max_depth = 10
+        depth = 0
+
+        # Pattern to match check_zpools with version specifier
+        # Matches: check_zpools@latest, check_zpools@1.0.0, check_zpools@2.0.3, etc.
+        version_pattern = re.compile(r"check_zpools(@[a-zA-Z0-9._-]+)")
+
+        while ancestor and depth < max_depth:
+            try:
+                cmdline = ancestor.cmdline()
+                logger.debug(f"Checking ancestor at depth {depth}: pid={ancestor.pid}, cmdline={cmdline}")
+
+                # Check all command line arguments for version specifier
+                if cmdline:
+                    for i, arg in enumerate(cmdline):
+                        if "check_zpools" in arg:
+                            logger.debug(f"  Found 'check_zpools' in cmdline[{i}]: {arg}")
+                            match = version_pattern.search(arg)
+                            if match:
+                                version_spec = match.group(1)  # Returns '@latest', '@1.0.0', etc.
+                                logger.info(f"Found uvx version specifier in process tree at depth {depth}: {version_spec}")
+                                return version_spec
+                            else:
+                                logger.debug("  No version specifier in this argument")
+
+                ancestor = ancestor.parent()
+                depth += 1
+
+            except Exception as e:
+                logger.debug(f"Error checking ancestor at depth {depth}: {e}")
+                try:
+                    ancestor = ancestor.parent()
+                    depth += 1
+                except Exception:
+                    break
+
+    except Exception as e:
+        logger.debug(f"Could not extract uvx version from process tree: {e}")
+
+    return None
+
+
 def _find_uvx_executable(check_zpools_path: Path | None) -> Path:
     """Find uvx executable respecting user's invocation choice.
 
@@ -379,26 +441,33 @@ def _generate_service_file_content(
     Returns
         Complete systemd service file content as string.
     """
-    # Determine the correct ExecStart command based on installation method
+    # Determine the correct ExecStart command and writable paths based on installation method
+    # For uvx, we need to allow writes to uv's cache directory
     if method == "uvx":
         # uvx runs tools on-the-fly without permanent installation
         # Add version specifier if provided (e.g., check_zpools@latest)
         package_spec = f"check_zpools{uvx_version}" if uvx_version else "check_zpools"
         exec_start = f"{executable_path} {package_spec} daemon --foreground"
         working_dir_line = ""  # uvx doesn't need specific working directory
+        # uvx needs write access to its cache directory
+        extra_writable_paths = " /root/.cache/uv"
     elif method == "uv":
         # uv run needs the project directory
         exec_start = f"{executable_path} run check_zpools daemon --foreground"
         working_dir_line = f"WorkingDirectory={Path.cwd()}"
+        # uv also needs cache access
+        extra_writable_paths = " /root/.cache/uv"
     elif method == "venv" and venv_path:
         exec_start = f"{executable_path} daemon --foreground"
         # For venv, we need to ensure the venv's bin directory is in PATH
         venv_bin = venv_path / "bin"
         working_dir_line = f'Environment="PATH={venv_bin}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
+        extra_writable_paths = ""
     else:
         # Direct installation
         exec_start = f"{executable_path} daemon --foreground"
         working_dir_line = ""
+        extra_writable_paths = ""
 
     service_content = f"""[Unit]
 Description=ZFS Pool Monitoring Daemon
@@ -421,7 +490,7 @@ Restart=on-failure
 RestartSec=10s
 
 # Resource limits
-MemoryLimit=256M
+MemoryMax=256M
 CPUQuota=10%
 
 # Security hardening
@@ -429,7 +498,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths={CACHE_DIR} {LIB_DIR}
+ReadWritePaths={CACHE_DIR} {LIB_DIR}{extra_writable_paths}
 
 # Logging
 StandardOutput=journal
@@ -574,6 +643,19 @@ def install_service(*, enable: bool = True, start: bool = True, uvx_version: str
 
         venv_path = Path(sys.prefix)
         logger.info(f"Virtual environment: {venv_path}")
+
+    # Auto-detect uvx version if not provided and method is uvx
+    if method == "uvx" and uvx_version is None:
+        logger.info("Attempting to auto-detect uvx version specifier from process tree...")
+        detected_version = _extract_uvx_version_from_process_tree()
+        if detected_version:
+            uvx_version = detected_version
+            logger.info(f"Auto-detected uvx version specifier: {uvx_version}")
+        else:
+            logger.warning("uvx installation detected but no version specifier found in process tree.")
+            logger.warning("Service will use 'uvx check_zpools' without version specifier.")
+            logger.warning("This may cause the service to fail. Consider running with --uvx-version flag.")
+            logger.warning("Example: uvx check_zpools@latest service-install --uvx-version @latest")
 
     # Create directories
     _create_service_directories()

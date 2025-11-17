@@ -3,6 +3,25 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.0.4] - 2025-11-18
+### Fixed
+- **Service Installation (uvx cache directory access)**: Fixed "Read-only file system" error when running daemon via uvx
+  - Added `/root/.cache/uv` to `ReadWritePaths` in systemd service file for uvx installations
+  - uvx needs write access to its cache directory even with `ProtectSystem=strict`
+  - **Why this matters**: uvx creates temporary venvs in `/root/.cache/uv/` on every invocation, which was blocked by systemd's filesystem protection
+- **Service Installation (MemoryLimit deprecation)**: Changed `MemoryLimit` to `MemoryMax` in systemd service file
+  - Follows systemd best practices and eliminates deprecation warning
+- **Service Installation (Enhanced logging for version detection)**: Improved logging to help diagnose uvx version detection issues
+  - Added detailed debug logging showing each ancestor process checked
+  - Added warnings when version specifier not found in process tree
+  - Provides helpful error message with example command when auto-detection fails
+
+### Documentation
+- **Important**: When installing service via uvx, you MUST include the version specifier in the invocation:
+  - ✅ Correct: `uvx check_zpools@latest service-install`
+  - ❌ Wrong: `uvx check_zpools service-install`
+- Without `@latest` (or `@version`), the generated service file will fail because uvx cannot resolve the package
+
 ## [2.0.3] - 2025-11-17
 ### Fixed
 - **Service Installation (uvx detection via 'uv tool uvx')**: Fixed uvx detection when uvx is invoked as a wrapper around `uv tool uvx`
@@ -12,6 +31,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Continues searching even if individual ancestors fail (improved error handling)
   - Resolves relative paths to absolute paths for accurate matching
   - **Why this matters**: Modern uvx implementations exec to `uv tool uvx`, so the parent process is `uv` not `uvx`. We must detect this pattern and find the actual uvx binary in the same directory as uv.
+
+### Added
+- **Service Installation (Auto-detect uvx version)**: Automatically detects version specifier when invoked via uvx
+  - Scans process tree for `check_zpools@version` pattern (e.g., `check_zpools@latest`, `check_zpools@1.0.0`)
+  - Automatically includes version specifier in systemd service file ExecStart
+  - No need to manually specify `--uvx-version` parameter - it's extracted from invocation
+  - **Why this matters**: When user runs `uvx check_zpools@latest service-install`, the service file will use `uvx check_zpools@latest daemon` instead of just `uvx check_zpools daemon`, ensuring the service runs the correct version
 
 ## [2.0.0] - 2025-11-17
 ### Changed - BREAKING CHANGES
