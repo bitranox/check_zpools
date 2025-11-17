@@ -23,6 +23,16 @@
 - **Layered Configuration**: Flexible config system (defaults → app → host → user → .env → env)
 - **Structured Logging**: Rich console output with journald, eventlog, and Graylog/GELF support
 
+## Platform Support
+
+**Current Status:**
+- **Linux/FreeBSD/macOS:** Full support with local ZFS pools
+- **Windows:** Limited support - ZFS pools are not natively available on Windows
+  - CLI commands work but require ZFS to be present (e.g., via WSL)
+  - **Future:** Remote ZFS monitoring via SSH is planned, which will enable Windows users to monitor remote ZFS servers
+
+**Note:** The tool is primarily designed for systems running ZFS. Windows support is currently a preparation for future remote monitoring capabilities.
+
 ## Install - recommended via UV
 
 UV - the ultrafast installer - written in Rust (10–20× faster than pip/poetry)
