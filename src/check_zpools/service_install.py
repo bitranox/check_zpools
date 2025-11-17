@@ -195,19 +195,52 @@ def _find_executable() -> Path:
     if method == "uvx":
         # For uvx, we need the uvx command
         uvx_path = shutil.which("uvx")
+        logger.info(f"[DEBUG] shutil.which('uvx') in _get_executable_path = {uvx_path}")
+        logger.info(f"[DEBUG] Path.cwd() = {Path.cwd()}")
+
         if uvx_path is None:
-            # uvx not in PATH - check if it's in the same directory as the detected path
+            # uvx not in PATH - try to find it by examining parent process
             # This handles cases like: ./uvx check_zpools install-service
+            search_locations = []
+
+            # Try to get parent process command line to find uvx
+            try:
+                import psutil
+
+                current_process = psutil.Process()
+                parent_process = current_process.parent()
+                if parent_process:
+                    parent_cmdline = parent_process.cmdline()
+                    logger.info(f"[DEBUG] Parent process cmdline: {parent_cmdline}")
+                    if parent_cmdline and len(parent_cmdline) > 0:
+                        # First element should be the uvx executable
+                        potential_uvx = Path(parent_cmdline[0])
+                        if potential_uvx.name in ("uvx", "uvx.exe"):
+                            search_locations.append(potential_uvx)
+            except (ImportError, Exception) as e:
+                logger.info(f"[DEBUG] Could not get parent process info: {e}")
+
+            # Fallback: check current working directory
+            search_locations.append(Path.cwd() / "uvx")
+
+            # Also check in the same directory as the detected check_zpools if available
             if path and path.parent.name == "bin":
-                potential_uvx = path.parent / "uvx"
+                search_locations.append(path.parent / "uvx")
+
+            logger.info(f"[DEBUG] Searching for uvx in locations: {search_locations}")
+            for potential_uvx in search_locations:
+                logger.info(f"[DEBUG] Checking {potential_uvx} - exists: {potential_uvx.exists()}")
                 if potential_uvx.exists():
-                    logger.info(f"Found uvx in same directory as check_zpools: {potential_uvx}")
+                    logger.info(f"[DEBUG] Found uvx at: {potential_uvx} - RETURNING {potential_uvx.resolve()}")
                     return potential_uvx.resolve()
+
             raise FileNotFoundError(
                 "uvx installation detected but 'uvx' command not found in PATH.\n"
                 "Please ensure uvx is installed and accessible, or add it to your PATH.\n"
-                f"Detected path: {path}"
+                f"Detected path: {path}\n"
+                f"Searched locations: {search_locations}"
             )
+        logger.info(f"[DEBUG] Found uvx in PATH - RETURNING {Path(uvx_path).resolve()}")
         return Path(uvx_path).resolve()
 
     if method == "uv":

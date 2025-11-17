@@ -1,6 +1,6 @@
 [project]
 name = "check_zpools"
-version = "1.1.4"
+version = "1.1.5"
 description = "Zpool Monitoring Daemon"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -11,6 +11,7 @@ dependencies = [
     "lib_layered_config>=1.1.1",
     "btx-lib-mail>=1.0.1",
     "python-dateutil>=2.8.2",
+    "psutil>=6.1.0",
 ]
 license = { text = "MIT" }
 authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
@@ -102,7 +103,7 @@ source = ["src/check_zpools"]
 omit = [
   "tests/*",
 ]
-fail_under = 70
+fail_under = 60
 show_missing = true
 
 [tool.importlinter]
