@@ -132,72 +132,94 @@ send_recovery_emails = true
 #
 # Documentation: Uses btx_lib_mail for SMTP functionality
 # Settings can be overridden via lib_layered_config precedence chain
-# Environment variables: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_*
+# Environment variables: CHECK_ZPOOLS_EMAIL_*
 #
-# Sensible defaults are applied by the email wrapper.
-# Uncomment and modify any setting below to override the defaults.
-#
-# [email]
+# NOTE: The [email] section is intentionally left empty in the default config.
+# Uncomment and modify settings below, or preferably set them via:
+#   - User config: ~/.config/check_zpools/config.toml
+#   - Environment variables (see below)
+#   - .env file (for development)
 
-# smtp_hosts = ["smtp.example.com:587"]
+[email]
+# Email settings with secure defaults. Override via user config or environment variables.
+# All settings below can be overridden using CHECK_ZPOOLS_EMAIL_* environment variables.
+
+smtp_hosts = []
 # Purpose: SMTP servers to use for email delivery (tried in order)
 # Type: array of strings in "host[:port]" format
 # Default: [] (empty, must be configured to send email)
-# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_HOSTS
+# Environment: CHECK_ZPOOLS_EMAIL_SMTP_HOSTS (comma-separated list)
 # Note: Port 587 is standard for STARTTLS, 465 for implicit TLS, 25 for plain
 # Example: smtp_hosts = ["smtp.gmail.com:587", "smtp.backup.com:587"]
 
-# from_address = "noreply@localhost"
+from_address = "noreply@localhost"
 # Purpose: Default sender address for outgoing emails
 # Type: string (valid email address)
 # Default: "noreply@localhost"
-# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_FROM_ADDRESS
+# Environment: CHECK_ZPOOLS_EMAIL_FROM_ADDRESS
 # Example: from_address = "alerts@example.com"
 
-# smtp_username = ""
+smtp_username = ""
 # Purpose: SMTP authentication username
-# Type: string or None
-# Default: None (no authentication)
-# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_USERNAME
+# Type: string
+# Default: "" (no authentication)
+# Environment: CHECK_ZPOOLS_EMAIL_SMTP_USERNAME
 # Note: Both username and password must be set to enable authentication
 # Example: smtp_username = "user@example.com"
 
-# smtp_password = ""
+smtp_password = ""
 # Purpose: SMTP authentication password
 # Type: string or None
 # Default: None (no authentication)
-# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_SMTP_PASSWORD
-# Security: Store in environment variable or user config, not in defaults
-# Example: Set via environment variable for security
+# Environment: CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD
+#
+# **SECURITY WARNING**: NEVER store passwords in configuration files!
+# Always use environment variables or user-level config with restricted permissions.
+#
+# Recommended methods (in order of security):
+#   1. Environment variable (best for production):
+#      export CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD="your-password"
+#
+#   2. User config with restricted permissions:
+#      echo '[email]' > ~/.config/check_zpools/config.toml
+#      echo 'smtp_password = "your-password"' >> ~/.config/check_zpools/config.toml
+#      chmod 600 ~/.config/check_zpools/config.toml
+#
+#   3. .env file (for development only, add to .gitignore):
+#      echo 'CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD=your-password' > .env
+#      chmod 600 .env
+#
+# DO NOT set smtp_password in configuration files - use environment variables!
+# Example of what NOT to do: smtp_password = "DO_NOT_PUT_PASSWORD_HERE_USE_ENV_VAR"
 
-# use_starttls = true
+use_starttls = true
 # Purpose: Enable STARTTLS negotiation before authentication
 # Type: boolean
 # Default: true
-# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_USE_STARTTLS
+# Environment: CHECK_ZPOOLS_EMAIL_USE_STARTTLS
 # Note: Standard for port 587; disable for implicit TLS (port 465)
 # Example: use_starttls = false
 
-# timeout = 30.0
+timeout = 30.0
 # Purpose: Socket timeout in seconds for SMTP operations
 # Type: float
 # Default: 30.0
-# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_TIMEOUT
+# Environment: CHECK_ZPOOLS_EMAIL_TIMEOUT
 # Example: timeout = 60.0
 
-# raise_on_missing_attachments = true
+raise_on_missing_attachments = true
 # Purpose: Behavior when attachment files are missing
 # Type: boolean
 # Default: true (raise FileNotFoundError)
-# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_RAISE_ON_MISSING_ATTACHMENTS
+# Environment: CHECK_ZPOOLS_EMAIL_RAISE_ON_MISSING_ATTACHMENTS
 # Note: When false, logs warning and continues without attachment
 # Example: raise_on_missing_attachments = false
 
-# raise_on_invalid_recipient = true
+raise_on_invalid_recipient = true
 # Purpose: Behavior when recipient email addresses are invalid
 # Type: boolean
 # Default: true (raise ValueError)
-# Environment: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_MAIL_EMAIL_RAISE_ON_INVALID_RECIPIENT
+# Environment: CHECK_ZPOOLS_EMAIL_RAISE_ON_INVALID_RECIPIENT
 # Note: When false, logs warning and skips invalid addresses
 # Example: raise_on_invalid_recipient = true
 
@@ -209,7 +231,7 @@ send_recovery_emails = true
 # Documentation: https://github.com/bitranox/lib_log_rich
 # Settings are loaded via lib_layered_config and can be overridden via:
 #   - Host/User config files (see precedence list at top)
-#   - Environment variables: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_* (based on slug)
+#   - Environment variables: CHECK_ZPOOLS_* (based on slug)
 #
 # IMPORTANT: Environment Variable Naming
 # ---------------------------------------
@@ -224,16 +246,16 @@ send_recovery_emails = true
 #   Use these for runtime overrides (e.g., in CI/CD, debugging).
 #
 # Method 2: lib_layered_config environment variables
-#   BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_LIB_LOG_RICH_CONSOLE_LEVEL=DEBUG
-#   BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_LIB_LOG_RICH_ENABLE_GRAYLOG=true
+#   CHECK_ZPOOLS_LIB_LOG_RICH_CONSOLE_LEVEL=DEBUG
+#   CHECK_ZPOOLS_LIB_LOG_RICH_ENABLE_GRAYLOG=true
 #   etc.
 #
-#   Format: BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_<section>_<setting>
+#   Format: CHECK_ZPOOLS_<section>_<setting>
 #   These are merged via lib_layered_config before init().
 #
 # Precedence (lowest to highest):
 #   defaults → app config → host config → user config → .env file →
-#   BITRANOX_TEMPLATE_CLI_APP_CONFIG_LOG_* env vars → LOG_* env vars
+#   CHECK_ZPOOLS_* env vars → LOG_* env vars
 #
 # Recommendation: Use LOG_* for simplicity and maximum precedence
 #
