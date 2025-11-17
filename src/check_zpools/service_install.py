@@ -90,50 +90,63 @@ def _detect_invocation_method() -> tuple[str, Path | None]:
     # First, try to get the path from how we were invoked
     # This handles cases like './check_zpools' or '/path/to/check_zpools'
     invoked_path = Path(sys.argv[0]).resolve()
+    logger.info(f"[DEBUG] sys.argv[0] = {sys.argv[0]}")
+    logger.info(f"[DEBUG] invoked_path (resolved) = {invoked_path}")
+    logger.info(f"[DEBUG] invoked_path.exists() = {invoked_path.exists()}")
+    logger.info(f"[DEBUG] invoked_path.name = {invoked_path.name}")
+
     if invoked_path.exists() and invoked_path.name in ("check_zpools", "__main__.py"):
         # We were invoked directly, use this path
         exec_path_str = str(invoked_path)
-        logger.debug(f"Using invoked path: {invoked_path}")
+        exec_path_resolved = invoked_path
+        logger.info(f"[DEBUG] Using invoked path: {invoked_path}")
     else:
+        logger.info("[DEBUG] Invoked path not usable, falling back to PATH search")
         # Fall back to searching PATH
         exec_path_str = shutil.which("check_zpools")
+        logger.info(f"[DEBUG] shutil.which('check_zpools') = {exec_path_str}")
 
-    # Check if we can find check_zpools at all
-    exec_path = exec_path_str
+        # If check_zpools is not directly in PATH, it might be uvx-only
+        if exec_path_str is None:
+            # Check if uvx is available
+            uvx_path = shutil.which("uvx")
+            logger.info(f"[DEBUG] shutil.which('uvx') = {uvx_path}")
+            if uvx_path is not None:
+                logger.info("[DEBUG] check_zpools not in PATH, but uvx found - assuming uvx installation - RETURNING (uvx, None)")
+                return ("uvx", None)
 
-    # If check_zpools is not directly in PATH, it might be uvx-only
-    if exec_path is None:
-        # Check if uvx is available
-        uvx_path = shutil.which("uvx")
-        if uvx_path is not None:
-            logger.info("check_zpools not in PATH, but uvx found - assuming uvx installation")
-            return ("uvx", None)
+            logger.error("Could not find check_zpools executable in PATH")
+            raise FileNotFoundError("check_zpools executable not found in PATH.\nPlease ensure it is installed and accessible.")
 
-        logger.error("Could not find check_zpools executable in PATH")
-        raise FileNotFoundError("check_zpools executable not found in PATH.\nPlease ensure it is installed and accessible.")
-
-    exec_path_resolved = Path(exec_path).resolve()
+        exec_path_resolved = Path(exec_path_str).resolve()
+        logger.info(f"[DEBUG] exec_path_resolved (from PATH) = {exec_path_resolved}")
 
     # Check if this is actually a uvx shim/wrapper
     # uvx creates wrappers in ~/.local/bin that aren't real installations
+    logger.info(f"[DEBUG] Checking for uvx shim: parent.name={exec_path_resolved.parent.name}")
     if exec_path_resolved.parent.name == ".local" and (exec_path_resolved.parent.parent / ".local" / "bin").exists():
         # Could be uvx or regular pip install --user
         # Check if there's actual package data or just a shim
         try:
             # If this is a uvx shim, it will be very small and just redirect
-            if exec_path_resolved.stat().st_size < 1000:  # Real Python scripts are usually larger
-                logger.info("Detected uvx shim in ~/.local/bin")
+            file_size = exec_path_resolved.stat().st_size
+            logger.info(f"[DEBUG] File size: {file_size} bytes")
+            if file_size < 1000:  # Real Python scripts are usually larger
+                logger.info("[DEBUG] Detected uvx shim in ~/.local/bin - RETURNING (uvx, None)")
                 return ("uvx", None)
-        except OSError:
+        except OSError as e:
+            logger.info(f"[DEBUG] OSError checking file size: {e}")
             pass
 
     # Check if the executable is in uvx cache BEFORE checking venv
     # IMPORTANT: uvx creates temporary venvs, so we must check cache path first!
     # uvx stores tools in ~/.cache/uv/ or %LOCALAPPDATA%/uv/ (Windows)
     exec_path_str = str(exec_path_resolved)
+    logger.info(f"[DEBUG] Checking for uvx cache in path: {exec_path_str}")
     if "cache/uv/" in exec_path_str or "cache\\uv\\" in exec_path_str:
-        logger.info("Detected uvx cache installation (cache/uv/ in path)")
-        return ("uvx", None)
+        logger.info(f"[DEBUG] Detected uvx cache installation (cache/uv/ in path) - RETURNING (uvx, {exec_path_resolved})")
+        # Return the detected path so we can find uvx in the same bin directory
+        return ("uvx", exec_path_resolved)
 
     # Check if running from a virtual environment
     # This must come AFTER uvx check because uvx uses temporary venvs

@@ -3,6 +3,9 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.1.4] - 2025-11-17
+- **UVX debug Version
+
 ## [1.1.3] - 2025-11-17
 - **Service Installation (uvx not in PATH)**: Fixed installation failure when uvx is invoked with relative/absolute path (e.g., `./uvx check_zpools install-service`) - now searches for uvx in the same directory as the detected check_zpools executable when uvx is not found in PATH
 
