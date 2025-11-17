@@ -12,9 +12,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Scrub detection handles both `scan_stats` (newer) and `scan` (older) field names
   - Scrub timestamp parsing supports Unix timestamps and human-readable datetime strings
   - Convert `scrub_errors` string values to integers to prevent type comparison errors
+- **CLI Output**: Fixed color rendering in `check` command - now properly displays colored output using Rich Console instead of showing markup tags
 
 ### Added
 - `python-dateutil>=2.8.2` dependency for robust datetime string parsing
+- **Smart Service Installation**: Automatic detection of installation method for systemd service
+  - Detects virtual environment installations and configures PATH appropriately
+  - Detects UV project installations (`uv run check_zpools`)
+  - Detects uvx installations (`uvx check_zpools`)
+  - Detects direct pip installations (system/user)
+  - Generates systemd service files tailored to the detected installation method
 
 ## [1.0.0] - 2025-11-17
 

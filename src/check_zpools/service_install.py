@@ -66,6 +66,85 @@ def _check_root_privileges() -> None:
         raise PermissionError("This command must be run as root (use sudo).\nExample: sudo check_zpools install-service")
 
 
+def _detect_invocation_method() -> tuple[str, Path | None]:
+    """Detect how check_zpools was invoked (direct, venv, uv, uvx, etc.).
+
+    Why
+        Different installation methods require different systemd ExecStart
+        configurations. We need to preserve the execution environment.
+
+    Returns
+        Tuple of (method, path):
+        - ("direct", Path): Direct executable (pip install --user, system)
+        - ("venv", Path): Virtual environment (path to venv/bin/check_zpools)
+        - ("uv", None): UV-managed project (use 'uv run check_zpools')
+        - ("uvx", None): UV tool runner (use 'uvx check_zpools')
+
+    Examples
+        >>> method, path = _detect_invocation_method()  # doctest: +SKIP
+        >>> if method == "venv":  # doctest: +SKIP
+        ...     print(f"Running from venv: {path}")
+    """
+    import sys
+
+    # Check if we can find check_zpools at all
+    exec_path = shutil.which("check_zpools")
+
+    # If check_zpools is not directly in PATH, it might be uvx-only
+    if exec_path is None:
+        # Check if uvx is available
+        uvx_path = shutil.which("uvx")
+        if uvx_path is not None:
+            logger.info("check_zpools not in PATH, but uvx found - assuming uvx installation")
+            return ("uvx", None)
+
+        logger.error("Could not find check_zpools executable in PATH")
+        raise FileNotFoundError("check_zpools executable not found in PATH.\nPlease ensure it is installed and accessible.")
+
+    exec_path_resolved = Path(exec_path).resolve()
+
+    # Check if this is actually a uvx shim/wrapper
+    # uvx creates wrappers in ~/.local/bin that aren't real installations
+    if exec_path_resolved.parent.name == ".local" and (exec_path_resolved.parent.parent / ".local" / "bin").exists():
+        # Could be uvx or regular pip install --user
+        # Check if there's actual package data or just a shim
+        try:
+            # If this is a uvx shim, it will be very small and just redirect
+            if exec_path_resolved.stat().st_size < 1000:  # Real Python scripts are usually larger
+                logger.info("Detected uvx shim in ~/.local/bin")
+                return ("uvx", None)
+        except OSError:
+            pass
+
+    # Check if running from a virtual environment
+    if hasattr(sys, "prefix") and sys.prefix != sys.base_prefix:
+        # We're in a venv
+        venv_root = Path(sys.prefix)
+        logger.info(f"Detected virtual environment: {venv_root}")
+        return ("venv", exec_path_resolved)
+
+    # Check if UV project is being used (UV_PROJECT_ROOT or pyproject.toml with uv.lock)
+    if os.environ.get("UV_PROJECT_ROOT"):
+        logger.info("Detected UV environment (UV_PROJECT_ROOT set)")
+        return ("uv", None)
+
+    # Check if the executable is in a directory structure suggesting UV cache
+    if ".uv" in str(exec_path_resolved.parent) or "uv/cache" in str(exec_path_resolved):
+        logger.info("Detected UV cache installation (.uv in path)")
+        return ("uv", None)
+
+    # Check for uv.lock in the current or parent directories (UV project)
+    current_dir = Path.cwd()
+    for parent in [current_dir] + list(current_dir.parents)[:3]:  # Check up to 3 levels
+        if (parent / "uv.lock").exists():
+            logger.info(f"Detected UV project (uv.lock found in {parent})")
+            return ("uv", None)
+
+    # Default to direct installation
+    logger.info(f"Using direct executable path: {exec_path_resolved}")
+    return ("direct", exec_path_resolved)
+
+
 def _find_executable() -> Path:
     """Locate the check_zpools executable in PATH.
 
@@ -73,16 +152,31 @@ def _find_executable() -> Path:
         Need absolute path to executable for systemd ExecStart directive.
 
     Returns
-        Absolute path to check_zpools executable.
+        Absolute path to check_zpools executable (or uv/uvx for UV installations).
 
     Raises
         FileNotFoundError: When check_zpools not found in PATH.
     """
-    exec_path = shutil.which("check_zpools")
-    if exec_path is None:
-        logger.error("Could not find check_zpools executable in PATH")
-        raise FileNotFoundError("check_zpools executable not found in PATH.\nPlease ensure it is installed and accessible.")
-    return Path(exec_path).resolve()
+    method, path = _detect_invocation_method()
+
+    if method == "uvx":
+        # For uvx, we need the uvx command
+        uvx_path = shutil.which("uvx")
+        if uvx_path is None:
+            raise FileNotFoundError("uvx installation detected but 'uvx' command not found in PATH")
+        return Path(uvx_path).resolve()
+
+    if method == "uv":
+        # For UV project, we'll use 'uv run check_zpools'
+        uv_path = shutil.which("uv")
+        if uv_path is None:
+            raise FileNotFoundError("UV installation detected but 'uv' command not found in PATH")
+        return Path(uv_path).resolve()
+
+    if path is None:
+        raise FileNotFoundError("Could not determine executable path")
+
+    return path
 
 
 def _create_service_directories() -> None:
@@ -103,18 +197,41 @@ def _create_service_directories() -> None:
             logger.debug(f"Directory already exists: {directory}")
 
 
-def _generate_service_file_content(executable_path: Path) -> str:
+def _generate_service_file_content(executable_path: Path, method: str, venv_path: Path | None = None) -> str:
     """Generate systemd service file content with correct executable path.
 
     Parameters
     ----------
     executable_path:
-        Absolute path to check_zpools executable.
+        Absolute path to check_zpools executable (or uv/uvx for UV installations).
+    method:
+        Installation method detected ("direct", "venv", "uv", "uvx").
+    venv_path:
+        Path to virtual environment root (for venv installations).
 
     Returns
         Complete systemd service file content as string.
     """
-    return f"""[Unit]
+    # Determine the correct ExecStart command based on installation method
+    if method == "uvx":
+        # uvx runs tools on-the-fly, can use --from for specific version
+        exec_start = f"{executable_path} check_zpools daemon --foreground"
+        working_dir_line = ""  # uvx doesn't need specific working directory
+    elif method == "uv":
+        # uv run needs the project directory
+        exec_start = f"{executable_path} run check_zpools daemon --foreground"
+        working_dir_line = f"WorkingDirectory={Path.cwd()}"
+    elif method == "venv" and venv_path:
+        exec_start = f"{executable_path} daemon --foreground"
+        # For venv, we need to ensure the venv's bin directory is in PATH
+        venv_bin = venv_path / "bin"
+        working_dir_line = f'Environment="PATH={venv_bin}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
+    else:
+        # Direct installation
+        exec_start = f"{executable_path} daemon --foreground"
+        working_dir_line = ""
+
+    service_content = f"""[Unit]
 Description=ZFS Pool Monitoring Daemon
 Documentation=https://github.com/bitranox/check_zpools
 After=network-online.target zfs-mount.service zfs-import.target
@@ -126,8 +243,9 @@ Type=simple
 User=root
 Group=root
 
-# Path to check_zpools executable
-ExecStart={executable_path} daemon --foreground
+# Path to check_zpools executable ({method} installation)
+ExecStart={exec_start}
+{working_dir_line}
 
 # Restart policy
 Restart=on-failure
@@ -161,20 +279,25 @@ KillSignal=SIGTERM
 [Install]
 WantedBy=multi-user.target
 """
+    return service_content
 
 
-def _install_service_file(executable_path: Path) -> None:
+def _install_service_file(executable_path: Path, method: str, venv_path: Path | None = None) -> None:
     """Write systemd service file to /etc/systemd/system/.
 
     Parameters
     ----------
     executable_path:
-        Absolute path to check_zpools executable.
+        Absolute path to check_zpools executable (or uv for UV installations).
+    method:
+        Installation method detected ("direct", "venv", "uv").
+    venv_path:
+        Path to virtual environment root (for venv installations).
 
     Side Effects
         Creates {SERVICE_FILE_PATH} with mode 644.
     """
-    content = _generate_service_file_content(executable_path)
+    content = _generate_service_file_content(executable_path, method, venv_path)
     logger.info(f"Installing service file: {SERVICE_FILE_PATH}")
     SERVICE_FILE_PATH.write_text(content, encoding="utf-8")
     SERVICE_FILE_PATH.chmod(0o644)
@@ -255,14 +378,28 @@ def install_service(*, enable: bool = True, start: bool = True) -> None:
 
     # Verify prerequisites
     _check_root_privileges()
+
+    # Detect installation method
+    method, detected_path = _detect_invocation_method()
+    logger.info(f"Detected installation method: {method}")
+
+    # Get the executable path (might be uv for UV installations)
     executable_path = _find_executable()
-    logger.info(f"Found executable: {executable_path}")
+    logger.info(f"Using executable: {executable_path}")
+
+    # Determine venv path if applicable
+    venv_path = None
+    if method == "venv" and detected_path:
+        import sys
+
+        venv_path = Path(sys.prefix)
+        logger.info(f"Virtual environment: {venv_path}")
 
     # Create directories
     _create_service_directories()
 
     # Install service file
-    _install_service_file(executable_path)
+    _install_service_file(executable_path, method, venv_path)
 
     # Reload systemd daemon
     logger.info("Reloading systemd daemon")

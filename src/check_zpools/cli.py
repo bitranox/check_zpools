@@ -42,6 +42,7 @@ import logging
 from typing import Final, Optional, Sequence, Tuple
 
 import rich_click as click
+from rich.console import Console
 
 import lib_cli_exit_tools
 import lib_log_rich.runtime
@@ -1029,8 +1030,15 @@ def cli_check(format: str) -> None:
             result = check_pools_once()
 
             # Format and display output
-            output = format_check_result_json(result) if format == "json" else format_check_result_text(result)
-            click.echo(output)
+            if format == "json":
+                # JSON output - use click.echo for plain text
+                output = format_check_result_json(result)
+                click.echo(output)
+            else:
+                # Text output with Rich markup - use Rich Console for color rendering
+                output = format_check_result_text(result)
+                console = Console()
+                console.print(output)
 
             # Exit with appropriate code
             exit_code = get_exit_code_for_severity(result.overall_severity)
