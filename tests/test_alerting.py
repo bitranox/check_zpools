@@ -6,6 +6,9 @@ Tests cover:
 - Recovery email generation
 - Error handling for failed sends
 - Configuration handling
+
+All tests are OS-agnostic (email logic works everywhere).
+SMTP functionality is tested with mocks (no real email sending in unit tests).
 """
 
 from __future__ import annotations
@@ -18,6 +21,86 @@ import pytest
 from check_zpools.alerting import EmailAlerter
 from check_zpools.mail import EmailConfig
 from check_zpools.models import PoolHealth, PoolIssue, PoolStatus, Severity
+
+
+# ============================================================================
+# Test Data Builders
+# ============================================================================
+
+
+def a_pool_for_alerting(
+    name: str = "rpool",
+    capacity: float = 50.0,
+    scrub_in_progress: bool = False,
+    last_scrub: datetime | None = None,
+) -> PoolStatus:
+    """Create a pool for alerting tests."""
+    if last_scrub is None:
+        last_scrub = datetime.now(UTC)
+
+    return PoolStatus(
+        name=name,
+        health=PoolHealth.ONLINE,
+        capacity_percent=capacity,
+        size_bytes=1024**4,
+        allocated_bytes=int((capacity / 100.0) * 1024**4),
+        free_bytes=int(((100.0 - capacity) / 100.0) * 1024**4),
+        read_errors=0,
+        write_errors=0,
+        checksum_errors=0,
+        last_scrub=last_scrub,
+        scrub_errors=0,
+        scrub_in_progress=scrub_in_progress,
+    )
+
+
+def a_capacity_issue(pool_name: str = "rpool", severity: Severity = Severity.WARNING) -> PoolIssue:
+    """Create a capacity issue for testing."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=severity,
+        category="capacity",
+        message="Pool capacity at 85.5%",
+        details={"threshold": 80, "actual": 85.5},
+    )
+
+
+def an_error_issue(pool_name: str = "rpool") -> PoolIssue:
+    """Create an error issue for testing."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=Severity.WARNING,
+        category="errors",
+        message="Read errors detected",
+        details={},
+    )
+
+
+def a_scrub_issue(pool_name: str = "rpool") -> PoolIssue:
+    """Create a scrub issue for testing."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=Severity.INFO,
+        category="scrub",
+        message="Scrub overdue",
+        details={},
+    )
+
+
+def a_health_issue(pool_name: str = "rpool") -> PoolIssue:
+    """Create a health issue for testing."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=Severity.CRITICAL,
+        category="health",
+        message="Pool degraded",
+        details={},
+    )
+
+
+# ============================================================================
+# Test Fixtures
+# ============================================================================
 
 
 @pytest.fixture
@@ -80,21 +163,42 @@ def sample_issue() -> PoolIssue:
     )
 
 
-class TestEmailAlerter:
-    """Test EmailAlerter functionality."""
+@pytest.mark.os_agnostic
+class TestEmailAlerterInitialization:
+    """When creating an email alerter, configuration is applied correctly."""
 
-    def test_alerter_initializes_with_config(self, email_config: EmailConfig, alert_config: dict) -> None:
-        """Alerter should initialize with provided config."""
+    def test_alerter_stores_email_config(self, email_config: EmailConfig, alert_config: dict) -> None:
+        """When initializing with email config,
+        the alerter stores the configuration."""
         alerter = EmailAlerter(email_config, alert_config)
 
         assert alerter.email_config == email_config
+
+    def test_alerter_applies_custom_subject_prefix(self, email_config: EmailConfig, alert_config: dict) -> None:
+        """When config specifies subject_prefix,
+        the alerter uses that prefix."""
+        alerter = EmailAlerter(email_config, alert_config)
+
         assert alerter.subject_prefix == "[ZFS Test]"
+
+    def test_alerter_stores_alert_recipients(self, email_config: EmailConfig, alert_config: dict) -> None:
+        """When config specifies alert_recipients,
+        the alerter stores the recipient list."""
+        alerter = EmailAlerter(email_config, alert_config)
+
         assert alerter.recipients == ["admin@example.com"]
 
-    def test_alerter_uses_default_subject_prefix(self, email_config: EmailConfig) -> None:
-        """Alerter should use default prefix if not specified."""
+    def test_alerter_uses_default_subject_prefix_when_not_configured(self, email_config: EmailConfig) -> None:
+        """When config omits subject_prefix,
+        the alerter uses '[ZFS Alert]' as default."""
         alerter = EmailAlerter(email_config, {})
+
         assert alerter.subject_prefix == "[ZFS Alert]"
+
+
+@pytest.mark.os_agnostic
+class TestEmailSubjectFormatting:
+    """When formatting email subjects, content is descriptive and clear."""
 
     def test_format_subject_includes_severity_and_pool(self, alerter: EmailAlerter) -> None:
         """Subject should include severity, pool name, and message."""

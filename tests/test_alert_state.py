@@ -6,6 +6,9 @@ Tests cover:
 - State persistence (load/save)
 - Recovery detection (clear_issue)
 - Error handling (corrupt files, missing data)
+- Boundary conditions (exact interval times)
+
+All tests are OS-agnostic (pure Python state management and JSON serialization).
 """
 
 from __future__ import annotations
@@ -20,35 +23,95 @@ from check_zpools.alert_state import AlertState, AlertStateManager
 from check_zpools.models import PoolIssue, Severity
 
 
-@pytest.fixture
-def temp_state_file(tmp_path: Path) -> Path:
-    """Create a temporary state file path."""
-    return tmp_path / "alert_state.json"
+# ============================================================================
+# Test Helpers
+# ============================================================================
 
 
-@pytest.fixture
-def state_manager(temp_state_file: Path) -> AlertStateManager:
-    """Create a state manager with temporary file."""
-    return AlertStateManager(temp_state_file, resend_interval_hours=24)
-
-
-@pytest.fixture
-def sample_issue() -> PoolIssue:
-    """Create a sample pool issue for testing."""
+def a_capacity_issue_for(pool_name: str) -> PoolIssue:
+    """Create a capacity warning issue for a pool."""
     return PoolIssue(
-        pool_name="rpool",
+        pool_name=pool_name,
         severity=Severity.WARNING,
         category="capacity",
-        message="Pool capacity at 85%",
+        message=f"Pool {pool_name} capacity at 85%",
         details={"capacity_percent": 85},
     )
 
 
-class TestAlertState:
-    """Test AlertState dataclass."""
+def an_error_issue_for(pool_name: str) -> PoolIssue:
+    """Create an errors warning issue for a pool."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=Severity.WARNING,
+        category="errors",
+        message=f"Pool {pool_name} has read errors",
+        details={},
+    )
 
-    def test_alert_state_creation(self) -> None:
-        """AlertState should be created with all required fields."""
+
+def a_health_issue_for(pool_name: str) -> PoolIssue:
+    """Create a health critical issue for a pool."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=Severity.CRITICAL,
+        category="health",
+        message=f"Pool {pool_name} is degraded",
+        details={},
+    )
+
+
+def an_alert_state(
+    pool_name: str,
+    category: str,
+    hours_ago: int = 0,
+    alert_count: int = 1,
+) -> AlertState:
+    """Create an alert state with configurable age."""
+    timestamp = datetime.now(UTC) - timedelta(hours=hours_ago)
+    return AlertState(
+        pool_name=pool_name,
+        issue_category=category,
+        first_seen=timestamp,
+        last_alerted=timestamp,
+        alert_count=alert_count,
+    )
+
+
+def a_state_manager(tmp_path: Path, resend_hours: int = 24) -> AlertStateManager:
+    """Create an alert state manager with temporary storage."""
+    state_file = tmp_path / "alert_state.json"
+    return AlertStateManager(state_file, resend_interval_hours=resend_hours)
+
+
+# ============================================================================
+# Tests: AlertState Value Object
+# ============================================================================
+
+
+class TestAlertStateCreation:
+    """AlertState objects preserve all their attributes."""
+
+    @pytest.mark.os_agnostic
+    def test_alert_state_remembers_pool_name(self) -> None:
+        """When creating an alert state with a pool name,
+        it faithfully preserves that name."""
+        state = an_alert_state("rpool", "capacity")
+
+        assert state.pool_name == "rpool"
+
+    @pytest.mark.os_agnostic
+    def test_alert_state_remembers_issue_category(self) -> None:
+        """When creating an alert state with a category,
+        it faithfully preserves that category."""
+        state = an_alert_state("rpool", "capacity")
+
+        assert state.issue_category == "capacity"
+
+    @pytest.mark.os_agnostic
+    def test_alert_state_remembers_timestamps(self) -> None:
+        """When creating an alert state with timestamps,
+        it preserves both first_seen and last_alerted."""
         now = datetime.now(UTC)
         state = AlertState(
             pool_name="rpool",
@@ -58,107 +121,335 @@ class TestAlertState:
             alert_count=1,
         )
 
-        assert state.pool_name == "rpool"
-        assert state.issue_category == "capacity"
         assert state.first_seen == now
         assert state.last_alerted == now
-        assert state.alert_count == 1
+
+    @pytest.mark.os_agnostic
+    def test_alert_state_remembers_alert_count(self) -> None:
+        """When creating an alert state with a count,
+        it preserves that count accurately."""
+        state = an_alert_state("rpool", "capacity", alert_count=5)
+
+        assert state.alert_count == 5
 
 
-class TestAlertStateManager:
-    """Test AlertStateManager functionality."""
+# ============================================================================
+# Tests: AlertStateManager Initialization
+# ============================================================================
 
-    def test_manager_creates_state_directory(self, temp_state_file: Path) -> None:
-        """Manager should create state directory if it doesn't exist."""
-        AlertStateManager(temp_state_file, resend_interval_hours=24)
-        assert temp_state_file.parent.exists()
 
-    def test_manager_starts_with_empty_state(self, state_manager: AlertStateManager) -> None:
-        """New manager should have no tracked states."""
-        assert len(state_manager.states) == 0
+class TestStateManagerInitialization:
+    """State manager initializes correctly with filesystem storage."""
 
-    def test_should_alert_returns_true_for_new_issue(self, state_manager: AlertStateManager, sample_issue: PoolIssue) -> None:
-        """New issues should always trigger alerts."""
-        result = state_manager.should_alert(sample_issue)
+    @pytest.mark.os_agnostic
+    def test_manager_creates_parent_directory_if_missing(self, tmp_path: Path) -> None:
+        """When creating a state manager with a non-existent directory,
+        the manager creates the directory automatically."""
+        state_file = tmp_path / "subdir" / "alert_state.json"
+
+        AlertStateManager(state_file, resend_interval_hours=24)
+
+        assert state_file.parent.exists()
+
+    @pytest.mark.os_agnostic
+    def test_new_manager_starts_with_empty_state(self, tmp_path: Path) -> None:
+        """When creating a new state manager with no existing state file,
+        it has no tracked alert states."""
+        manager = a_state_manager(tmp_path)
+
+        assert len(manager.states) == 0
+
+
+# ============================================================================
+# Tests: Alert Deduplication Logic
+# ============================================================================
+
+
+class TestNewIssueDetection:
+    """New issues always trigger alerts."""
+
+    @pytest.mark.os_agnostic
+    def test_brand_new_issue_should_alert(self, tmp_path: Path) -> None:
+        """When checking an issue never seen before,
+        should_alert returns True."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+
+        result = manager.should_alert(issue)
+
         assert result is True
 
-    def test_should_alert_returns_false_within_interval(self, state_manager: AlertStateManager, sample_issue: PoolIssue) -> None:
-        """Duplicate alerts within resend interval should be suppressed."""
-        # Record initial alert
-        state_manager.record_alert(sample_issue)
 
-        # Immediate recheck should suppress
-        result = state_manager.should_alert(sample_issue)
+class TestAlertSuppressionWithinInterval:
+    """Duplicate alerts within resend interval are suppressed."""
+
+    @pytest.mark.os_agnostic
+    def test_immediate_duplicate_is_suppressed(self, tmp_path: Path) -> None:
+        """When checking the same issue immediately after alerting,
+        should_alert returns False."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+        issue = a_capacity_issue_for("rpool")
+
+        manager.record_alert(issue)
+        result = manager.should_alert(issue)
+
         assert result is False
 
-    def test_should_alert_returns_true_after_interval(self, temp_state_file: Path, sample_issue: PoolIssue) -> None:
-        """Alerts should resend after configured interval."""
-        manager = AlertStateManager(temp_state_file, resend_interval_hours=1)
+    @pytest.mark.os_agnostic
+    def test_duplicate_after_one_hour_is_suppressed(self, tmp_path: Path) -> None:
+        """When checking an issue 1 hour after alerting (interval=24h),
+        should_alert returns False."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+        issue = a_capacity_issue_for("rpool")
 
-        # Record alert with timestamp 2 hours ago
-        past_time = datetime.now(UTC) - timedelta(hours=2)
-        manager.states["rpool:capacity"] = AlertState(
-            pool_name="rpool",
-            issue_category="capacity",
-            first_seen=past_time,
-            last_alerted=past_time,
-            alert_count=1,
-        )
+        # Simulate alert 1 hour ago
+        manager.states["rpool:capacity"] = an_alert_state("rpool", "capacity", hours_ago=1)
 
-        # Should allow resend
-        result = manager.should_alert(sample_issue)
+        result = manager.should_alert(issue)
+
+        assert result is False
+
+
+class TestAlertResendAfterInterval:
+    """Alerts resend after the configured interval expires."""
+
+    @pytest.mark.os_agnostic
+    def test_resend_after_exact_interval_boundary(self, tmp_path: Path) -> None:
+        """When checking an issue exactly 24 hours after last alert (interval=24h),
+        should_alert returns True."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+        issue = a_capacity_issue_for("rpool")
+
+        # Simulate alert exactly 24 hours ago
+        manager.states["rpool:capacity"] = an_alert_state("rpool", "capacity", hours_ago=24)
+
+        result = manager.should_alert(issue)
+
         assert result is True
 
-    def test_record_alert_creates_new_state(self, state_manager: AlertStateManager, sample_issue: PoolIssue) -> None:
-        """Recording alert for new issue should create state."""
-        state_manager.record_alert(sample_issue)
+    @pytest.mark.os_agnostic
+    def test_resend_after_interval_plus_one_hour(self, tmp_path: Path) -> None:
+        """When checking an issue 25 hours after last alert (interval=24h),
+        should_alert returns True."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+        issue = a_capacity_issue_for("rpool")
 
-        assert "rpool:capacity" in state_manager.states
-        state = state_manager.states["rpool:capacity"]
+        # Simulate alert 25 hours ago
+        manager.states["rpool:capacity"] = an_alert_state("rpool", "capacity", hours_ago=25)
+
+        result = manager.should_alert(issue)
+
+        assert result is True
+
+    @pytest.mark.os_agnostic
+    def test_short_interval_allows_faster_resends(self, tmp_path: Path) -> None:
+        """When using a 1-hour resend interval,
+        alerts resend after 1 hour has passed."""
+        manager = a_state_manager(tmp_path, resend_hours=1)
+        issue = a_capacity_issue_for("rpool")
+
+        # Simulate alert 2 hours ago
+        manager.states["rpool:capacity"] = an_alert_state("rpool", "capacity", hours_ago=2)
+
+        result = manager.should_alert(issue)
+
+        assert result is True
+
+
+# ============================================================================
+# Tests: Recording Alerts
+# ============================================================================
+
+
+class TestRecordingNewAlerts:
+    """Recording alerts for new issues creates state entries."""
+
+    @pytest.mark.os_agnostic
+    def test_recording_creates_state_entry(self, tmp_path: Path) -> None:
+        """When recording an alert for a new issue,
+        a state entry is created with the correct key."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+
+        manager.record_alert(issue)
+
+        assert "rpool:capacity" in manager.states
+
+    @pytest.mark.os_agnostic
+    def test_recorded_state_has_correct_pool_name(self, tmp_path: Path) -> None:
+        """When recording an alert,
+        the created state preserves the pool name."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+
+        manager.record_alert(issue)
+        state = manager.states["rpool:capacity"]
+
         assert state.pool_name == "rpool"
+
+    @pytest.mark.os_agnostic
+    def test_recorded_state_has_correct_category(self, tmp_path: Path) -> None:
+        """When recording an alert,
+        the created state preserves the issue category."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+
+        manager.record_alert(issue)
+        state = manager.states["rpool:capacity"]
+
         assert state.issue_category == "capacity"
+
+    @pytest.mark.os_agnostic
+    def test_new_alert_starts_with_count_one(self, tmp_path: Path) -> None:
+        """When recording an alert for a new issue,
+        the alert count starts at 1."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+
+        manager.record_alert(issue)
+        state = manager.states["rpool:capacity"]
+
         assert state.alert_count == 1
 
-    def test_record_alert_increments_count(self, state_manager: AlertStateManager, sample_issue: PoolIssue) -> None:
-        """Recording alert for existing issue should increment count."""
-        state_manager.record_alert(sample_issue)
-        state_manager.record_alert(sample_issue)
 
-        state = state_manager.states["rpool:capacity"]
+class TestRecordingRepeatedAlerts:
+    """Recording alerts for existing issues increments the count."""
+
+    @pytest.mark.os_agnostic
+    def test_second_alert_increments_count_to_two(self, tmp_path: Path) -> None:
+        """When recording a second alert for the same issue,
+        the alert count increases to 2."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+
+        manager.record_alert(issue)
+        manager.record_alert(issue)
+
+        state = manager.states["rpool:capacity"]
         assert state.alert_count == 2
 
-    def test_clear_issue_removes_state(self, state_manager: AlertStateManager, sample_issue: PoolIssue) -> None:
-        """Clearing an issue should remove its state."""
-        state_manager.record_alert(sample_issue)
-        assert "rpool:capacity" in state_manager.states
+    @pytest.mark.os_agnostic
+    def test_third_alert_increments_count_to_three(self, tmp_path: Path) -> None:
+        """When recording a third alert for the same issue,
+        the alert count increases to 3."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
 
-        result = state_manager.clear_issue("rpool", "capacity")
+        manager.record_alert(issue)
+        manager.record_alert(issue)
+        manager.record_alert(issue)
+
+        state = manager.states["rpool:capacity"]
+        assert state.alert_count == 3
+
+
+# ============================================================================
+# Tests: Clearing Issues (Recovery Detection)
+# ============================================================================
+
+
+class TestClearingExistingIssues:
+    """Clearing issues removes their state entries."""
+
+    @pytest.mark.os_agnostic
+    def test_clearing_removes_state_entry(self, tmp_path: Path) -> None:
+        """When clearing an issue that has state,
+        the state entry is removed."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+        manager.record_alert(issue)
+
+        manager.clear_issue("rpool", "capacity")
+
+        assert "rpool:capacity" not in manager.states
+
+    @pytest.mark.os_agnostic
+    def test_clearing_returns_true_when_found(self, tmp_path: Path) -> None:
+        """When clearing an issue that exists,
+        clear_issue returns True."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+        manager.record_alert(issue)
+
+        result = manager.clear_issue("rpool", "capacity")
+
         assert result is True
-        assert "rpool:capacity" not in state_manager.states
 
-    def test_clear_issue_returns_false_if_not_exists(self, state_manager: AlertStateManager) -> None:
-        """Clearing non-existent issue should return False."""
-        result = state_manager.clear_issue("nonexistent", "capacity")
+
+class TestClearingNonexistentIssues:
+    """Clearing issues that don't exist returns False gracefully."""
+
+    @pytest.mark.os_agnostic
+    def test_clearing_nonexistent_returns_false(self, tmp_path: Path) -> None:
+        """When clearing an issue that doesn't exist,
+        clear_issue returns False."""
+        manager = a_state_manager(tmp_path)
+
+        result = manager.clear_issue("nonexistent", "capacity")
+
         assert result is False
 
-    def test_save_state_creates_json_file(self, state_manager: AlertStateManager, sample_issue: PoolIssue) -> None:
-        """Saving state should create JSON file."""
-        state_manager.record_alert(sample_issue)
-        state_manager.save_state()
 
-        assert state_manager.state_file.exists()
+# ============================================================================
+# Tests: State Persistence (Save/Load)
+# ============================================================================
 
-        # Verify JSON structure
-        with state_manager.state_file.open("r") as f:
+
+class TestSavingState:
+    """Saving state writes JSON to filesystem."""
+
+    @pytest.mark.os_agnostic
+    def test_save_creates_json_file(self, tmp_path: Path) -> None:
+        """When saving state,
+        a JSON file is created at the configured path."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+        manager.record_alert(issue)
+
+        manager.save_state()
+
+        assert manager.state_file.exists()
+
+    @pytest.mark.os_agnostic
+    def test_saved_json_has_version_field(self, tmp_path: Path) -> None:
+        """When saving state,
+        the JSON includes a version field."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+        manager.record_alert(issue)
+
+        manager.save_state()
+
+        with manager.state_file.open("r") as f:
             data = json.load(f)
 
         assert data["version"] == 1
+
+    @pytest.mark.os_agnostic
+    def test_saved_json_includes_alert_states(self, tmp_path: Path) -> None:
+        """When saving state,
+        the JSON includes all recorded alert states."""
+        manager = a_state_manager(tmp_path)
+        issue = a_capacity_issue_for("rpool")
+        manager.record_alert(issue)
+
+        manager.save_state()
+
+        with manager.state_file.open("r") as f:
+            data = json.load(f)
+
         assert "alerts" in data
         assert "rpool:capacity" in data["alerts"]
 
-    def test_load_state_restores_from_file(self, temp_state_file: Path) -> None:
-        """Loading state should restore from JSON file."""
-        # Create state file manually
+
+class TestLoadingValidState:
+    """Loading state restores entries from JSON."""
+
+    @pytest.mark.os_agnostic
+    def test_load_restores_state_from_file(self, tmp_path: Path) -> None:
+        """When loading from a valid state file,
+        all alert states are restored."""
+        state_file = tmp_path / "alert_state.json"
         now = datetime.now(UTC)
         data = {
             "version": 1,
@@ -173,44 +464,66 @@ class TestAlertStateManager:
             },
         }
 
-        with temp_state_file.open("w") as f:
+        with state_file.open("w") as f:
             json.dump(data, f)
 
-        # Load into new manager
-        manager = AlertStateManager(temp_state_file, resend_interval_hours=24)
+        manager = AlertStateManager(state_file, resend_interval_hours=24)
 
         assert "rpool:capacity" in manager.states
         state = manager.states["rpool:capacity"]
         assert state.pool_name == "rpool"
         assert state.alert_count == 3
 
-    def test_load_state_handles_missing_file(self, temp_state_file: Path) -> None:
-        """Loading state with missing file should start empty."""
-        manager = AlertStateManager(temp_state_file, resend_interval_hours=24)
+
+class TestLoadingWithMissingFile:
+    """Loading with missing state file starts empty gracefully."""
+
+    @pytest.mark.os_agnostic
+    def test_missing_file_starts_empty(self, tmp_path: Path) -> None:
+        """When the state file doesn't exist,
+        the manager starts with empty state."""
+        state_file = tmp_path / "nonexistent.json"
+
+        manager = AlertStateManager(state_file, resend_interval_hours=24)
+
         assert len(manager.states) == 0
 
-    def test_load_state_handles_corrupt_json(self, temp_state_file: Path) -> None:
-        """Loading state with corrupt JSON should start empty."""
-        # Write invalid JSON
-        temp_state_file.parent.mkdir(parents=True, exist_ok=True)
-        with temp_state_file.open("w") as f:
+
+class TestLoadingWithCorruptData:
+    """Loading with corrupt data handles errors gracefully."""
+
+    @pytest.mark.os_agnostic
+    def test_corrupt_json_starts_empty(self, tmp_path: Path) -> None:
+        """When the state file contains invalid JSON,
+        the manager starts with empty state."""
+        state_file = tmp_path / "alert_state.json"
+
+        with state_file.open("w") as f:
             f.write("{ invalid json }")
 
-        manager = AlertStateManager(temp_state_file, resend_interval_hours=24)
+        manager = AlertStateManager(state_file, resend_interval_hours=24)
+
         assert len(manager.states) == 0
 
-    def test_load_state_handles_wrong_version(self, temp_state_file: Path) -> None:
-        """Loading state with unknown version should start empty."""
+    @pytest.mark.os_agnostic
+    def test_wrong_version_starts_empty(self, tmp_path: Path) -> None:
+        """When the state file has an unknown version,
+        the manager starts with empty state."""
+        state_file = tmp_path / "alert_state.json"
         data = {"version": 999, "alerts": {}}
 
-        with temp_state_file.open("w") as f:
+        with state_file.open("w") as f:
             json.dump(data, f)
 
-        manager = AlertStateManager(temp_state_file, resend_interval_hours=24)
+        manager = AlertStateManager(state_file, resend_interval_hours=24)
+
         assert len(manager.states) == 0
 
-    def test_load_state_skips_corrupt_entries(self, temp_state_file: Path) -> None:
-        """Loading state should skip corrupt entries but load valid ones."""
+    @pytest.mark.os_agnostic
+    def test_corrupt_entries_are_skipped_but_valid_loaded(self, tmp_path: Path) -> None:
+        """When some alert entries are corrupt,
+        valid entries are loaded and corrupt ones are skipped."""
+        state_file = tmp_path / "alert_state.json"
         now = datetime.now(UTC)
         data = {
             "version": 1,
@@ -229,71 +542,90 @@ class TestAlertStateManager:
             },
         }
 
-        with temp_state_file.open("w") as f:
+        with state_file.open("w") as f:
             json.dump(data, f)
 
-        manager = AlertStateManager(temp_state_file, resend_interval_hours=24)
+        manager = AlertStateManager(state_file, resend_interval_hours=24)
 
-        # Should load valid entry, skip corrupt one
         assert "rpool:capacity" in manager.states
         assert "bad:entry" not in manager.states
 
-    def test_state_persists_across_instances(self, temp_state_file: Path, sample_issue: PoolIssue) -> None:
-        """State should persist when manager is recreated."""
-        # Create manager and record alert
-        manager1 = AlertStateManager(temp_state_file, resend_interval_hours=24)
-        manager1.record_alert(sample_issue)
 
-        # Create new manager instance
-        manager2 = AlertStateManager(temp_state_file, resend_interval_hours=24)
+# ============================================================================
+# Tests: State Persistence Across Instances
+# ============================================================================
 
-        # Should have loaded state
+
+class TestStatePersistenceAcrossRestarts:
+    """State persists when manager instances are recreated."""
+
+    @pytest.mark.os_agnostic
+    def test_state_survives_manager_recreation(self, tmp_path: Path) -> None:
+        """When a manager records state and a new manager is created,
+        the new manager loads the previous state."""
+        state_file = tmp_path / "alert_state.json"
+        issue = a_capacity_issue_for("rpool")
+
+        # Create first manager and record alert
+        manager1 = AlertStateManager(state_file, resend_interval_hours=24)
+        manager1.record_alert(issue)
+
+        # Create second manager instance
+        manager2 = AlertStateManager(state_file, resend_interval_hours=24)
+
         assert "rpool:capacity" in manager2.states
         assert manager2.states["rpool:capacity"].alert_count == 1
 
-    def test_multiple_issues_tracked_separately(self, state_manager: AlertStateManager) -> None:
-        """Multiple issues should be tracked independently."""
-        issue1 = PoolIssue(
-            pool_name="rpool",
-            severity=Severity.WARNING,
-            category="capacity",
-            message="High capacity",
-            details={},
-        )
-        issue2 = PoolIssue(
-            pool_name="rpool",
-            severity=Severity.WARNING,
-            category="errors",
-            message="Read errors detected",
-            details={},
-        )
 
-        state_manager.record_alert(issue1)
-        state_manager.record_alert(issue2)
+# ============================================================================
+# Tests: Multiple Issues Tracking
+# ============================================================================
 
-        assert "rpool:capacity" in state_manager.states
-        assert "rpool:errors" in state_manager.states
-        assert len(state_manager.states) == 2
 
-    def test_different_pools_same_category(self, state_manager: AlertStateManager) -> None:
-        """Same category on different pools should be tracked separately."""
-        issue1 = PoolIssue(
-            pool_name="rpool",
-            severity=Severity.WARNING,
-            category="capacity",
-            message="High capacity",
-            details={},
-        )
-        issue2 = PoolIssue(
-            pool_name="data",
-            severity=Severity.WARNING,
-            category="capacity",
-            message="High capacity",
-            details={},
-        )
+class TestTrackingMultipleIssues:
+    """Multiple issues are tracked independently."""
 
-        state_manager.record_alert(issue1)
-        state_manager.record_alert(issue2)
+    @pytest.mark.os_agnostic
+    def test_different_categories_on_same_pool_tracked_separately(self, tmp_path: Path) -> None:
+        """When recording alerts for different categories on the same pool,
+        each category is tracked independently."""
+        manager = a_state_manager(tmp_path)
+        capacity_issue = a_capacity_issue_for("rpool")
+        error_issue = an_error_issue_for("rpool")
 
-        assert "rpool:capacity" in state_manager.states
-        assert "data:capacity" in state_manager.states
+        manager.record_alert(capacity_issue)
+        manager.record_alert(error_issue)
+
+        assert "rpool:capacity" in manager.states
+        assert "rpool:errors" in manager.states
+        assert len(manager.states) == 2
+
+    @pytest.mark.os_agnostic
+    def test_same_category_on_different_pools_tracked_separately(self, tmp_path: Path) -> None:
+        """When recording alerts for the same category on different pools,
+        each pool is tracked independently."""
+        manager = a_state_manager(tmp_path)
+        rpool_issue = a_capacity_issue_for("rpool")
+        data_issue = a_capacity_issue_for("data")
+
+        manager.record_alert(rpool_issue)
+        manager.record_alert(data_issue)
+
+        assert "rpool:capacity" in manager.states
+        assert "data:capacity" in manager.states
+        assert len(manager.states) == 2
+
+    @pytest.mark.os_agnostic
+    def test_three_different_issues_all_tracked(self, tmp_path: Path) -> None:
+        """When recording alerts for three different issues,
+        all three are tracked independently."""
+        manager = a_state_manager(tmp_path)
+
+        manager.record_alert(a_capacity_issue_for("rpool"))
+        manager.record_alert(an_error_issue_for("rpool"))
+        manager.record_alert(a_health_issue_for("data"))
+
+        assert len(manager.states) == 3
+        assert "rpool:capacity" in manager.states
+        assert "rpool:errors" in manager.states
+        assert "data:health" in manager.states

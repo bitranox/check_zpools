@@ -891,6 +891,21 @@ rm ~/.cache/check_zpools/alert_state.json
 
 ---
 
+## Future Enhancements
+
+We're always looking to improve `check_zpools`! Here are some planned features and enhancement requests for future versions:
+
+- **Web dashboard** for status visualization
+- **Metrics export** in Prometheus format
+- **Remote ZFS pools** monitoring via SSH
+- **Integration** with monitoring systems (Nagios, Zabbix, etc.)
+- **Snapshot monitoring** and management capabilities
+- **Dataset-level monitoring** (in addition to pools)
+
+Have an idea or feature request? Please open an issue on GitHub!
+
+---
+
 ## Support
 
 - **Issues:** https://github.com/bitranox/check_zpools/issues

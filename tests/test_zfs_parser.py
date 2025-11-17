@@ -4,6 +4,9 @@ Purpose
 -------
 Validate ZFS JSON parsing logic using sample data files. Tests handle various
 pool states, missing fields, and data merging scenarios.
+
+All tests are OS-agnostic (JSON parsing logic works everywhere).
+Tests use real ZFS JSON fixtures (not mocks).
 """
 
 from __future__ import annotations
@@ -115,6 +118,7 @@ class TestParsePoolList:
         assert pools["testpool"].health == PoolHealth.ONLINE
 
 
+@pytest.mark.os_agnostic
 class TestParsePoolStatus:
     """Tests for parsing zpool status output."""
 
@@ -179,6 +183,7 @@ class TestParsePoolStatus:
         assert pools["testpool"].health == PoolHealth.OFFLINE  # Default fallback
 
 
+@pytest.mark.os_agnostic
 class TestMergePoolData:
     """Tests for merging data from list and status."""
 

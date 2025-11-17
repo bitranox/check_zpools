@@ -5,6 +5,9 @@ Purpose
 Verify that the mail wrapper correctly integrates btx_lib_mail with the
 application's configuration system and provides a clean interface for
 email operations.
+
+All tests are OS-agnostic (email logic works everywhere).
+SMTP tests use mocks (no real SMTP servers needed).
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ from check_zpools.mail import (
 )
 
 
+@pytest.mark.os_agnostic
 class TestEmailConfig:
     """Test EmailConfig dataclass."""
 
@@ -126,6 +130,7 @@ class TestEmailConfig:
         assert conf.smtp_use_starttls is True
 
 
+@pytest.mark.os_agnostic
 class TestLoadEmailConfigFromDict:
     """Test load_email_config_from_dict function."""
 
@@ -184,6 +189,7 @@ class TestLoadEmailConfigFromDict:
         assert config.from_address == "noreply@localhost"
 
 
+@pytest.mark.os_agnostic
 class TestSendEmail:
     """Test send_email function."""
 
@@ -299,6 +305,7 @@ class TestSendEmail:
         assert result is True
 
 
+@pytest.mark.os_agnostic
 class TestSendNotification:
     """Test send_notification convenience function."""
 
@@ -337,6 +344,7 @@ class TestSendNotification:
         assert result is True
 
 
+@pytest.mark.os_agnostic
 class TestEmailErrorScenarios:
     """Test error handling in email functionality."""
 

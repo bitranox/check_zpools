@@ -5,6 +5,8 @@ Tests cover:
 - Text formatting with issues and without issues
 - Severity color mapping
 - Exit code mapping
+
+All tests are OS-agnostic (pure Python string formatting and JSON serialization).
 """
 
 from __future__ import annotations
@@ -22,11 +24,15 @@ from check_zpools.formatters import (
 from check_zpools.models import CheckResult, PoolHealth, PoolIssue, PoolStatus, Severity
 
 
-@pytest.fixture
-def healthy_pool() -> PoolStatus:
-    """Create a healthy pool status."""
+# ============================================================================
+# Test Fixtures & Helpers
+# ============================================================================
+
+
+def a_healthy_pool_named(name: str) -> PoolStatus:
+    """Create a healthy pool with sensible defaults."""
     return PoolStatus(
-        name="rpool",
+        name=name,
         health=PoolHealth.ONLINE,
         capacity_percent=50.0,
         size_bytes=1024**4,  # 1 TB
@@ -41,11 +47,29 @@ def healthy_pool() -> PoolStatus:
     )
 
 
-@pytest.fixture
-def warning_issue() -> PoolIssue:
-    """Create a warning severity issue."""
+def a_pool_with(**overrides: object) -> PoolStatus:
+    """Create a pool with specific attributes overridden."""
+    defaults: dict[str, object] = {
+        "name": "test-pool",
+        "health": PoolHealth.ONLINE,
+        "capacity_percent": 50.0,
+        "size_bytes": 1024**4,
+        "allocated_bytes": int(0.5 * 1024**4),
+        "free_bytes": int(0.5 * 1024**4),
+        "read_errors": 0,
+        "write_errors": 0,
+        "checksum_errors": 0,
+        "last_scrub": datetime.now(UTC),
+        "scrub_errors": 0,
+        "scrub_in_progress": False,
+    }
+    return PoolStatus(**{**defaults, **overrides})  # type: ignore[arg-type]
+
+
+def a_warning_issue_for(pool_name: str) -> PoolIssue:
+    """Create a warning severity issue for capacity."""
     return PoolIssue(
-        pool_name="rpool",
+        pool_name=pool_name,
         severity=Severity.WARNING,
         category="capacity",
         message="Pool capacity is high",
@@ -53,11 +77,10 @@ def warning_issue() -> PoolIssue:
     )
 
 
-@pytest.fixture
-def critical_issue() -> PoolIssue:
-    """Create a critical severity issue."""
+def a_critical_issue_for(pool_name: str) -> PoolIssue:
+    """Create a critical severity issue for health."""
     return PoolIssue(
-        pool_name="rpool",
+        pool_name=pool_name,
         severity=Severity.CRITICAL,
         category="health",
         message="Pool is degraded",
@@ -65,102 +88,209 @@ def critical_issue() -> PoolIssue:
     )
 
 
-@pytest.fixture
-def ok_check_result(healthy_pool: PoolStatus) -> CheckResult:
-    """Create a check result with no issues."""
+def an_info_issue_for(pool_name: str) -> PoolIssue:
+    """Create an info severity issue for scrub status."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=Severity.INFO,
+        category="scrub",
+        message="Scrub completed",
+        details={},
+    )
+
+
+def an_issue_with(pool_name: str, severity: Severity, category: str, message: str) -> PoolIssue:
+    """Create a custom issue with specific attributes."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=severity,
+        category=category,
+        message=message,
+        details={},
+    )
+
+
+def a_check_result_with_no_issues() -> CheckResult:
+    """Create a check result with healthy pool and no issues."""
     return CheckResult(
         timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC),
-        pools=[healthy_pool],
+        pools=[a_healthy_pool_named("rpool")],
         issues=[],
         overall_severity=Severity.OK,
     )
 
 
-@pytest.fixture
-def warning_check_result(healthy_pool: PoolStatus, warning_issue: PoolIssue) -> CheckResult:
-    """Create a check result with warning issues."""
+def a_check_result_with_warning() -> CheckResult:
+    """Create a check result with one warning issue."""
     return CheckResult(
         timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC),
-        pools=[healthy_pool],
-        issues=[warning_issue],
+        pools=[a_healthy_pool_named("rpool")],
+        issues=[a_warning_issue_for("rpool")],
         overall_severity=Severity.WARNING,
     )
 
 
-@pytest.fixture
-def critical_check_result(healthy_pool: PoolStatus, critical_issue: PoolIssue) -> CheckResult:
-    """Create a check result with critical issues."""
+def a_check_result_with_critical() -> CheckResult:
+    """Create a check result with one critical issue."""
     return CheckResult(
         timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC),
-        pools=[healthy_pool],
-        issues=[critical_issue],
+        pools=[a_healthy_pool_named("rpool")],
+        issues=[a_critical_issue_for("rpool")],
         overall_severity=Severity.CRITICAL,
     )
 
 
-class TestFormatCheckResultJson:
-    """Test JSON formatting of check results."""
+# ============================================================================
+# Tests: JSON Formatting
+# ============================================================================
 
-    def test_format_ok_result(self, ok_check_result: CheckResult) -> None:
-        """Should format OK result as valid JSON."""
-        result = format_check_result_json(ok_check_result)
 
-        # Parse JSON to verify it's valid
-        data = json.loads(result)
+class TestJsonFormattingWithNoIssues:
+    """JSON formatter produces valid JSON for healthy pools."""
+
+    @pytest.mark.os_agnostic
+    def test_ok_result_produces_valid_json(self) -> None:
+        """When formatting a check result with no issues,
+        the output is valid, parseable JSON."""
+        result = a_check_result_with_no_issues()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)  # Should not raise
+
+        assert isinstance(data, dict)
+
+    @pytest.mark.os_agnostic
+    def test_ok_result_includes_timestamp(self) -> None:
+        """When formatting an OK result,
+        the JSON includes the ISO 8601 timestamp."""
+        result = a_check_result_with_no_issues()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
 
         assert data["timestamp"] == "2025-01-15T10:30:00+00:00"
+
+    @pytest.mark.os_agnostic
+    def test_ok_result_includes_overall_severity(self) -> None:
+        """When formatting an OK result,
+        the JSON includes overall_severity as 'OK'."""
+        result = a_check_result_with_no_issues()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
+
         assert data["overall_severity"] == "OK"
+
+    @pytest.mark.os_agnostic
+    def test_ok_result_includes_pool_details(self) -> None:
+        """When formatting an OK result,
+        the JSON includes all pool attributes."""
+        result = a_check_result_with_no_issues()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
+
         assert len(data["pools"]) == 1
         assert data["pools"][0]["name"] == "rpool"
         assert data["pools"][0]["health"] == "ONLINE"
         assert data["pools"][0]["capacity_percent"] == 50.0
+
+    @pytest.mark.os_agnostic
+    def test_ok_result_includes_empty_issues_list(self) -> None:
+        """When formatting an OK result with no problems,
+        the JSON includes an empty issues array."""
+        result = a_check_result_with_no_issues()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
+
         assert data["issues"] == []
 
-    def test_format_warning_result(self, warning_check_result: CheckResult) -> None:
-        """Should format warning result with issue details."""
-        result = format_check_result_json(warning_check_result)
 
-        data = json.loads(result)
+class TestJsonFormattingWithWarningIssues:
+    """JSON formatter correctly formats WARNING severity issues."""
+
+    @pytest.mark.os_agnostic
+    def test_warning_result_includes_warning_severity(self) -> None:
+        """When formatting a result with a warning,
+        the overall_severity is 'WARNING'."""
+        result = a_check_result_with_warning()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
 
         assert data["overall_severity"] == "WARNING"
+
+    @pytest.mark.os_agnostic
+    def test_warning_result_includes_issue_details(self) -> None:
+        """When formatting a warning result,
+        the JSON includes all issue attributes."""
+        result = a_check_result_with_warning()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
+
         assert len(data["issues"]) == 1
-        assert data["issues"][0]["pool_name"] == "rpool"
-        assert data["issues"][0]["severity"] == "WARNING"
-        assert data["issues"][0]["category"] == "capacity"
-        assert data["issues"][0]["message"] == "Pool capacity is high"
+        issue = data["issues"][0]
+        assert issue["pool_name"] == "rpool"
+        assert issue["severity"] == "WARNING"
+        assert issue["category"] == "capacity"
+        assert issue["message"] == "Pool capacity is high"
+
+    @pytest.mark.os_agnostic
+    def test_warning_result_includes_issue_detail_fields(self) -> None:
+        """When formatting a warning with custom details,
+        the JSON preserves the details dictionary."""
+        result = a_check_result_with_warning()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
+
         assert data["issues"][0]["details"]["threshold"] == "80%"
+        assert data["issues"][0]["details"]["current"] == "85%"
 
-    def test_format_critical_result(self, critical_check_result: CheckResult) -> None:
-        """Should format critical result with issue details."""
-        result = format_check_result_json(critical_check_result)
 
-        data = json.loads(result)
+class TestJsonFormattingWithCriticalIssues:
+    """JSON formatter correctly formats CRITICAL severity issues."""
+
+    @pytest.mark.os_agnostic
+    def test_critical_result_includes_critical_severity(self) -> None:
+        """When formatting a result with a critical issue,
+        the overall_severity is 'CRITICAL'."""
+        result = a_check_result_with_critical()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
 
         assert data["overall_severity"] == "CRITICAL"
+
+    @pytest.mark.os_agnostic
+    def test_critical_result_includes_health_category(self) -> None:
+        """When formatting a critical health issue,
+        the JSON includes the 'health' category."""
+        result = a_check_result_with_critical()
+
+        json_output = format_check_result_json(result)
+        data = json.loads(json_output)
+
         assert len(data["issues"]) == 1
         assert data["issues"][0]["severity"] == "CRITICAL"
         assert data["issues"][0]["category"] == "health"
 
-    def test_format_multiple_pools(self, healthy_pool: PoolStatus) -> None:
-        """Should format result with multiple pools."""
-        pool2 = PoolStatus(
-            name="tank",
-            health=PoolHealth.ONLINE,
-            capacity_percent=30.0,
-            size_bytes=2 * 1024**4,
-            allocated_bytes=int(0.3 * 2 * 1024**4),
-            free_bytes=int(0.7 * 2 * 1024**4),
-            read_errors=0,
-            write_errors=0,
-            checksum_errors=0,
-            last_scrub=None,
-            scrub_errors=0,
-            scrub_in_progress=False,
-        )
+
+class TestJsonFormattingWithMultipleEntities:
+    """JSON formatter handles multiple pools and issues correctly."""
+
+    @pytest.mark.os_agnostic
+    def test_multiple_pools_appear_in_json_array(self) -> None:
+        """When formatting a result with multiple pools,
+        the JSON includes all pools in the array."""
+        pool1 = a_healthy_pool_named("rpool")
+        pool2 = a_pool_with(name="tank", capacity_percent=30.0, last_scrub=None)
 
         result = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[healthy_pool, pool2],
+            pools=[pool1, pool2],
             issues=[],
             overall_severity=Severity.OK,
         )
@@ -172,12 +302,18 @@ class TestFormatCheckResultJson:
         assert data["pools"][0]["name"] == "rpool"
         assert data["pools"][1]["name"] == "tank"
 
-    def test_format_multiple_issues(self, healthy_pool: PoolStatus, warning_issue: PoolIssue, critical_issue: PoolIssue) -> None:
-        """Should format result with multiple issues."""
+    @pytest.mark.os_agnostic
+    def test_multiple_issues_appear_in_json_array(self) -> None:
+        """When formatting a result with multiple issues,
+        the JSON includes all issues in order."""
+        pool = a_healthy_pool_named("rpool")
+        warning = a_warning_issue_for("rpool")
+        critical = a_critical_issue_for("rpool")
+
         result = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[healthy_pool],
-            issues=[warning_issue, critical_issue],
+            pools=[pool],
+            issues=[warning, critical],
             overall_severity=Severity.CRITICAL,
         )
 
@@ -188,68 +324,222 @@ class TestFormatCheckResultJson:
         assert data["issues"][0]["severity"] == "WARNING"
         assert data["issues"][1]["severity"] == "CRITICAL"
 
-    def test_json_is_pretty_printed(self, ok_check_result: CheckResult) -> None:
-        """Should format JSON with indentation."""
-        result = format_check_result_json(ok_check_result)
 
-        # Pretty printed JSON should have newlines
-        assert "\n" in result
-        # Should have 2-space indentation
-        assert "  " in result
+class TestJsonFormattingStyle:
+    """JSON formatter produces human-readable pretty-printed output."""
+
+    @pytest.mark.os_agnostic
+    def test_json_output_is_pretty_printed_with_newlines(self) -> None:
+        """When formatting any result,
+        the JSON is pretty-printed with newlines."""
+        result = a_check_result_with_no_issues()
+
+        json_output = format_check_result_json(result)
+
+        assert "\n" in json_output
+
+    @pytest.mark.os_agnostic
+    def test_json_output_uses_two_space_indentation(self) -> None:
+        """When formatting any result,
+        the JSON uses 2-space indentation."""
+        result = a_check_result_with_no_issues()
+
+        json_output = format_check_result_json(result)
+
+        assert "  " in json_output
 
 
-class TestFormatCheckResultText:
-    """Test text formatting of check results."""
+# ============================================================================
+# Tests: Text Formatting
+# ============================================================================
 
-    def test_format_ok_result(self, ok_check_result: CheckResult) -> None:
-        """Should format OK result as human-readable text."""
-        result = format_check_result_text(ok_check_result)
 
-        assert "ZFS Pool Check" in result
-        assert "2025-01-15 10:30:00" in result
-        assert "Overall Status: OK" in result
-        assert "[green]No issues detected[/green]" in result
-        assert "Pools Checked: 1" in result
+class TestTextFormattingWithNoIssues:
+    """Text formatter produces human-readable output for healthy pools."""
 
-    def test_format_warning_result(self, warning_check_result: CheckResult) -> None:
-        """Should format warning result with colored issue."""
-        result = format_check_result_text(warning_check_result)
+    @pytest.mark.os_agnostic
+    def test_ok_result_includes_header(self) -> None:
+        """When formatting an OK result as text,
+        the output includes a 'ZFS Pool Check' header."""
+        result = a_check_result_with_no_issues()
 
-        assert "Overall Status: WARNING" in result
-        assert "Issues Found:" in result
-        assert "[yellow]WARNING[/yellow]" in result
-        assert "rpool: Pool capacity is high" in result
-        assert "Pools Checked: 1" in result
+        text = format_check_result_text(result)
 
-    def test_format_critical_result(self, critical_check_result: CheckResult) -> None:
-        """Should format critical result with red color."""
-        result = format_check_result_text(critical_check_result)
+        assert "ZFS Pool Check" in text
 
-        assert "Overall Status: CRITICAL" in result
-        assert "Issues Found:" in result
-        assert "[red]CRITICAL[/red]" in result
-        assert "rpool: Pool is degraded" in result
+    @pytest.mark.os_agnostic
+    def test_ok_result_includes_formatted_timestamp(self) -> None:
+        """When formatting an OK result as text,
+        the timestamp appears in human-readable format."""
+        result = a_check_result_with_no_issues()
 
-    def test_format_multiple_issues(self, healthy_pool: PoolStatus) -> None:
-        """Should format all issues in result."""
-        issue1 = PoolIssue(
-            pool_name="rpool",
-            severity=Severity.WARNING,
-            category="capacity",
-            message="High capacity",
-            details={},
-        )
-        issue2 = PoolIssue(
-            pool_name="rpool",
-            severity=Severity.CRITICAL,
-            category="health",
-            message="Degraded",
-            details={},
-        )
+        text = format_check_result_text(result)
+
+        assert "2025-01-15 10:30:00" in text
+
+    @pytest.mark.os_agnostic
+    def test_ok_result_shows_overall_status(self) -> None:
+        """When formatting an OK result as text,
+        the overall status is clearly labeled."""
+        result = a_check_result_with_no_issues()
+
+        text = format_check_result_text(result)
+
+        assert "Overall Status: OK" in text
+
+    @pytest.mark.os_agnostic
+    def test_ok_result_shows_no_issues_message(self) -> None:
+        """When formatting an OK result as text,
+        a green 'No issues detected' message appears."""
+        result = a_check_result_with_no_issues()
+
+        text = format_check_result_text(result)
+
+        assert "[green]No issues detected[/green]" in text
+
+    @pytest.mark.os_agnostic
+    def test_ok_result_shows_pool_count(self) -> None:
+        """When formatting an OK result as text,
+        the number of pools checked is displayed."""
+        result = a_check_result_with_no_issues()
+
+        text = format_check_result_text(result)
+
+        assert "Pools Checked: 1" in text
+
+
+class TestTextFormattingWithWarningIssues:
+    """Text formatter colors WARNING issues in yellow."""
+
+    @pytest.mark.os_agnostic
+    def test_warning_result_shows_warning_status(self) -> None:
+        """When formatting a warning result as text,
+        the overall status is 'WARNING'."""
+        result = a_check_result_with_warning()
+
+        text = format_check_result_text(result)
+
+        assert "Overall Status: WARNING" in text
+
+    @pytest.mark.os_agnostic
+    def test_warning_result_shows_issues_found_section(self) -> None:
+        """When formatting a warning result as text,
+        an 'Issues Found:' section appears."""
+        result = a_check_result_with_warning()
+
+        text = format_check_result_text(result)
+
+        assert "Issues Found:" in text
+
+    @pytest.mark.os_agnostic
+    def test_warning_severity_appears_in_yellow(self) -> None:
+        """When formatting a warning result as text,
+        the WARNING severity is colored yellow."""
+        result = a_check_result_with_warning()
+
+        text = format_check_result_text(result)
+
+        assert "[yellow]WARNING[/yellow]" in text
+
+    @pytest.mark.os_agnostic
+    def test_warning_result_includes_issue_message(self) -> None:
+        """When formatting a warning result as text,
+        the pool name and message appear."""
+        result = a_check_result_with_warning()
+
+        text = format_check_result_text(result)
+
+        assert "rpool: Pool capacity is high" in text
+
+
+class TestTextFormattingWithCriticalIssues:
+    """Text formatter colors CRITICAL issues in red."""
+
+    @pytest.mark.os_agnostic
+    def test_critical_result_shows_critical_status(self) -> None:
+        """When formatting a critical result as text,
+        the overall status is 'CRITICAL'."""
+        result = a_check_result_with_critical()
+
+        text = format_check_result_text(result)
+
+        assert "Overall Status: CRITICAL" in text
+
+    @pytest.mark.os_agnostic
+    def test_critical_severity_appears_in_red(self) -> None:
+        """When formatting a critical result as text,
+        the CRITICAL severity is colored red."""
+        result = a_check_result_with_critical()
+
+        text = format_check_result_text(result)
+
+        assert "[red]CRITICAL[/red]" in text
+
+    @pytest.mark.os_agnostic
+    def test_critical_result_includes_issue_message(self) -> None:
+        """When formatting a critical result as text,
+        the pool name and degradation message appear."""
+        result = a_check_result_with_critical()
+
+        text = format_check_result_text(result)
+
+        assert "rpool: Pool is degraded" in text
+
+
+class TestTextFormattingWithInfoSeverity:
+    """Text formatter colors INFO issues in green."""
+
+    @pytest.mark.os_agnostic
+    def test_info_severity_appears_in_green(self) -> None:
+        """When formatting an info result as text,
+        the INFO severity is colored green."""
+        pool = a_healthy_pool_named("rpool")
+        issue = an_info_issue_for("rpool")
 
         result = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[healthy_pool],
+            pools=[pool],
+            issues=[issue],
+            overall_severity=Severity.INFO,
+        )
+
+        text = format_check_result_text(result)
+
+        assert "[green]INFO[/green]" in text
+
+    @pytest.mark.os_agnostic
+    def test_info_result_includes_message(self) -> None:
+        """When formatting an info result as text,
+        the informational message appears."""
+        pool = a_healthy_pool_named("rpool")
+        issue = an_info_issue_for("rpool")
+
+        result = CheckResult(
+            timestamp=datetime.now(UTC),
+            pools=[pool],
+            issues=[issue],
+            overall_severity=Severity.INFO,
+        )
+
+        text = format_check_result_text(result)
+
+        assert "Scrub completed" in text
+
+
+class TestTextFormattingWithMultipleIssues:
+    """Text formatter displays all issues when multiple exist."""
+
+    @pytest.mark.os_agnostic
+    def test_multiple_issues_all_appear_in_output(self) -> None:
+        """When formatting a result with multiple issues,
+        all issue messages appear in the text."""
+        pool = a_healthy_pool_named("rpool")
+        issue1 = an_issue_with("rpool", Severity.WARNING, "capacity", "High capacity")
+        issue2 = an_issue_with("rpool", Severity.CRITICAL, "health", "Degraded")
+
+        result = CheckResult(
+            timestamp=datetime.now(UTC),
+            pools=[pool],
             issues=[issue1, issue2],
             overall_severity=Severity.CRITICAL,
         )
@@ -258,47 +548,72 @@ class TestFormatCheckResultText:
 
         assert "High capacity" in text
         assert "Degraded" in text
-        assert "[yellow]WARNING[/yellow]" in text
-        assert "[red]CRITICAL[/red]" in text
 
-    def test_format_info_severity(self, healthy_pool: PoolStatus) -> None:
-        """Should format INFO severity with green color."""
-        issue = PoolIssue(
-            pool_name="rpool",
-            severity=Severity.INFO,
-            category="scrub",
-            message="Scrub completed",
-            details={},
-        )
+    @pytest.mark.os_agnostic
+    def test_multiple_issues_show_different_colors(self) -> None:
+        """When formatting a result with mixed severities,
+        each severity uses its appropriate color."""
+        pool = a_healthy_pool_named("rpool")
+        issue1 = an_issue_with("rpool", Severity.WARNING, "capacity", "High capacity")
+        issue2 = an_issue_with("rpool", Severity.CRITICAL, "health", "Degraded")
 
         result = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[healthy_pool],
-            issues=[issue],
-            overall_severity=Severity.INFO,
+            pools=[pool],
+            issues=[issue1, issue2],
+            overall_severity=Severity.CRITICAL,
         )
 
         text = format_check_result_text(result)
 
-        assert "[green]INFO[/green]" in text
-        assert "Scrub completed" in text
+        assert "[yellow]WARNING[/yellow]" in text
+        assert "[red]CRITICAL[/red]" in text
 
 
-class TestGetExitCodeForSeverity:
-    """Test exit code mapping for severities."""
+# ============================================================================
+# Tests: Exit Code Mapping
+# ============================================================================
 
-    def test_ok_severity_returns_zero(self) -> None:
-        """OK severity should return exit code 0."""
-        assert get_exit_code_for_severity(Severity.OK) == 0
 
-    def test_info_severity_returns_zero(self) -> None:
-        """INFO severity should return exit code 0."""
-        assert get_exit_code_for_severity(Severity.INFO) == 0
+class TestExitCodeMappingForOkAndInfo:
+    """Exit codes for OK and INFO severities are zero."""
 
-    def test_warning_severity_returns_one(self) -> None:
-        """WARNING severity should return exit code 1."""
-        assert get_exit_code_for_severity(Severity.WARNING) == 1
+    @pytest.mark.os_agnostic
+    def test_ok_severity_maps_to_exit_code_zero(self) -> None:
+        """When severity is OK,
+        the exit code is 0 (success)."""
+        exit_code = get_exit_code_for_severity(Severity.OK)
 
-    def test_critical_severity_returns_two(self) -> None:
-        """CRITICAL severity should return exit code 2."""
-        assert get_exit_code_for_severity(Severity.CRITICAL) == 2
+        assert exit_code == 0
+
+    @pytest.mark.os_agnostic
+    def test_info_severity_maps_to_exit_code_zero(self) -> None:
+        """When severity is INFO,
+        the exit code is 0 (success)."""
+        exit_code = get_exit_code_for_severity(Severity.INFO)
+
+        assert exit_code == 0
+
+
+class TestExitCodeMappingForWarning:
+    """Exit code for WARNING severity is one."""
+
+    @pytest.mark.os_agnostic
+    def test_warning_severity_maps_to_exit_code_one(self) -> None:
+        """When severity is WARNING,
+        the exit code is 1 (warning)."""
+        exit_code = get_exit_code_for_severity(Severity.WARNING)
+
+        assert exit_code == 1
+
+
+class TestExitCodeMappingForCritical:
+    """Exit code for CRITICAL severity is two."""
+
+    @pytest.mark.os_agnostic
+    def test_critical_severity_maps_to_exit_code_two(self) -> None:
+        """When severity is CRITICAL,
+        the exit code is 2 (critical error)."""
+        exit_code = get_exit_code_for_severity(Severity.CRITICAL)
+
+        assert exit_code == 2
