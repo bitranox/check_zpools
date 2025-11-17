@@ -127,7 +127,16 @@ def _detect_invocation_method() -> tuple[str, Path | None]:
         except OSError:
             pass
 
+    # Check if the executable is in uvx cache BEFORE checking venv
+    # IMPORTANT: uvx creates temporary venvs, so we must check cache path first!
+    # uvx stores tools in ~/.cache/uv/ or %LOCALAPPDATA%/uv/ (Windows)
+    exec_path_str = str(exec_path_resolved)
+    if "cache/uv/" in exec_path_str or "cache\\uv\\" in exec_path_str:
+        logger.info("Detected uvx cache installation (cache/uv/ in path)")
+        return ("uvx", None)
+
     # Check if running from a virtual environment
+    # This must come AFTER uvx check because uvx uses temporary venvs
     if hasattr(sys, "prefix") and sys.prefix != sys.base_prefix:
         # We're in a venv
         venv_root = Path(sys.prefix)
@@ -138,13 +147,6 @@ def _detect_invocation_method() -> tuple[str, Path | None]:
     if os.environ.get("UV_PROJECT_ROOT"):
         logger.info("Detected UV environment (UV_PROJECT_ROOT set)")
         return ("uv", None)
-
-    # Check if the executable is in uvx cache (not a UV project)
-    # uvx stores tools in ~/.cache/uv/ or %LOCALAPPDATA%/uv/ (Windows)
-    exec_path_str = str(exec_path_resolved)
-    if "cache/uv/" in exec_path_str or "cache\\uv\\" in exec_path_str:
-        logger.info("Detected uvx cache installation (cache/uv/ in path)")
-        return ("uvx", None)
 
     # Check if the executable is in a UV project cache (.uv directory)
     if ".uv" in str(exec_path_resolved.parent) or "uv/cache" in exec_path_str:

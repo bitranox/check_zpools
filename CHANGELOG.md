@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.1.2] - 2025-11-17
+
+### Fixed
+- **Service Installation (uvx detection)**: Fixed uvx detection being incorrectly identified as venv installation - reordered detection checks to check for uvx cache paths (`cache/uv/`) BEFORE checking for virtual environments, since uvx creates temporary venvs. Service file now correctly uses `uvx check_zpools` instead of ephemeral cache paths like `/root/.cache/uv/archive-v0/.../bin/check_zpools`
+
 ## [1.1.1] - 2025-11-17
 ### Added
 - **Service Installation (uvx version control)**: Added `--uvx-version` option to `install-service` command, allowing users to specify version for uvx installations (e.g., `@latest` for auto-updates or `@1.0.0` for pinned versions)
