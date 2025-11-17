@@ -31,7 +31,7 @@ from __future__ import annotations
 import json
 import logging
 import shutil
-import subprocess
+import subprocess  # nosec B404 - subprocess used safely with list arguments, not shell=True
 from pathlib import Path
 from typing import Any
 
@@ -286,7 +286,7 @@ class ZFSClient:
         actual_timeout = timeout if timeout is not None else self.default_timeout
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # nosec B603 - command is hardcoded zpool path with validated args
                 command,
                 capture_output=True,
                 text=True,

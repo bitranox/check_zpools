@@ -231,6 +231,8 @@ sudo systemctl start check_zpools
 
 ### Systemd Service Management
 
+> **Note:** Systemd service installation is only available on Linux systems with systemd. Not supported on Windows or macOS.
+
 #### `install-service` - Install Systemd Service
 
 Installs check_zpools as a systemd service for automatic monitoring.

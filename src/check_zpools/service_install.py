@@ -29,7 +29,7 @@ from __future__ import annotations
 import logging
 import os
 import shutil
-import subprocess
+import subprocess  # nosec B404 - subprocess used safely with list arguments, not shell=True
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,13 @@ def _check_root_privileges() -> None:
 
     Raises
         PermissionError: When not running as root.
+        NotImplementedError: On Windows (systemd not supported).
     """
+    import platform
+
+    if platform.system() == "Windows":
+        raise NotImplementedError("Systemd service installation is not supported on Windows")
+
     if os.geteuid() != 0:
         logger.error("Service installation requires root privileges")
         raise PermissionError("This command must be run as root (use sudo).\nExample: sudo check_zpools install-service")
@@ -191,7 +197,7 @@ def _run_systemctl(command: list[str], *, check: bool = True) -> subprocess.Comp
     """
     full_command = ["systemctl"] + command
     logger.debug(f"Running: {' '.join(full_command)}")
-    return subprocess.run(
+    return subprocess.run(  # nosec B603 - command is hardcoded systemctl with validated args
         full_command,
         check=check,
         capture_output=True,
