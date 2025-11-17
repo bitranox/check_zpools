@@ -13,7 +13,9 @@ SMTP functionality is tested with mocks (no real email sending in unit tests).
 
 from __future__ import annotations
 
+import tomllib
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -403,11 +405,17 @@ class TestEmailSubjectFormatting:
         assert "Hostname:" in body or "Host:" in body
 
     def test_email_includes_version(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
-        """Email should include tool version."""
+        """Email should include tool version from pyproject.toml."""
         body = alerter._format_body(sample_issue, sample_pool)
 
-        # Should contain version number
-        assert "v0." in body or "version" in body.lower()
+        # Read version from pyproject.toml
+        pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
+        with pyproject_path.open("rb") as f:
+            pyproject = tomllib.load(f)
+        expected_version = pyproject["project"]["version"]
+
+        # Should contain version number (e.g., "v1.0.0")
+        assert f"v{expected_version}" in body or "version" in body.lower()
 
     def test_pool_with_scrub_in_progress(self, alerter: EmailAlerter, sample_issue: PoolIssue) -> None:
         """Pool with scrub in progress should show in email."""
