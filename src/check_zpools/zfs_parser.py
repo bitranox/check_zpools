@@ -518,7 +518,13 @@ class ZFSParser:
             Dictionary with capacity_percent, size_bytes, allocated_bytes, free_bytes.
         """
         capacity_str = self._get_property_value(props, "capacity", "0")
-        capacity_percent = float(capacity_str)
+
+        # Defensive float conversion with fallback
+        try:
+            capacity_percent = float(capacity_str)
+        except ValueError:
+            logger.warning(f"Invalid capacity value '{capacity_str}', using 0.0 as fallback", extra={"capacity_str": capacity_str})
+            capacity_percent = 0.0
 
         size_str = self._get_property_value(props, "size", "0")
         size_bytes = self._parse_size_to_bytes(size_str)
