@@ -190,34 +190,55 @@ def _find_uvx_executable(check_zpools_path: Path | None) -> Path:
     search_locations: list[Path] = []
 
     # 1. PRIORITY: Parent process (user's explicit choice)
+    # Walk up the process tree to find uvx (it may not be the immediate parent)
     try:
         import psutil
 
         current_process = psutil.Process()
-        parent_process = current_process.parent()
-        if parent_process:
-            parent_cmdline = parent_process.cmdline()
-            logger.debug(f"Parent process cmdline: {parent_cmdline}")
-            if parent_cmdline and len(parent_cmdline) > 0:
-                potential_uvx = Path(parent_cmdline[0])
-                # Resolve to absolute path in case it's relative
-                if not potential_uvx.is_absolute():
-                    # Try to resolve it
-                    try:
-                        potential_uvx = potential_uvx.resolve()
-                    except Exception:
-                        # If resolve fails, try using parent process exe
+        ancestor = current_process.parent()
+        max_depth = 5  # Don't search too far up the tree
+        depth = 0
+
+        while ancestor and depth < max_depth:
+            try:
+                cmdline = ancestor.cmdline()
+                logger.debug(f"Checking ancestor (depth={depth}): pid={ancestor.pid}, cmdline={cmdline}")
+
+                if cmdline and len(cmdline) > 0:
+                    # Check cmdline[0] for uvx
+                    potential_uvx = Path(cmdline[0])
+
+                    # Resolve to absolute path in case it's relative
+                    if not potential_uvx.is_absolute():
                         try:
-                            parent_exe = Path(parent_process.exe())
-                            if parent_exe.name in ("uvx", "uvx.exe"):
-                                potential_uvx = parent_exe
-                                logger.debug(f"Used parent exe instead: {potential_uvx}")
+                            potential_uvx = potential_uvx.resolve()
                         except Exception:
                             pass
 
-                if potential_uvx.name in ("uvx", "uvx.exe"):
-                    search_locations.append(potential_uvx)
-                    logger.debug(f"Found uvx in parent process: {potential_uvx}")
+                    # Check if this is uvx
+                    if potential_uvx.name in ("uvx", "uvx.exe"):
+                        search_locations.append(potential_uvx)
+                        logger.debug(f"Found uvx in ancestor process (depth={depth}): {potential_uvx}")
+                        break
+
+                # Also check the process executable path
+                try:
+                    exe_path = Path(ancestor.exe())
+                    if exe_path.name in ("uvx", "uvx.exe"):
+                        search_locations.append(exe_path)
+                        logger.debug(f"Found uvx via ancestor exe (depth={depth}): {exe_path}")
+                        break
+                except Exception:
+                    pass
+
+            except (psutil.NoSuchProcess, psutil.AccessDenied, Exception) as e:
+                logger.debug(f"Could not access ancestor process at depth {depth}: {e}")
+                break
+
+            # Move to next ancestor
+            ancestor = ancestor.parent()
+            depth += 1
+
     except (ImportError, Exception) as e:
         logger.debug(f"Could not get parent process info: {e}")
 

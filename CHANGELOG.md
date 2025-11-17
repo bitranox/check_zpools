@@ -3,10 +3,16 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.0.2] - 2025-11-17
+  - Resolves relative paths to absolute paths for accurate matching
+  - **Why this matters**: uvx may spawn intermediate processes before launching check_zpools, so checking only the immediate parent misses the actual uvx executable
+
 ## [2.0.1] - 2025-11-17
-  - Resolves relative paths to absolute paths for parent process detection
-  - Falls back to parent process executable path if cmdline path resolution fails
-  - **Why this matters**: If user runs `/opt/venv/bin/uvx`, we must use THAT uvx, not a different one from PATH
+### Fixed
+- **Service Installation (uvx detection via process tree)**: Fixed uvx detection when invoked with absolute path from different directory (e.g., `/opt/venv/3.14.0/check_zpools/bin/uvx check_zpools@latest service-install` from `/rotek/scripts/`)
+  - Now walks up process tree (up to 5 ancestors) to find uvx, not just immediate parent
+  - Handles intermediate processes (Python interpreters, shells) between check_zpools and uvx
+  - Checks both cmdline[0] and executable path for each ancestor
 
 ## [2.0.0] - 2025-11-17
 ### Changed - BREAKING CHANGES
