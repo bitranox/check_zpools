@@ -1,8 +1,15 @@
-"""Shared pytest fixtures for CLI and module-entry tests."""
+"""Shared pytest fixtures and configuration for the test suite.
+
+This module provides:
+- OS-specific test markers (windows_only, macos_only, posix_only, linux_only)
+- Shared fixtures for CLI testing and configuration management
+- Test utilities for ANSI stripping and traceback preservation
+"""
 
 from __future__ import annotations
 
 import re
+import sys
 from collections.abc import Callable, Iterator
 from dataclasses import fields
 from pathlib import Path
@@ -11,6 +18,15 @@ import pytest
 from click.testing import CliRunner
 
 import lib_cli_exit_tools
+
+# ============================================================================
+# OS Detection Constants
+# ============================================================================
+
+IS_WINDOWS = sys.platform == "win32"
+IS_MACOS = sys.platform == "darwin"
+IS_LINUX = sys.platform.startswith("linux")
+IS_POSIX = not IS_WINDOWS
 
 
 # Load .env file for integration tests
@@ -31,6 +47,69 @@ _load_dotenv()
 
 ANSI_ESCAPE_PATTERN = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 CONFIG_FIELDS: tuple[str, ...] = tuple(field.name for field in fields(type(lib_cli_exit_tools.config)))
+
+
+# ============================================================================
+# Pytest Hooks - OS-Specific Test Markers
+# ============================================================================
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """Register custom markers for OS-specific and integration tests."""
+    config.addinivalue_line(
+        "markers",
+        "windows_only: mark test to run only on Windows",
+    )
+    config.addinivalue_line(
+        "markers",
+        "macos_only: mark test to run only on macOS",
+    )
+    config.addinivalue_line(
+        "markers",
+        "linux_only: mark test to run only on Linux",
+    )
+    config.addinivalue_line(
+        "markers",
+        "posix_only: mark test to run only on POSIX systems (Linux, macOS, Unix)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "os_agnostic: mark test as platform-independent (runs everywhere)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "integration: mark test as integration test (tests multiple components)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "slow: mark test as slow-running (typically >1 second)",
+    )
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    """Skip tests based on OS-specific markers.
+
+    This hook runs before each test and checks if the test should be
+    skipped based on the current operating system. Tests without OS markers
+    are assumed to be OS-agnostic and run on all platforms.
+    """
+    marker_names = {mark.name for mark in item.iter_markers()}
+
+    # Check for Windows-only tests
+    if "windows_only" in marker_names and not IS_WINDOWS:
+        pytest.skip("Test requires Windows")
+
+    # Check for macOS-only tests
+    if "macos_only" in marker_names and not IS_MACOS:
+        pytest.skip("Test requires macOS")
+
+    # Check for Linux-only tests
+    if "linux_only" in marker_names and not IS_LINUX:
+        pytest.skip("Test requires Linux")
+
+    # Check for POSIX-only tests
+    if "posix_only" in marker_names and not IS_POSIX:
+        pytest.skip("Test requires POSIX system (Linux, macOS, or Unix)")
 
 
 def _remove_ansi_codes(text: str) -> str:
