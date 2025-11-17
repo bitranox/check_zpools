@@ -16,7 +16,12 @@ from datetime import UTC, datetime
 
 import pytest
 
+from io import StringIO
+
+from rich.console import Console
+
 from check_zpools.formatters import (
+    display_check_result_text,
     format_check_result_json,
     format_check_result_text,
     get_exit_code_for_severity,
@@ -617,3 +622,312 @@ class TestExitCodeMappingForCritical:
         exit_code = get_exit_code_for_severity(Severity.CRITICAL)
 
         assert exit_code == 2
+
+
+# ============================================================================
+# Tests: Direct Console Display
+# ============================================================================
+
+
+class TestDisplayCheckResultTextWithNoIssues:
+    """display_check_result_text() prints directly to console without ANSI code issues."""
+
+    @pytest.mark.os_agnostic
+    def test_display_includes_header_and_timestamp(self) -> None:
+        """When displaying an OK result,
+        the output includes header and formatted timestamp."""
+        result = a_check_result_with_no_issues()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "ZFS Pool Check" in output
+        assert "2025-01-15 10:30:00" in output
+
+    @pytest.mark.os_agnostic
+    def test_display_shows_overall_status(self) -> None:
+        """When displaying an OK result,
+        the overall status appears."""
+        result = a_check_result_with_no_issues()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Overall Status: OK" in output
+
+    @pytest.mark.os_agnostic
+    def test_display_shows_pool_status_table(self) -> None:
+        """When displaying a result,
+        a Pool Status table is rendered."""
+        result = a_check_result_with_no_issues()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Pool Status" in output
+        assert "rpool" in output
+
+    @pytest.mark.os_agnostic
+    def test_display_shows_no_issues_message(self) -> None:
+        """When displaying an OK result,
+        'No issues detected' message appears."""
+        result = a_check_result_with_no_issues()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "No issues detected" in output
+
+    @pytest.mark.os_agnostic
+    def test_display_shows_pools_checked_count(self) -> None:
+        """When displaying any result,
+        the pools checked count appears."""
+        result = a_check_result_with_no_issues()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Pools Checked: 1" in output
+
+
+class TestDisplayCheckResultTextWithIssues:
+    """display_check_result_text() correctly formats issues with colors."""
+
+    @pytest.mark.os_agnostic
+    def test_display_shows_issues_found_section(self) -> None:
+        """When displaying a result with issues,
+        an 'Issues Found:' section appears."""
+        result = a_check_result_with_warning()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Issues Found:" in output
+
+    @pytest.mark.os_agnostic
+    def test_display_shows_warning_issue_message(self) -> None:
+        """When displaying a warning result,
+        the issue message appears."""
+        result = a_check_result_with_warning()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "WARNING" in output
+        assert "rpool: Pool capacity is high" in output
+
+    @pytest.mark.os_agnostic
+    def test_display_shows_critical_issue_message(self) -> None:
+        """When displaying a critical result,
+        the critical issue appears."""
+        result = a_check_result_with_critical()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "CRITICAL" in output
+        assert "rpool: Pool is degraded" in output
+
+    @pytest.mark.os_agnostic
+    def test_display_shows_multiple_issues(self) -> None:
+        """When displaying a result with multiple issues,
+        all issues appear in output."""
+        pool = a_healthy_pool_named("rpool")
+        issue1 = an_issue_with("rpool", Severity.WARNING, "capacity", "High capacity")
+        issue2 = an_issue_with("rpool", Severity.CRITICAL, "health", "Degraded")
+
+        result = CheckResult(
+            timestamp=datetime.now(UTC),
+            pools=[pool],
+            issues=[issue1, issue2],
+            overall_severity=Severity.CRITICAL,
+        )
+
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "High capacity" in output
+        assert "Degraded" in output
+
+
+class TestDisplayCheckResultTextWithTableColumns:
+    """display_check_result_text() includes all required table columns."""
+
+    @pytest.mark.os_agnostic
+    def test_table_includes_health_column(self) -> None:
+        """When displaying pool status table,
+        the Health column appears."""
+        result = a_check_result_with_no_issues()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Health" in output
+        assert "ONLINE" in output
+
+    @pytest.mark.os_agnostic
+    def test_table_includes_capacity_column(self) -> None:
+        """When displaying pool status table,
+        the Capacity column with percentage appears."""
+        result = a_check_result_with_no_issues()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Capacity" in output
+        assert "50.0%" in output
+
+    @pytest.mark.os_agnostic
+    def test_table_includes_size_column_with_human_readable_format(self) -> None:
+        """When displaying pool status table,
+        the Size column shows human-readable size."""
+        pool = a_pool_with(name="rpool", size_bytes=1024**4)  # 1 TB
+        result = CheckResult(
+            timestamp=datetime.now(UTC),
+            pools=[pool],
+            issues=[],
+            overall_severity=Severity.OK,
+        )
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Size" in output
+        assert "1.0T" in output
+
+    @pytest.mark.os_agnostic
+    def test_table_includes_error_columns(self) -> None:
+        """When displaying pool status table,
+        Read/Write/Checksum Error columns appear."""
+        result = a_check_result_with_no_issues()
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Read Errors" in output
+        assert "Write Errors" in output
+        # "Checksum Errors" may be wrapped across lines in the table
+        assert "Checksum" in output and "Errors" in output
+
+    @pytest.mark.os_agnostic
+    def test_table_shows_pool_with_errors(self) -> None:
+        """When displaying a pool with errors,
+        error counts appear in the table."""
+        pool = a_pool_with(
+            name="tank",
+            read_errors=5,
+            write_errors=2,
+            checksum_errors=1,
+        )
+        result = CheckResult(
+            timestamp=datetime.now(UTC),
+            pools=[pool],
+            issues=[],
+            overall_severity=Severity.OK,
+        )
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        # Error counts should appear in the output
+        assert "5" in output  # read errors
+        assert "2" in output  # write errors
+        assert "1" in output  # checksum errors
+
+
+class TestDisplayCheckResultTextWithMultiplePools:
+    """display_check_result_text() handles multiple pools correctly."""
+
+    @pytest.mark.os_agnostic
+    def test_table_shows_all_pools(self) -> None:
+        """When displaying multiple pools,
+        all pool names appear in the table."""
+        pool1 = a_healthy_pool_named("rpool")
+        pool2 = a_pool_with(name="tank", capacity_percent=30.0, last_scrub=None)
+
+        result = CheckResult(
+            timestamp=datetime.now(UTC),
+            pools=[pool1, pool2],
+            issues=[],
+            overall_severity=Severity.OK,
+        )
+
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "rpool" in output
+        assert "tank" in output
+
+    @pytest.mark.os_agnostic
+    def test_pools_checked_count_matches_pool_count(self) -> None:
+        """When displaying multiple pools,
+        the pools checked count is correct."""
+        pool1 = a_healthy_pool_named("rpool")
+        pool2 = a_pool_with(name="tank", capacity_percent=30.0, last_scrub=None)
+
+        result = CheckResult(
+            timestamp=datetime.now(UTC),
+            pools=[pool1, pool2],
+            issues=[],
+            overall_severity=Severity.OK,
+        )
+
+        buffer = StringIO()
+        console = Console(file=buffer, legacy_windows=False)
+
+        display_check_result_text(result, console)
+        output = buffer.getvalue()
+
+        assert "Pools Checked: 2" in output
+
+
+class TestDisplayCheckResultTextDefaultConsole:
+    """display_check_result_text() creates default console when none provided."""
+
+    @pytest.mark.os_agnostic
+    def test_can_call_without_console_parameter(self) -> None:
+        """When calling display_check_result_text without console,
+        it creates a default console and doesn't raise."""
+        result = a_check_result_with_no_issues()
+
+        # Should not raise - uses sys.stdout by default
+        # We can't easily capture stdout here, so just verify it doesn't crash
+        try:
+            display_check_result_text(result)
+            success = True
+        except Exception:
+            success = False
+
+        assert success

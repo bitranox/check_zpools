@@ -259,6 +259,7 @@ sudo check_zpools install-service [OPTIONS]
 |--------|------|---------|-------------|
 | `--no-enable` | FLAG | `False` | Don't enable service to start on boot |
 | `--no-start` | FLAG | `False` | Don't start service immediately |
+| `--uvx-version` | TEXT | `None` | Version specifier for uvx installations (e.g., `@latest`, `@1.0.0`) |
 
 **Examples:**
 ```bash
@@ -273,14 +274,28 @@ sudo check_zpools install-service --no-enable
 
 # Install without starting or enabling
 sudo check_zpools install-service --no-enable --no-start
+
+# Install with uvx using @latest (auto-updates to latest version)
+sudo uvx check_zpools@latest install-service --uvx-version @latest
+
+# Install with uvx pinned to specific version
+sudo uvx check_zpools@1.0.0 install-service --uvx-version @1.0.0
 ```
 
 **What it does:**
 1. Creates `/etc/systemd/system/check_zpools.service`
-2. Enables service to start on boot (unless `--no-enable`)
-3. Starts service immediately (unless `--no-start`)
-4. Configures automatic restart on failure
-5. Sets up journald logging
+2. Detects installation method (pip, venv, uv, uvx) and configures ExecStart accordingly
+3. Enables service to start on boot (unless `--no-enable`)
+4. Starts service immediately (unless `--no-start`)
+5. Configures automatic restart on failure
+6. Sets up journald logging
+
+**Installation Method Detection:**
+The service installer automatically detects how check_zpools was installed:
+- **pip/pipx:** Uses absolute path to executable
+- **Virtual environment:** Uses venv path with proper PATH configuration
+- **uv project:** Uses `uv run check_zpools`
+- **uvx:** Uses `uvx check_zpools` (works with temporary cache installations)
 
 **Service Configuration:**
 The installed service runs as root with the following properties:
@@ -455,6 +470,56 @@ sudo check_zpools config-deploy --target app --target user
 | `app` | `/etc/xdg/check_zpools/config.toml` | `/Library/Application Support/check_zpools/config.toml` | `C:\ProgramData\check_zpools\config.toml` |
 | `host` | `/etc/check_zpools/hosts/$(hostname).toml` | `/Library/Application Support/check_zpools/hosts/$(hostname).toml` | `C:\ProgramData\check_zpools\hosts\$(hostname).toml` |
 | `user` | `~/.config/check_zpools/config.toml` | `~/Library/Application Support/check_zpools/config.toml` | `%APPDATA%\check_zpools\config.toml` |
+
+---
+
+### Testing & Utilities
+
+#### `send-notification` - Test Email Configuration
+
+Sends a test notification email to verify SMTP settings are working correctly.
+
+**Usage:**
+```bash
+check_zpools send-notification --to EMAIL --subject SUBJECT --message MESSAGE
+```
+
+**Options:**
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `--to` | TEXT | Yes | Recipient email address (can specify multiple times) |
+| `--subject` | TEXT | Yes | Notification subject line |
+| `--message` | TEXT | Yes | Notification message (plain text) |
+
+**Examples:**
+```bash
+# Send simple test notification
+check_zpools send-notification \
+  --to admin@example.com \
+  --subject "Test Alert" \
+  --message "Testing check_zpools email configuration"
+
+# Send to multiple recipients
+check_zpools send-notification \
+  --to ops@example.com \
+  --to dev@example.com \
+  --subject "Service Status" \
+  --message "All services operational"
+
+# Use environment variable for SMTP password
+CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD="app-password" \
+check_zpools send-notification \
+  --to test@example.com \
+  --subject "Test" \
+  --message "Testing SMTP authentication"
+```
+
+**Use Cases:**
+- Verify SMTP configuration before deploying daemon
+- Test email delivery to alert recipients
+- Troubleshoot email authentication issues
+- Confirm firewall allows SMTP connections
 
 ---
 
@@ -851,7 +916,7 @@ check_zpools config --section email
 # Check logs for detailed error
 LOG_CONSOLE_LEVEL=DEBUG check_zpools daemon --foreground
 
-# Test email directly
+# Test email configuration (see send-notification command above)
 check_zpools send-notification \
   --to test@example.com \
   --subject "Test" \

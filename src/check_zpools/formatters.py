@@ -15,7 +15,7 @@ Contents
 from __future__ import annotations
 
 import json
-from io import StringIO
+import sys
 
 from rich.console import Console
 from rich.table import Table
@@ -72,7 +72,12 @@ def format_check_result_text(result: CheckResult) -> str:
     Returns
     -------
     str
-        Multi-line text output with color markup.
+        Multi-line text output with Rich markup (NOT ANSI codes).
+
+    Notes
+    -----
+    This function returns a string with Rich markup tags like [green]text[/green].
+    The caller should use Rich Console.print() to render it, NOT click.echo().
     """
     lines: list[str] = []
 
@@ -80,6 +85,49 @@ def format_check_result_text(result: CheckResult) -> str:
     timestamp_str = result.timestamp.strftime("%Y-%m-%d %H:%M:%S")
     lines.append(f"\nZFS Pool Check - {timestamp_str}")
     lines.append(f"Overall Status: {result.overall_severity.value.upper()}\n")
+
+    # Pool Status Summary - we'll add this as a special marker
+    # The table will be rendered separately in display_check_result_text()
+    lines.append("__TABLE_PLACEHOLDER__")
+
+    # Issues
+    if result.issues:
+        lines.append("\nIssues Found:")
+        for issue in result.issues:
+            severity_color = _get_severity_color(issue.severity)
+            lines.append(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
+    else:
+        lines.append("\n[green]No issues detected[/green]")
+
+    # Summary
+    lines.append(f"\nPools Checked: {len(result.pools)}")
+
+    return "\n".join(lines)
+
+
+def display_check_result_text(result: CheckResult, console: Console | None = None) -> None:
+    """Display check result as formatted text output directly to console.
+
+    Parameters
+    ----------
+    result:
+        Check result to display.
+    console:
+        Rich Console instance to use for output. If None, creates a new one
+        writing to stdout.
+
+    Notes
+    -----
+    This function directly prints to the console rather than returning a string.
+    This avoids issues with mixed ANSI codes and Rich markup.
+    """
+    if console is None:
+        console = Console(file=sys.stdout, legacy_windows=False)
+
+    # Header
+    timestamp_str = result.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    console.print(f"\nZFS Pool Check - {timestamp_str}")
+    console.print(f"Overall Status: {result.overall_severity.value.upper()}\n")
 
     # Pool Status Summary as Table
     table = Table(title="Pool Status", show_header=True, header_style="bold cyan")
@@ -114,25 +162,19 @@ def format_check_result_text(result: CheckResult) -> str:
             f"[{error_color}]{pool.checksum_errors}[/{error_color}]",
         )
 
-    # Render table to string
-    console = Console(file=StringIO(), force_terminal=True, width=120)
     console.print(table)
-    table_output = console.file.getvalue()  # type: ignore
-    lines.append(table_output)
 
     # Issues
     if result.issues:
-        lines.append("\nIssues Found:")
+        console.print("\nIssues Found:")
         for issue in result.issues:
             severity_color = _get_severity_color(issue.severity)
-            lines.append(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
+            console.print(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
     else:
-        lines.append("\n[green]No issues detected[/green]")
+        console.print("\n[green]No issues detected[/green]")
 
     # Summary
-    lines.append(f"\nPools Checked: {len(result.pools)}")
-
-    return "\n".join(lines)
+    console.print(f"\nPools Checked: {len(result.pools)}")
 
 
 def _get_severity_color(severity: Severity) -> str:
@@ -180,5 +222,6 @@ def get_exit_code_for_severity(severity: Severity) -> int:
 __all__ = [
     "format_check_result_json",
     "format_check_result_text",
+    "display_check_result_text",
     "get_exit_code_for_severity",
 ]

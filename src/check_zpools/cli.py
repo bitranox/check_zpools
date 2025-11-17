@@ -42,7 +42,6 @@ import logging
 from typing import Final, Optional, Sequence, Tuple
 
 import rich_click as click
-from rich.console import Console
 
 import lib_cli_exit_tools
 import lib_log_rich.runtime
@@ -61,7 +60,7 @@ from .cli_errors import handle_generic_error, handle_zfs_not_available
 from .config import get_config
 from .config_deploy import deploy_configuration
 from .config_show import display_config
-from .formatters import format_check_result_json, format_check_result_text, get_exit_code_for_severity
+from .formatters import display_check_result_text, format_check_result_json, get_exit_code_for_severity
 from .logging_setup import init_logging
 from .mail import EmailConfig, load_email_config_from_dict, send_email, send_notification
 from .service_install import install_service, show_service_status, uninstall_service
@@ -870,7 +869,13 @@ def cli_send_notification(
     default=False,
     help="Don't start service immediately",
 )
-def cli_install_service(no_enable: bool, no_start: bool) -> None:
+@click.option(
+    "--uvx-version",
+    type=str,
+    default=None,
+    help="Version specifier for uvx installations (e.g., '@latest', '@1.0.0'). Only used when installed via uvx.",
+)
+def cli_install_service(no_enable: bool, no_start: bool, uvx_version: Optional[str]) -> None:
     """Install check_zpools as a systemd service (requires root).
 
     Installs the check_zpools daemon as a systemd service that will:
@@ -895,6 +900,14 @@ def cli_install_service(no_enable: bool, no_start: bool) -> None:
     \b
     # Install but don't enable for boot
     $ sudo check_zpools install-service --no-enable
+
+    \b
+    # Install with uvx using @latest (uvx installations only)
+    $ sudo uvx check_zpools@latest install-service --uvx-version @latest
+
+    \b
+    # Install with uvx pinned to specific version
+    $ sudo uvx check_zpools@1.0.0 install-service --uvx-version @1.0.0
     """
 
     with lib_log_rich.runtime.bind(
@@ -902,8 +915,8 @@ def cli_install_service(no_enable: bool, no_start: bool) -> None:
         extra={"command": "install-service", "enable": not no_enable, "start": not no_start},
     ):
         try:
-            logger.info("Installing systemd service", extra={"enable": not no_enable, "start": not no_start})
-            install_service(enable=not no_enable, start=not no_start)
+            logger.info("Installing systemd service", extra={"enable": not no_enable, "start": not no_start, "uvx_version": uvx_version})
+            install_service(enable=not no_enable, start=not no_start, uvx_version=uvx_version)
         except PermissionError as exc:
             logger.error("Permission denied during service installation", extra={"error": str(exc)})
             click.echo(f"\n{exc}", err=True)
@@ -1035,10 +1048,8 @@ def cli_check(format: str) -> None:
                 output = format_check_result_json(result)
                 click.echo(output)
             else:
-                # Text output with Rich markup - use Rich Console for color rendering
-                output = format_check_result_text(result)
-                console = Console()
-                console.print(output)
+                # Text output with Rich - print directly to avoid ANSI code issues
+                display_check_result_text(result)
 
             # Exit with appropriate code
             exit_code = get_exit_code_for_severity(result.overall_severity)

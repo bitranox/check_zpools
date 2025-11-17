@@ -139,9 +139,16 @@ def _detect_invocation_method() -> tuple[str, Path | None]:
         logger.info("Detected UV environment (UV_PROJECT_ROOT set)")
         return ("uv", None)
 
-    # Check if the executable is in a directory structure suggesting UV cache
-    if ".uv" in str(exec_path_resolved.parent) or "uv/cache" in str(exec_path_resolved):
-        logger.info("Detected UV cache installation (.uv in path)")
+    # Check if the executable is in uvx cache (not a UV project)
+    # uvx stores tools in ~/.cache/uv/ or %LOCALAPPDATA%/uv/ (Windows)
+    exec_path_str = str(exec_path_resolved)
+    if "cache/uv/" in exec_path_str or "cache\\uv\\" in exec_path_str:
+        logger.info("Detected uvx cache installation (cache/uv/ in path)")
+        return ("uvx", None)
+
+    # Check if the executable is in a UV project cache (.uv directory)
+    if ".uv" in str(exec_path_resolved.parent) or "uv/cache" in exec_path_str:
+        logger.info("Detected UV project cache installation (.uv in path)")
         return ("uv", None)
 
     # Check for uv.lock in the current or parent directories (UV project)
@@ -208,7 +215,12 @@ def _create_service_directories() -> None:
             logger.debug(f"Directory already exists: {directory}")
 
 
-def _generate_service_file_content(executable_path: Path, method: str, venv_path: Path | None = None) -> str:
+def _generate_service_file_content(
+    executable_path: Path,
+    method: str,
+    venv_path: Path | None = None,
+    uvx_version: str | None = None,
+) -> str:
     """Generate systemd service file content with correct executable path.
 
     Parameters
@@ -219,14 +231,18 @@ def _generate_service_file_content(executable_path: Path, method: str, venv_path
         Installation method detected ("direct", "venv", "uv", "uvx").
     venv_path:
         Path to virtual environment root (for venv installations).
+    uvx_version:
+        Version specifier for uvx installations (e.g., '@latest', '@1.0.0').
 
     Returns
         Complete systemd service file content as string.
     """
     # Determine the correct ExecStart command based on installation method
     if method == "uvx":
-        # uvx runs tools on-the-fly, can use --from for specific version
-        exec_start = f"{executable_path} check_zpools daemon --foreground"
+        # uvx runs tools on-the-fly without permanent installation
+        # Add version specifier if provided (e.g., check_zpools@latest)
+        package_spec = f"check_zpools{uvx_version}" if uvx_version else "check_zpools"
+        exec_start = f"{executable_path} {package_spec} daemon --foreground"
         working_dir_line = ""  # uvx doesn't need specific working directory
     elif method == "uv":
         # uv run needs the project directory
@@ -293,22 +309,29 @@ WantedBy=multi-user.target
     return service_content
 
 
-def _install_service_file(executable_path: Path, method: str, venv_path: Path | None = None) -> None:
+def _install_service_file(
+    executable_path: Path,
+    method: str,
+    venv_path: Path | None = None,
+    uvx_version: str | None = None,
+) -> None:
     """Write systemd service file to /etc/systemd/system/.
 
     Parameters
     ----------
     executable_path:
-        Absolute path to check_zpools executable (or uv for UV installations).
+        Absolute path to check_zpools executable (or uv/uvx for UV installations).
     method:
-        Installation method detected ("direct", "venv", "uv").
+        Installation method detected ("direct", "venv", "uv", "uvx").
     venv_path:
         Path to virtual environment root (for venv installations).
+    uvx_version:
+        Version specifier for uvx installations (e.g., '@latest', '@1.0.0').
 
     Side Effects
         Creates {SERVICE_FILE_PATH} with mode 644.
     """
-    content = _generate_service_file_content(executable_path, method, venv_path)
+    content = _generate_service_file_content(executable_path, method, venv_path, uvx_version)
     logger.info(f"Installing service file: {SERVICE_FILE_PATH}")
     SERVICE_FILE_PATH.write_text(content, encoding="utf-8")
     SERVICE_FILE_PATH.chmod(0o644)
@@ -340,7 +363,7 @@ def _run_systemctl(command: list[str], *, check: bool = True) -> subprocess.Comp
     )
 
 
-def install_service(*, enable: bool = True, start: bool = True) -> None:
+def install_service(*, enable: bool = True, start: bool = True, uvx_version: str | None = None) -> None:
     """Install check_zpools as a systemd service.
 
     Why
@@ -362,6 +385,10 @@ def install_service(*, enable: bool = True, start: bool = True) -> None:
         Enable service to start on boot (default: True).
     start:
         Start service immediately after installation (default: True).
+    uvx_version:
+        Version specifier for uvx installations (e.g., '@latest', '@1.0.0').
+        Only used when installation method is detected as uvx. If None and
+        uvx is detected, uses package name without version specifier.
 
     Side Effects
         - Creates service file in /etc/systemd/system/
@@ -410,7 +437,7 @@ def install_service(*, enable: bool = True, start: bool = True) -> None:
     _create_service_directories()
 
     # Install service file
-    _install_service_file(executable_path, method, venv_path)
+    _install_service_file(executable_path, method, venv_path, uvx_version)
 
     # Reload systemd daemon
     logger.info("Reloading systemd daemon")

@@ -3,16 +3,21 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.1.1] - 2025-11-17
+### Added
+- **Service Installation (uvx version control)**: Added `--uvx-version` option to `install-service` command, allowing users to specify version for uvx installations (e.g., `@latest` for auto-updates or `@1.0.0` for pinned versions)
+### Fixed
+- **CLI Output Rendering**: Fixed ANSI escape codes displaying literally after running TUIs like Midnight Commander - refactored to print directly to console instead of using intermediate StringIO buffer, preventing double-encoding issues
+- **Service Installation (uvx)**: Fixed service installation when using uvx - now correctly detects uvx cache paths (`cache/uv/`) and generates service file with `uvx check_zpools` instead of invalid cache path, preventing "code=exited, status=203/EXEC" errors
+
 ## [1.1.0] - 2025-11-17
 ### Changed
 - **Config Display Enhancement**: `config` command now shows the source layer and file path for each configuration value, making it easier to understand where settings are coming from (e.g., `[defaults: /path/to/defaultconfig.toml]`, `[user: ~/.config/...]`, `[env]`)
 - **Email Configuration**: Added `[email]` section to defaultconfig.toml with all SMTP settings and secure defaults (empty password, localhost defaults)
 - **Environment Variable Names**: Corrected all environment variable prefixes to `CHECK_ZPOOLS_*` format throughout documentation
-
 ### Fixed
 - **Service Installation**: Fixed installation failure when invoked with relative/absolute path (e.g., `./check_zpools install-service`) - now uses `sys.argv[0]` to detect invocation path instead of only searching PATH
 - **Email Configuration Documentation**: Added comprehensive security warnings and best practices for SMTP password configuration, emphasizing environment variables over config files
-
 
 ## [1.0.3] - 2025-11-17
 ### Changed
@@ -23,7 +28,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ### Fixed
 - **Error Monitoring Logic**: Fixed false positives where pools with 0 errors were triggering warnings - now only warns when errors are actually present (> 0)
 
-
 ## [1.0.1] - 2025-11-17
 ### Fixed
 - **ZFS Parser Compatibility**: Fixed parsing for newer ZFS JSON output format
@@ -33,7 +37,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Scrub timestamp parsing supports Unix timestamps and human-readable datetime strings
   - Convert `scrub_errors` string values to integers to prevent type comparison errors
 - **CLI Output**: Fixed color rendering in `check` command - now properly displays colored output using Rich Console instead of showing markup tags
-
 ### Added
 - `python-dateutil>=2.8.2` dependency for robust datetime string parsing
 - **Smart Service Installation**: Automatic detection of installation method for systemd service
@@ -87,13 +90,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - 42 tests for alert state management and email alerting
   - 70 tests for ZFS parser, monitor, and models
   - Comprehensive edge case and error scenario coverage
-
 ### Security
 - State files created with 0o600 permissions (owner-only read/write)
 - State directories created with 0o750 permissions
 - SMTP passwords via environment variables (not config files)
 - No hardcoded credentials
-
 ### Dependencies
 - CLI framework via `rich-click>=1.9.4`
 - CLI Exit Code Handling via `lib_cli_exit_tools>=2.1.0`
