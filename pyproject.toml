@@ -1,6 +1,6 @@
 [project]
 name = "check_zpools"
-version = "1.0.0"
+version = "1.0.1"
 description = "Zpool Monitoring Daemon"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -10,6 +10,7 @@ dependencies = [
     "lib_log_rich>=5.2.0",
     "lib_layered_config>=1.1.1",
     "btx-lib-mail>=1.0.1",
+    "python-dateutil>=2.8.2",
 ]
 license = { text = "MIT" }
 authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]

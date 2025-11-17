@@ -445,13 +445,38 @@ class ZFSParser:
         """
         errors = {"read": 0, "write": 0, "checksum": 0}
 
-        # Error counts are in the vdev tree
-        vdev_tree = pool_data.get("vdev_tree", {})
-        stats = vdev_tree.get("stats", {})
+        # Error counts can be in different locations depending on ZFS version:
+        # - Older format: pool_data["vdev_tree"]["stats"]
+        # - Newer format: pool_data["vdevs"][pool_name] (root vdev)
 
-        errors["read"] = int(stats.get("read_errors", 0))
-        errors["write"] = int(stats.get("write_errors", 0))
-        errors["checksum"] = int(stats.get("checksum_errors", 0))
+        # Try newer format first (vdevs)
+        vdevs = pool_data.get("vdevs", {})
+        if vdevs:
+            # The root vdev typically has the same name as the pool
+            pool_name = pool_data.get("name", "")
+            root_vdev = vdevs.get(pool_name, {})
+
+            if root_vdev:
+                try:
+                    errors["read"] = int(root_vdev.get("read_errors", 0))
+                    errors["write"] = int(root_vdev.get("write_errors", 0))
+                    errors["checksum"] = int(root_vdev.get("checksum_errors", 0))
+                    return errors
+                except (ValueError, TypeError):
+                    pass  # Fall through to try old format
+
+        # Try older format (vdev_tree/stats)
+        vdev_tree = pool_data.get("vdev_tree", {})
+        if vdev_tree:
+            stats = vdev_tree.get("stats", {})
+            if stats:
+                try:
+                    errors["read"] = int(stats.get("read_errors", 0))
+                    errors["write"] = int(stats.get("write_errors", 0))
+                    errors["checksum"] = int(stats.get("checksum_errors", 0))
+                    return errors
+                except (ValueError, TypeError):
+                    pass
 
         return errors
 
@@ -471,15 +496,47 @@ class ZFSParser:
         if not scan_info:
             return None
 
-        # Look for end_time or start_time depending on scan state
-        end_time = scan_info.get("end_time")
-        if end_time:
-            try:
-                # ZFS timestamps are typically Unix epoch seconds
-                return datetime.fromtimestamp(end_time, tz=timezone.utc)
-            except (ValueError, TypeError, OSError) as exc:
-                logger.warning(f"Failed to parse scrub end_time {end_time}: {exc}")
-                return None
+        # Try multiple possible field names and formats
+        # Different ZFS versions use different field names and formats
+
+        # 1. Try Unix timestamp fields (as integers or strings)
+        timestamp_fields = ["pass_start", "end_time", "scrub_end", "func_e", "finish_time"]
+        for field in timestamp_fields:
+            time_value = scan_info.get(field)
+            if time_value is not None:
+                try:
+                    # Handle both int and string timestamps
+                    timestamp = int(time_value) if isinstance(time_value, (int, str)) else time_value
+                    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                except (ValueError, TypeError, OSError) as exc:
+                    logger.debug(f"Failed to parse timestamp field '{field}' with value {time_value}: {exc}")
+                    continue
+
+        # 2. Try parsing human-readable datetime strings
+        # Format example: "Sun Nov 16 08:00:21 CET 2025"
+        datetime_string_fields = ["end_time", "start_time"]
+        for field in datetime_string_fields:
+            time_str = scan_info.get(field)
+            if time_str and isinstance(time_str, str):
+                try:
+                    # Try parsing with various formats
+                    # Format: "Sun Nov 16 08:00:21 CET 2025"
+                    from dateutil import parser as dateutil_parser  # noqa: E402
+
+                    parsed_dt = dateutil_parser.parse(time_str)
+                    # Convert to UTC if needed
+                    if parsed_dt.tzinfo is None:
+                        parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
+                    else:
+                        parsed_dt = parsed_dt.astimezone(timezone.utc)
+                    return parsed_dt
+                except (ValueError, ImportError) as exc:
+                    logger.debug(f"Failed to parse datetime string '{field}' with value {time_str}: {exc}")
+                    continue
+
+        # If we reach here, log what fields we actually found for debugging
+        if scan_info:
+            logger.debug(f"No valid scrub timestamp found in scan_info. Available fields: {list(scan_info.keys())}")
 
         return None
 
@@ -519,6 +576,9 @@ class ZFSParser:
         """
         capacity_str = self._get_property_value(props, "capacity", "0")
 
+        # Strip trailing '%' if present (ZFS JSON format includes it)
+        capacity_str = capacity_str.rstrip("%")
+
         # Defensive float conversion with fallback
         try:
             capacity_percent = float(capacity_str)
@@ -555,10 +615,21 @@ class ZFSParser:
         dict:
             Dictionary with last_scrub, scrub_errors, scrub_in_progress.
         """
-        scan_info = pool_data.get("scan", {})
+        # Try both "scan_stats" (newer) and "scan" (older) field names
+        scan_info = pool_data.get("scan_stats", pool_data.get("scan", {}))
         last_scrub = self._parse_scrub_time(scan_info)
-        scrub_errors = scan_info.get("errors", 0)
-        scrub_in_progress = scan_info.get("state", "") == "scanning"
+
+        # Convert scrub_errors to int (may be string in JSON)
+        scrub_errors_raw = scan_info.get("errors", 0)
+        try:
+            scrub_errors = int(scrub_errors_raw)
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid scrub_errors value '{scrub_errors_raw}', using 0", extra={"scrub_errors": scrub_errors_raw})
+            scrub_errors = 0
+
+        # State can be "FINISHED", "SCANNING", "finished", "scanning", etc.
+        state = scan_info.get("state", "").upper()
+        scrub_in_progress = state == "SCANNING"
 
         return {
             "last_scrub": last_scrub,

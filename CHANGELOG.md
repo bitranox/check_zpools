@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.0.1] - 2025-11-17
+
+### Fixed
+- **ZFS Parser Compatibility**: Fixed parsing for newer ZFS JSON output format
+  - Capacity parsing now handles "%" suffix in capacity values (e.g., "2%" → 2.0)
+  - Error count extraction supports both `vdevs` (newer) and `vdev_tree` (older) structures
+  - Scrub detection handles both `scan_stats` (newer) and `scan` (older) field names
+  - Scrub timestamp parsing supports Unix timestamps and human-readable datetime strings
+  - Convert `scrub_errors` string values to integers to prevent type comparison errors
+
+### Added
+- `python-dateutil>=2.8.2` dependency for robust datetime string parsing
+
 ## [1.0.0] - 2025-11-17
 
 ### Added - ZFS Pool Monitoring
