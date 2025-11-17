@@ -196,48 +196,87 @@ def _find_uvx_executable(check_zpools_path: Path | None) -> Path:
 
         current_process = psutil.Process()
         ancestor = current_process.parent()
-        max_depth = 5  # Don't search too far up the tree
+        max_depth = 10  # Search further up the tree
         depth = 0
+
+        logger.debug(f"Starting process tree walk from PID {current_process.pid}")
 
         while ancestor and depth < max_depth:
             try:
                 cmdline = ancestor.cmdline()
-                logger.debug(f"Checking ancestor (depth={depth}): pid={ancestor.pid}, cmdline={cmdline}")
+                logger.debug(f"Checking ancestor depth={depth}, pid={ancestor.pid}, name={ancestor.name()}, cmdline={cmdline}")
 
                 if cmdline and len(cmdline) > 0:
-                    # Check cmdline[0] for uvx
-                    potential_uvx = Path(cmdline[0])
+                    # uvx might be:
+                    # 1. Direct: ['/path/to/uvx', 'check_zpools@latest', ...]
+                    # 2. Python script: ['python', '/path/to/uvx', 'check_zpools@latest', ...]
+                    # 3. Via uv: ['/path/to/uv', 'tool', 'uvx', '--from', ...]
 
-                    # Resolve to absolute path in case it's relative
-                    if not potential_uvx.is_absolute():
+                    # Check for 'uv tool uvx' pattern
+                    if len(cmdline) >= 3 and Path(cmdline[0]).name in ("uv", "uv.exe") and cmdline[1] == "tool" and cmdline[2] == "uvx":
+                        # Found 'uv tool uvx' - look for uvx in same directory as uv
+                        uv_path = Path(cmdline[0])
+                        if not uv_path.is_absolute():
+                            try:
+                                uv_path = uv_path.resolve()
+                            except Exception as e:
+                                logger.debug(f"Could not resolve {cmdline[0]}: {e}")
+                                continue
+
+                        # uvx should be in the same directory as uv
+                        uvx_sibling = uv_path.parent / "uvx"
+                        if uvx_sibling.exists():
+                            search_locations.append(uvx_sibling)
+                            logger.debug(f"Found uvx (sibling of uv) at depth={depth}: {uvx_sibling}")
+                            break
+                        else:
+                            logger.debug(f"uv found but uvx sibling doesn't exist: {uvx_sibling}")
+
+                    # Check cmdline[0] and cmdline[1] for uvx
+                    for i in range(min(2, len(cmdline))):
+                        potential_uvx = Path(cmdline[i])
+
+                        # Resolve to absolute path in case it's relative
+                        if not potential_uvx.is_absolute():
+                            try:
+                                potential_uvx = potential_uvx.resolve()
+                            except Exception as e:
+                                logger.debug(f"Could not resolve {cmdline[i]}: {e}")
+                                continue
+
+                        # Check if this is uvx
+                        if potential_uvx.name in ("uvx", "uvx.exe"):
+                            search_locations.append(potential_uvx)
+                            logger.debug(f"Found uvx in ancestor cmdline[{i}] (depth={depth}): {potential_uvx}")
+                            break
+                    else:
+                        # Continue with exe check if not found in cmdline
+                        # Also check the process executable path
                         try:
-                            potential_uvx = potential_uvx.resolve()
-                        except Exception:
-                            pass
-
-                    # Check if this is uvx
-                    if potential_uvx.name in ("uvx", "uvx.exe"):
-                        search_locations.append(potential_uvx)
-                        logger.debug(f"Found uvx in ancestor process (depth={depth}): {potential_uvx}")
-                        break
-
-                # Also check the process executable path
-                try:
-                    exe_path = Path(ancestor.exe())
-                    if exe_path.name in ("uvx", "uvx.exe"):
-                        search_locations.append(exe_path)
-                        logger.debug(f"Found uvx via ancestor exe (depth={depth}): {exe_path}")
-                        break
-                except Exception:
-                    pass
+                            exe_path = Path(ancestor.exe())
+                            logger.debug(f"Checking exe path: {exe_path}")
+                            if exe_path.name in ("uvx", "uvx.exe", "uv", "uv.exe"):
+                                search_locations.append(exe_path)
+                                logger.debug(f"Found uvx via ancestor exe (depth={depth}): {exe_path}")
+                        except Exception as e:
+                            logger.debug(f"Could not get exe path: {e}")
+                else:
+                    logger.debug(f"No cmdline for ancestor at depth {depth}")
 
             except (psutil.NoSuchProcess, psutil.AccessDenied, Exception) as e:
                 logger.debug(f"Could not access ancestor process at depth {depth}: {e}")
-                break
+                # Don't break - continue to next ancestor
+                pass
 
             # Move to next ancestor
-            ancestor = ancestor.parent()
-            depth += 1
+            try:
+                ancestor = ancestor.parent()
+                depth += 1
+            except Exception as e:
+                logger.debug(f"Could not get parent of ancestor at depth {depth}: {e}")
+                break
+
+        logger.debug(f"Finished process tree walk at depth {depth}")
 
     except (ImportError, Exception) as e:
         logger.debug(f"Could not get parent process info: {e}")

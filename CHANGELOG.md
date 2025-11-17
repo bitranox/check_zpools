@@ -3,16 +3,15 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
-## [2.0.2] - 2025-11-17
-  - Resolves relative paths to absolute paths for accurate matching
-  - **Why this matters**: uvx may spawn intermediate processes before launching check_zpools, so checking only the immediate parent misses the actual uvx executable
-
-## [2.0.1] - 2025-11-17
+## [2.0.3] - 2025-11-17
 ### Fixed
-- **Service Installation (uvx detection via process tree)**: Fixed uvx detection when invoked with absolute path from different directory (e.g., `/opt/venv/3.14.0/check_zpools/bin/uvx check_zpools@latest service-install` from `/rotek/scripts/`)
-  - Now walks up process tree (up to 5 ancestors) to find uvx, not just immediate parent
-  - Handles intermediate processes (Python interpreters, shells) between check_zpools and uvx
-  - Checks both cmdline[0] and executable path for each ancestor
+- **Service Installation (uvx detection via 'uv tool uvx')**: Fixed uvx detection when uvx is invoked as a wrapper around `uv tool uvx`
+  - Detects `uv tool uvx` pattern in process tree and locates uvx sibling binary in same directory as uv
+  - Walks up to 10 ancestor processes (increased from 5) to find uvx/uv
+  - Checks both cmdline[0] and cmdline[1] for Python script invocations
+  - Continues searching even if individual ancestors fail (improved error handling)
+  - Resolves relative paths to absolute paths for accurate matching
+  - **Why this matters**: Modern uvx implementations exec to `uv tool uvx`, so the parent process is `uv` not `uvx`. We must detect this pattern and find the actual uvx binary in the same directory as uv.
 
 ## [2.0.0] - 2025-11-17
 ### Changed - BREAKING CHANGES
