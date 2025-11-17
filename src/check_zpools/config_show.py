@@ -27,6 +27,117 @@ import click
 from .config import get_config
 
 
+def _collect_dotted_keys(data: dict[str, Any], prefix: str = "") -> list[str]:
+    """Recursively collect all dotted keys from a nested dictionary.
+
+    Parameters
+    ----------
+    data:
+        Dictionary to traverse
+    prefix:
+        Current dotted prefix
+
+    Returns
+    -------
+    list[str]
+        List of dotted keys (e.g., ["db.host", "db.port"])
+
+    Examples
+    --------
+    >>> _collect_dotted_keys({"db": {"host": "localhost", "port": 5432}})
+    ['db.host', 'db.port']
+    """
+    keys: list[str] = []
+    for key, value in data.items():
+        dotted_key = f"{prefix}.{key}" if prefix else key
+        if isinstance(value, dict):
+            # Recurse into nested dicts
+            keys.extend(_collect_dotted_keys(value, prefix=dotted_key))
+        else:
+            # Leaf value
+            keys.append(dotted_key)
+    return keys
+
+
+def _format_source_info(layer: str | None, path: str | None) -> str:
+    """Format source information into a human-readable string.
+
+    Parameters
+    ----------
+    layer:
+        Configuration layer name (e.g., "app", "user", "env")
+    path:
+        File path or None for environment variables
+
+    Returns
+    -------
+    str
+        Formatted source string
+
+    Examples
+    --------
+    >>> _format_source_info("app", "/etc/xdg/app/config.toml")
+    '[app: /etc/xdg/app/config.toml]'
+    >>> _format_source_info("env", None)
+    '[env]'
+    """
+    if layer is None:
+        return "[unknown]"
+    if path is None:
+        return f"[{layer}]"
+    return f"[{layer}: {path}]"
+
+
+def _display_value_with_source(
+    key: str,
+    value: Any,
+    dotted_key: str,
+    config: Any,
+    indent: str = "  ",
+) -> None:
+    """Display a configuration value with its source information.
+
+    Parameters
+    ----------
+    key:
+        The configuration key name
+    value:
+        The configuration value
+    dotted_key:
+        Full dotted path to this key
+    config:
+        The Config object (for querying origin)
+    indent:
+        Indentation string for nested values
+    """
+    # Get source info for this key (if config.origin is available)
+    source_str = ""
+    if hasattr(config, "origin"):
+        source_info = config.origin(dotted_key)
+        if source_info:
+            source_str = f"  # {_format_source_info(source_info.get('layer'), source_info.get('path'))}"
+
+    if isinstance(value, dict):
+        # For nested dicts, show the header and recurse
+        click.echo(f"{indent}{key}:")
+        for nested_key, nested_value in value.items():
+            nested_dotted_key = f"{dotted_key}.{nested_key}"
+            _display_value_with_source(
+                nested_key,
+                nested_value,
+                nested_dotted_key,
+                config,
+                indent=indent + "  ",
+            )
+    elif isinstance(value, list):
+        # For lists, show as JSON with source
+        click.echo(f"{indent}{key} = {json.dumps(value)}{source_str}")
+    elif isinstance(value, str):
+        click.echo(f'{indent}{key} = "{value}"{source_str}')
+    else:
+        click.echo(f"{indent}{key} = {value}{source_str}")
+
+
 def display_config(*, format: str = "human", section: str | None = None) -> None:
     """Display the current merged configuration from all sources.
 
@@ -97,13 +208,12 @@ def display_config(*, format: str = "human", section: str | None = None) -> None
             section_data = config.get(section, default={})
             if section_data:
                 click.echo(f"\n[{section}]")
-                for key, value in section_data.items():
-                    if isinstance(value, (list, dict)):
-                        click.echo(f"  {key} = {json.dumps(value)}")
-                    elif isinstance(value, str):
-                        click.echo(f'  {key} = "{value}"')
-                    else:
-                        click.echo(f"  {key} = {value}")
+                if isinstance(section_data, dict):
+                    for key, value in section_data.items():
+                        dotted_key = f"{section}.{key}"
+                        _display_value_with_source(key, value, dotted_key, config, indent="  ")
+                else:
+                    click.echo(f"  {section_data}")
             else:
                 click.echo(f"Section '{section}' not found or empty", err=True)
                 raise SystemExit(1)
@@ -116,12 +226,8 @@ def display_config(*, format: str = "human", section: str | None = None) -> None
                 if isinstance(section_data, dict):
                     dict_data = cast(dict[str, Any], section_data)
                     for key, value in dict_data.items():
-                        if isinstance(value, (list, dict)):
-                            click.echo(f"  {key} = {json.dumps(value)}")
-                        elif isinstance(value, str):
-                            click.echo(f'  {key} = "{value}"')
-                        else:
-                            click.echo(f"  {key} = {value}")
+                        dotted_key = f"{section_name}.{key}"
+                        _display_value_with_source(key, value, dotted_key, config, indent="  ")
                 else:
                     click.echo(f"  {section_data}")
 

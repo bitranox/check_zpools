@@ -87,8 +87,19 @@ def _detect_invocation_method() -> tuple[str, Path | None]:
     """
     import sys
 
+    # First, try to get the path from how we were invoked
+    # This handles cases like './check_zpools' or '/path/to/check_zpools'
+    invoked_path = Path(sys.argv[0]).resolve()
+    if invoked_path.exists() and invoked_path.name in ("check_zpools", "__main__.py"):
+        # We were invoked directly, use this path
+        exec_path_str = str(invoked_path)
+        logger.debug(f"Using invoked path: {invoked_path}")
+    else:
+        # Fall back to searching PATH
+        exec_path_str = shutil.which("check_zpools")
+
     # Check if we can find check_zpools at all
-    exec_path = shutil.which("check_zpools")
+    exec_path = exec_path_str
 
     # If check_zpools is not directly in PATH, it might be uvx-only
     if exec_path is None:

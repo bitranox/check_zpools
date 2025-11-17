@@ -265,20 +265,20 @@ send_recovery_emails = true
 #
 # IMPORTANT: Never commit .env files containing secrets to version control
 #
-# [lib_log_rich]
+[lib_log_rich]
 
 # ------------------------------------------------------------------------------
 # Core Identity Settings (defaults provided by code, can be overridden here)
 # ------------------------------------------------------------------------------
 
-# service = "check_zpools"
+service = "check_zpools"
 # Purpose: Logical service name recorded in each log event
 # Type: string (non-empty)
 # Default: "check_zpools" (from package name)
 # Environment: LOG_SERVICE
 # Example: service = "my-custom-service"
 
-# environment = "prod"
+environment = "prod"
 # Purpose: Deployment environment label (dev, stage, prod, local, etc.)
 # Type: string (non-empty)
 # Default: "prod"
@@ -289,7 +289,7 @@ send_recovery_emails = true
 # Console Output Settings
 # ------------------------------------------------------------------------------
 
-# console_level = "INFO"
+console_level = "WARNING"
 # Purpose: Minimum severity level emitted to Rich console
 # Type: string (case-insensitive)
 # Default: "INFO"
@@ -307,7 +307,7 @@ send_recovery_emails = true
 #       "none" suppresses all console output
 # Example: console_stream = "stdout"
 
-# console_format_preset = "full"
+console_format_preset = "short_loc"
 # Purpose: Console line layout preset
 # Type: string (case-insensitive)
 # Default: "full"
@@ -404,7 +404,7 @@ send_recovery_emails = true
 # Environment: LOG_BACKEND_LEVEL
 # Example: backend_level = "ERROR"
 
-# enable_journald = false
+enable_journald = true
 # Purpose: Enable systemd journald adapter (Linux only)
 # Type: boolean
 # Default: false
@@ -520,6 +520,7 @@ send_recovery_emails = true
 # Example: enable_ring_buffer = false
 
 # ring_buffer_size = 25000
+ring_buffer_size = 1000
 # Purpose: Maximum events retained in ring buffer
 # Type: integer (> 0)
 # Default: 25000

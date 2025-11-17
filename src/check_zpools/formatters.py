@@ -15,6 +15,10 @@ Contents
 from __future__ import annotations
 
 import json
+from io import StringIO
+
+from rich.console import Console
+from rich.table import Table
 
 from .models import CheckResult, Severity
 
@@ -77,18 +81,44 @@ def format_check_result_text(result: CheckResult) -> str:
     lines.append(f"\nZFS Pool Check - {timestamp_str}")
     lines.append(f"Overall Status: {result.overall_severity.value.upper()}\n")
 
-    # Pool Status Summary
-    lines.append("Pool Status:")
+    # Pool Status Summary as Table
+    table = Table(title="Pool Status", show_header=True, header_style="bold cyan")
+    table.add_column("Pool", style="bold", no_wrap=True)
+    table.add_column("Health", justify="center")
+    table.add_column("Capacity", justify="right")
+    table.add_column("Size", justify="right")
+    table.add_column("Read Errors", justify="right")
+    table.add_column("Write Errors", justify="right")
+    table.add_column("Checksum Errors", justify="right")
+
     for pool in result.pools:
+        # Determine colors
         health_color = "green" if pool.health.is_healthy() else "red"
         capacity_color = "green" if pool.capacity_percent < 80 else ("yellow" if pool.capacity_percent < 90 else "red")
+        error_color = "green" if not pool.has_errors() else "red"
 
-        lines.append(
-            f"  [{health_color}]{pool.name}[/{health_color}]: "
-            f"{pool.health.value} | "
-            f"Capacity: [{capacity_color}]{pool.capacity_percent:.1f}%[/{capacity_color}] | "
-            f"Errors: {pool.read_errors}R/{pool.write_errors}W/{pool.checksum_errors}C"
+        # Format size in human-readable format
+        size_gb = pool.size_bytes / (1024**3)
+        if size_gb >= 1024:
+            size_str = f"{size_gb / 1024:.1f}T"
+        else:
+            size_str = f"{size_gb:.1f}G"
+
+        table.add_row(
+            pool.name,
+            f"[{health_color}]{pool.health.value}[/{health_color}]",
+            f"[{capacity_color}]{pool.capacity_percent:.1f}%[/{capacity_color}]",
+            size_str,
+            f"[{error_color}]{pool.read_errors}[/{error_color}]",
+            f"[{error_color}]{pool.write_errors}[/{error_color}]",
+            f"[{error_color}]{pool.checksum_errors}[/{error_color}]",
         )
+
+    # Render table to string
+    console = Console(file=StringIO(), force_terminal=True, width=120)
+    console.print(table)
+    table_output = console.file.getvalue()  # type: ignore
+    lines.append(table_output)
 
     # Issues
     if result.issues:

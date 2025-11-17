@@ -297,6 +297,7 @@ def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from lib_layered_config import Config
+    from lib_layered_config.domain.config import SourceInfo
 
     # Create a mock Config with test data
     test_config_data = {
@@ -308,7 +309,10 @@ def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
 
     class MockConfig(Config):
         def __init__(self) -> None:
-            pass
+            # Initialize parent with empty meta since we override all methods
+            from types import MappingProxyType
+
+            super().__init__(_data=MappingProxyType(test_config_data), _meta={})
 
         def as_dict(self) -> dict[str, Any]:
             return test_config_data
@@ -320,6 +324,10 @@ def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
 
         def get(self, key: str, default: Any = None) -> Any:
             return test_config_data.get(key, default)
+
+        def origin(self, key: str) -> SourceInfo | None:
+            # Mock origin - return None since we don't track sources in tests
+            return None
 
     # Clear the lru_cache on get_config
     from check_zpools import config as config_mod
@@ -350,6 +358,7 @@ def test_when_config_is_invoked_with_json_format_and_section_it_shows_section(
 ) -> None:
     """Test JSON format with specific section."""
     from lib_layered_config import Config
+    from lib_layered_config.domain.config import SourceInfo
 
     test_config_data = {
         "email": {
@@ -360,10 +369,15 @@ def test_when_config_is_invoked_with_json_format_and_section_it_shows_section(
 
     class MockConfig(Config):
         def __init__(self) -> None:
-            pass
+            from types import MappingProxyType
+
+            super().__init__(_data=MappingProxyType(test_config_data), _meta={})
 
         def get(self, key: str, default: Any = None) -> Any:
             return test_config_data.get(key, default)
+
+        def origin(self, key: str) -> SourceInfo | None:
+            return None
 
     from check_zpools import config as config_mod
     from check_zpools import config_show
@@ -391,6 +405,7 @@ def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fail
 ) -> None:
     """Test JSON format with nonexistent section returns error."""
     from lib_layered_config import Config
+    from lib_layered_config.domain.config import SourceInfo
 
     test_config_data = {
         "email": {
@@ -400,10 +415,15 @@ def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fail
 
     class MockConfig(Config):
         def __init__(self) -> None:
-            pass
+            from types import MappingProxyType
+
+            super().__init__(_data=MappingProxyType(test_config_data), _meta={})
 
         def get(self, key: str, default: Any = None) -> Any:
             return test_config_data.get(key, default)
+
+        def origin(self, key: str) -> SourceInfo | None:
+            return None
 
     from check_zpools import config as config_mod
     from check_zpools import config_show
@@ -429,6 +449,7 @@ def test_when_config_is_invoked_with_section_showing_complex_values(
 ) -> None:
     """Test human format with section containing lists and dicts."""
     from lib_layered_config import Config
+    from lib_layered_config.domain.config import SourceInfo
 
     test_config_data = {
         "email": {
@@ -441,10 +462,15 @@ def test_when_config_is_invoked_with_section_showing_complex_values(
 
     class MockConfig(Config):
         def __init__(self) -> None:
-            pass
+            from types import MappingProxyType
+
+            super().__init__(_data=MappingProxyType(test_config_data), _meta={})
 
         def get(self, key: str, default: Any = None) -> Any:
             return test_config_data.get(key, default)
+
+        def origin(self, key: str) -> SourceInfo | None:
+            return None
 
     from check_zpools import config as config_mod
     from check_zpools import config_show
@@ -479,6 +505,7 @@ def test_when_config_shows_all_sections_with_complex_values(
 ) -> None:
     """Test human format showing all sections with lists and dicts."""
     from lib_layered_config import Config
+    from lib_layered_config.domain.config import SourceInfo
 
     test_config_data = {
         "email": {
@@ -493,10 +520,15 @@ def test_when_config_shows_all_sections_with_complex_values(
 
     class MockConfig(Config):
         def __init__(self) -> None:
-            pass
+            from types import MappingProxyType
+
+            super().__init__(_data=MappingProxyType(test_config_data), _meta={})
 
         def as_dict(self) -> dict[str, Any]:
             return test_config_data
+
+        def origin(self, key: str) -> SourceInfo | None:
+            return None
 
     from check_zpools import config as config_mod
     from check_zpools import config_show

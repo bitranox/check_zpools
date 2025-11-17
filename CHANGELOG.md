@@ -3,13 +3,23 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [1.1.0] - 2025-11-17
+### Changed
+- **Config Display Enhancement**: `config` command now shows the source layer and file path for each configuration value, making it easier to understand where settings are coming from (e.g., `[defaults: /path/to/defaultconfig.toml]`, `[user: ~/.config/...]`, `[env]`)
+
+### Fixed
+- **Service Installation**: Fixed installation failure when invoked with relative/absolute path (e.g., `./check_zpools install-service`) - now uses `sys.argv[0]` to detect invocation path instead of only searching PATH
+
+
 ## [1.0.3] - 2025-11-17
 ### Changed
-- **CLI Output Enhancement**: `check` command now displays status summary for each pool (health, capacity, error counts) even when no issues are detected, providing better visibility into pool states
+- **CLI Output Enhancement**: `check` command now displays pool status in a Rich table format with color-coded health, capacity, and error counts, providing better visibility and readability
+- **Config Display Enhancement**: `config` command now shows the source layer and file path for each configuration value, making it easier to understand where settings are coming from (e.g., `[defaults: /path/to/defaultconfig.toml]`, `[user: ~/.config/...]`, `[env]`)
 
 ## [1.0.2] - 2025-11-17
 ### Fixed
 - **Error Monitoring Logic**: Fixed false positives where pools with 0 errors were triggering warnings - now only warns when errors are actually present (> 0)
+
 
 ## [1.0.1] - 2025-11-17
 ### Fixed
