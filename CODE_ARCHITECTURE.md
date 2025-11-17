@@ -148,6 +148,57 @@ Extracts scrub information from pool status data:
 
 These helpers eliminate duplication between `_parse_pool_from_list()` and `_parse_pool_from_status()`.
 
+## Formatters Module (`formatters.py`)
+
+### Purpose
+
+Centralizes all output formatting logic to keep the CLI module minimal and focused
+on command wiring.
+
+### Design Principle
+
+**Separation of Concerns**: The CLI module handles command routing and option parsing,
+while formatters handle output generation. This keeps each module focused on a single
+responsibility.
+
+### Functions
+
+#### `format_check_result_json(result) -> str`
+
+Formats check results as JSON with proper indentation.
+
+**Returns:**
+- timestamp (ISO format)
+- pools (name, health, capacity)
+- issues (pool_name, severity, category, message, details)
+- overall_severity
+
+#### `format_check_result_text(result) -> str`
+
+Formats check results as human-readable text with:
+- Timestamp header
+- Overall status
+- Color-coded issue list (red/yellow/green)
+- Summary (pools checked count)
+
+#### `get_exit_code_for_severity(severity) -> int`
+
+Maps severity levels to standard exit codes:
+- OK → 0
+- WARNING → 1
+- CRITICAL → 2
+
+#### `_get_severity_color(severity) -> str` (private)
+
+Maps severity to rich console color markup (red/yellow/green).
+
+### Benefits
+
+- **Testability**: Format functions can be unit tested independently
+- **Reusability**: Formatters can be used by multiple CLI commands
+- **Maintainability**: Changes to output format isolated to one module
+- **CLI Simplicity**: CLI commands reduced from 60+ lines to ~25 lines
+
 ## Code Quality Standards
 
 ### Type Hints
