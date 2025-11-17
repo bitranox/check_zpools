@@ -43,10 +43,6 @@ SERVICE_FILE_PATH = SYSTEMD_SYSTEM_DIR / SERVICE_NAME
 CACHE_DIR = Path("/var/cache/check_zpools")
 LIB_DIR = Path("/var/lib/check_zpools")
 
-# uvx shim detection threshold (bytes)
-# Real Python entry points are typically larger; uvx shims are minimal wrappers
-UVX_SHIM_MAX_SIZE = 1000
-
 
 def _check_root_privileges() -> None:
     """Verify script is running with root privileges.
@@ -70,334 +66,126 @@ def _check_root_privileges() -> None:
         raise PermissionError("This command must be run as root (use sudo).\nExample: sudo check_zpools install-service")
 
 
-def _detect_invocation_method() -> tuple[str, Path | None]:
-    """Detect how check_zpools was invoked (direct, venv, uv, uvx, etc.).
+def _detect_uvx_from_process_tree() -> tuple[Path | None, str | None]:
+    """Detect uvx installation and extract version from process tree.
 
-    Why
-        Different installation methods require different systemd ExecStart
-        configurations. We need to preserve the execution environment.
-
-    Returns
-        Tuple of (method, path):
-        - ("direct", Path): Direct executable (pip install --user, system)
-        - ("venv", Path): Virtual environment (path to venv/bin/check_zpools)
-        - ("uv", None): UV-managed project (use 'uv run check_zpools')
-        - ("uvx", None): UV tool runner (use 'uvx check_zpools')
-
-    Examples
-        >>> method, path = _detect_invocation_method()  # doctest: +SKIP
-        >>> if method == "venv":  # doctest: +SKIP
-        ...     print(f"Running from venv: {path}")
-    """
-    import sys
-
-    # First, try to get the path from how we were invoked
-    # This handles cases like './check_zpools' or '/path/to/check_zpools'
-    invoked_path = Path(sys.argv[0]).resolve()
-
-    if invoked_path.exists() and invoked_path.name in ("check_zpools", "__main__.py"):
-        # We were invoked directly, use this path
-        exec_path_str = str(invoked_path)
-        exec_path_resolved = invoked_path
-        logger.debug(f"Using invoked path: {invoked_path}")
-    else:
-        # Fall back to searching PATH
-        exec_path_str = shutil.which("check_zpools")
-
-        # If check_zpools is not directly in PATH, it might be uvx-only
-        if exec_path_str is None:
-            # Check if uvx is available
-            uvx_path = shutil.which("uvx")
-            if uvx_path is not None:
-                logger.debug("check_zpools not in PATH, but uvx found - assuming uvx installation")
-                return ("uvx", None)
-
-            logger.error("Could not find check_zpools executable in PATH")
-            raise FileNotFoundError("check_zpools executable not found in PATH.\nPlease ensure it is installed and accessible.")
-
-        exec_path_resolved = Path(exec_path_str).resolve()
-
-    # Check if this is actually a uvx shim/wrapper
-    # uvx creates wrappers in ~/.local/bin that aren't real installations
-    if exec_path_resolved.parent.name == ".local" and (exec_path_resolved.parent.parent / ".local" / "bin").exists():
-        # Could be uvx or regular pip install --user
-        # Check if there's actual package data or just a shim
-        try:
-            # If this is a uvx shim, it will be very small and just redirect
-            if exec_path_resolved.stat().st_size < UVX_SHIM_MAX_SIZE:
-                logger.debug("Detected uvx shim in ~/.local/bin")
-                return ("uvx", None)
-        except OSError:
-            pass
-
-    # Check if the executable is in uvx cache BEFORE checking venv
-    # IMPORTANT: uvx creates temporary venvs, so we must check cache path first!
-    # uvx stores tools in ~/.cache/uv/ or %LOCALAPPDATA%/uv/ (Windows)
-    exec_path_str = str(exec_path_resolved)
-    if "cache/uv/" in exec_path_str or "cache\\uv\\" in exec_path_str:
-        logger.debug(f"Detected uvx cache installation: {exec_path_resolved}")
-        # Return the detected path so we can find uvx in the same bin directory
-        return ("uvx", exec_path_resolved)
-
-    # Check if running from a virtual environment
-    # This must come AFTER uvx check because uvx uses temporary venvs
-    if hasattr(sys, "prefix") and sys.prefix != sys.base_prefix:
-        # We're in a venv
-        venv_root = Path(sys.prefix)
-        logger.info(f"Detected virtual environment: {venv_root}")
-        return ("venv", exec_path_resolved)
-
-    # Check if UV project is being used (UV_PROJECT_ROOT or pyproject.toml with uv.lock)
-    if os.environ.get("UV_PROJECT_ROOT"):
-        logger.info("Detected UV environment (UV_PROJECT_ROOT set)")
-        return ("uv", None)
-
-    # Check if the executable is in a UV project cache (.uv directory)
-    if ".uv" in str(exec_path_resolved.parent) or "uv/cache" in exec_path_str:
-        logger.info("Detected UV project cache installation (.uv in path)")
-        return ("uv", None)
-
-    # Check for uv.lock in the current or parent directories (UV project)
-    current_dir = Path.cwd()
-    for parent in [current_dir] + list(current_dir.parents)[:3]:  # Check up to 3 levels
-        if (parent / "uv.lock").exists():
-            logger.info(f"Detected UV project (uv.lock found in {parent})")
-            return ("uv", None)
-
-    # Default to direct installation
-    logger.info(f"Using direct executable path: {exec_path_resolved}")
-    return ("direct", exec_path_resolved)
-
-
-def _extract_uvx_version_from_process_tree() -> str | None:
-    """Extract uvx version specifier from parent process command line.
-
-    When running via uvx with a version (e.g., `uvx check_zpools@latest service-install`),
-    this function detects the version specifier from the process tree.
+    This is the single source of truth for uvx detection. It walks the process
+    tree looking for the "uv tool uvx" pattern that uvx always uses, then
+    extracts both the uvx path and version specifier in a single pass.
 
     Returns
-        Version specifier (e.g., '@latest', '@1.0.0') or None if not found.
+        Tuple of (uvx_path, version_spec):
+        - uvx_path: Path to uvx executable, or None if not running under uvx
+        - version_spec: Version like '@latest', '@1.0.0', or None if no version
+
+    Root Cause
+        uvx execs to "uv tool uvx", so the process tree contains:
+        ['/path/to/uv', 'tool', 'uvx', 'check_zpools@version', ...]
+        We detect this pattern, find uvx as a sibling of uv, and extract
+        the version in the same pass.
 
     Examples
         >>> # When invoked as: uvx check_zpools@latest service-install
-        >>> _extract_uvx_version_from_process_tree()  # doctest: +SKIP
-        '@latest'
+        >>> uvx_path, version = _detect_uvx_from_process_tree()  # doctest: +SKIP
+        >>> print(uvx_path, version)  # doctest: +SKIP
+        Path('/usr/local/bin/uvx') '@latest'
     """
     try:
         import psutil
         import re
 
-        current_process = psutil.Process()
-        ancestor = current_process.parent()
-        max_depth = 10
-        depth = 0
-
-        # Pattern to match check_zpools with version specifier
-        # Matches: check_zpools@latest, check_zpools@1.0.0, check_zpools@2.0.3, etc.
         version_pattern = re.compile(r"check_zpools(@[a-zA-Z0-9._-]+)")
-
-        while ancestor and depth < max_depth:
-            try:
-                cmdline = ancestor.cmdline()
-                logger.debug(f"Checking ancestor at depth {depth}: pid={ancestor.pid}, cmdline={cmdline}")
-
-                # Check all command line arguments for version specifier
-                if cmdline:
-                    for i, arg in enumerate(cmdline):
-                        if "check_zpools" in arg:
-                            logger.debug(f"  Found 'check_zpools' in cmdline[{i}]: {arg}")
-                            match = version_pattern.search(arg)
-                            if match:
-                                version_spec = match.group(1)  # Returns '@latest', '@1.0.0', etc.
-                                logger.info(f"Found uvx version specifier in process tree at depth {depth}: {version_spec}")
-                                return version_spec
-                            else:
-                                logger.debug("  No version specifier in this argument")
-
-                ancestor = ancestor.parent()
-                depth += 1
-
-            except Exception as e:
-                logger.debug(f"Error checking ancestor at depth {depth}: {e}")
-                try:
-                    ancestor = ancestor.parent()
-                    depth += 1
-                except Exception:
-                    break
-
-    except Exception as e:
-        logger.debug(f"Could not extract uvx version from process tree: {e}")
-
-    return None
-
-
-def _find_uvx_executable(check_zpools_path: Path | None) -> Path:
-    """Find uvx executable respecting user's invocation choice.
-
-    Search Priority (respects user intent)
-        1. Parent process (uvx that launched check_zpools) - PRIMARY
-        2. Current working directory (./uvx)
-        3. Same bin directory as check_zpools
-        4. System PATH - LAST RESORT
-
-    Parameters
-        check_zpools_path: Path to detected check_zpools executable (may be None)
-
-    Returns
-        Absolute path to uvx executable
-
-    Raises
-        FileNotFoundError: When uvx cannot be found in any location
-    """
-    search_locations: list[Path] = []
-
-    # 1. PRIORITY: Parent process (user's explicit choice)
-    # Walk up the process tree to find uvx (it may not be the immediate parent)
-    try:
-        import psutil
-
         current_process = psutil.Process()
         ancestor = current_process.parent()
-        max_depth = 10  # Search further up the tree
-        depth = 0
 
-        logger.debug(f"Starting process tree walk from PID {current_process.pid}")
-
-        while ancestor and depth < max_depth:
-            try:
-                cmdline = ancestor.cmdline()
-                logger.debug(f"Checking ancestor depth={depth}, pid={ancestor.pid}, name={ancestor.name()}, cmdline={cmdline}")
-
-                if cmdline and len(cmdline) > 0:
-                    # uvx might be:
-                    # 1. Direct: ['/path/to/uvx', 'check_zpools@latest', ...]
-                    # 2. Python script: ['python', '/path/to/uvx', 'check_zpools@latest', ...]
-                    # 3. Via uv: ['/path/to/uv', 'tool', 'uvx', '--from', ...]
-
-                    # Check for 'uv tool uvx' pattern
-                    if len(cmdline) >= 3 and Path(cmdline[0]).name in ("uv", "uv.exe") and cmdline[1] == "tool" and cmdline[2] == "uvx":
-                        # Found 'uv tool uvx' - look for uvx in same directory as uv
-                        uv_path = Path(cmdline[0])
-                        if not uv_path.is_absolute():
-                            try:
-                                uv_path = uv_path.resolve()
-                            except Exception as e:
-                                logger.debug(f"Could not resolve {cmdline[0]}: {e}")
-                                continue
-
-                        # uvx should be in the same directory as uv
-                        uvx_sibling = uv_path.parent / "uvx"
-                        if uvx_sibling.exists():
-                            search_locations.append(uvx_sibling)
-                            logger.debug(f"Found uvx (sibling of uv) at depth={depth}: {uvx_sibling}")
-                            break
-                        else:
-                            logger.debug(f"uv found but uvx sibling doesn't exist: {uvx_sibling}")
-
-                    # Check cmdline[0] and cmdline[1] for uvx
-                    for i in range(min(2, len(cmdline))):
-                        potential_uvx = Path(cmdline[i])
-
-                        # Resolve to absolute path in case it's relative
-                        if not potential_uvx.is_absolute():
-                            try:
-                                potential_uvx = potential_uvx.resolve()
-                            except Exception as e:
-                                logger.debug(f"Could not resolve {cmdline[i]}: {e}")
-                                continue
-
-                        # Check if this is uvx
-                        if potential_uvx.name in ("uvx", "uvx.exe"):
-                            search_locations.append(potential_uvx)
-                            logger.debug(f"Found uvx in ancestor cmdline[{i}] (depth={depth}): {potential_uvx}")
-                            break
-                    else:
-                        # Continue with exe check if not found in cmdline
-                        # Also check the process executable path
-                        try:
-                            exe_path = Path(ancestor.exe())
-                            logger.debug(f"Checking exe path: {exe_path}")
-                            if exe_path.name in ("uvx", "uvx.exe", "uv", "uv.exe"):
-                                search_locations.append(exe_path)
-                                logger.debug(f"Found uvx via ancestor exe (depth={depth}): {exe_path}")
-                        except Exception as e:
-                            logger.debug(f"Could not get exe path: {e}")
-                else:
-                    logger.debug(f"No cmdline for ancestor at depth {depth}")
-
-            except (psutil.NoSuchProcess, psutil.AccessDenied, Exception) as e:
-                logger.debug(f"Could not access ancestor process at depth {depth}: {e}")
-                # Don't break - continue to next ancestor
-                pass
-
-            # Move to next ancestor
-            try:
-                ancestor = ancestor.parent()
-                depth += 1
-            except Exception as e:
-                logger.debug(f"Could not get parent of ancestor at depth {depth}: {e}")
+        # Walk up process tree (max 10 levels)
+        for depth in range(10):
+            if not ancestor:
                 break
 
-        logger.debug(f"Finished process tree walk at depth {depth}")
+            try:
+                cmdline = ancestor.cmdline()
+                if not cmdline or len(cmdline) < 3:
+                    ancestor = ancestor.parent()
+                    continue
 
-    except (ImportError, Exception) as e:
-        logger.debug(f"Could not get parent process info: {e}")
+                # Look for "uv tool uvx" pattern
+                if Path(cmdline[0]).name in ("uv", "uv.exe") and cmdline[1:3] == ["tool", "uvx"]:
+                    # Found uvx! Now find the uvx executable and extract version
+                    uv_path = Path(cmdline[0]).resolve()
+                    uvx_path = uv_path.parent / "uvx"
 
-    # 2. Current working directory
-    search_locations.append(Path.cwd() / "uvx")
+                    if not uvx_path.exists():
+                        logger.debug(f"Found 'uv tool uvx' but uvx not found at: {uvx_path}")
+                        ancestor = ancestor.parent()
+                        continue
 
-    # 3. Same bin directory as check_zpools
-    if check_zpools_path and check_zpools_path.parent.name == "bin":
-        search_locations.append(check_zpools_path.parent / "uvx")
+                    # Extract version from any argument containing check_zpools@version
+                    version_spec = None
+                    for arg in cmdline:
+                        if "check_zpools" in arg:
+                            match = version_pattern.search(arg)
+                            if match:
+                                version_spec = match.group(1)
+                                break
 
-    # 4. LAST RESORT: System PATH
-    uvx_path = shutil.which("uvx")
-    if uvx_path is not None:
-        search_locations.append(Path(uvx_path))
+                    logger.info(f"Detected uvx: {uvx_path}, version: {version_spec or 'unspecified'}")
+                    return (uvx_path, version_spec)
 
-    # Try each location in priority order
-    for potential_uvx in search_locations:
-        if potential_uvx.exists():
-            logger.debug(f"Found uvx at: {potential_uvx}")
-            return potential_uvx.resolve()
+                ancestor = ancestor.parent()
 
-    # Not found anywhere
-    raise FileNotFoundError(
-        "uvx installation detected but 'uvx' command not found.\n"
-        "Please ensure uvx is installed and accessible.\n"
-        f"Detected check_zpools path: {check_zpools_path}\n"
-        f"Searched locations: {search_locations}"
-    )
+            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+                logger.debug(f"Process access error at depth {depth}: {e}")
+                break
+            except Exception as e:
+                logger.debug(f"Error checking ancestor at depth {depth}: {e}")
+                ancestor = ancestor.parent()
+
+    except Exception as e:
+        logger.debug(f"Process tree detection failed: {e}")
+
+    return (None, None)
 
 
-def _find_executable() -> Path:
-    """Locate the check_zpools executable in PATH.
+def _find_executable() -> tuple[str, Path, str | None]:
+    """Detect installation method and find executable path.
 
-    Why
-        Need absolute path to executable for systemd ExecStart directive.
+    This is the unified entry point for detecting how check_zpools is installed
+    and locating the appropriate executable for the systemd service file.
 
     Returns
-        Absolute path to check_zpools executable (or uv/uvx for UV installations).
+        Tuple of (method, executable_path, uvx_version):
+        - method: "uvx" or "direct"
+        - executable_path: Path to uvx or check_zpools executable
+        - uvx_version: Version specifier like '@latest', or None
+
+    Simplified Logic
+        1. Check process tree for uvx (via "uv tool uvx" pattern)
+        2. If uvx found: return uvx details
+        3. Otherwise: find check_zpools in PATH (direct installation)
+        4. Fail if neither works
 
     Raises
-        FileNotFoundError: When check_zpools not found in PATH.
+        FileNotFoundError: When neither uvx nor direct installation detected.
     """
-    method, path = _detect_invocation_method()
+    # First, check if running under uvx (this is the source of truth)
+    uvx_path, uvx_version = _detect_uvx_from_process_tree()
+    if uvx_path:
+        logger.info(f"Installation method: uvx ({uvx_path})")
+        return ("uvx", uvx_path, uvx_version)
 
-    if method == "uvx":
-        return _find_uvx_executable(path)
+    # Not uvx - must be direct installation, find in PATH
+    exec_path_str = shutil.which("check_zpools")
+    if not exec_path_str:
+        raise FileNotFoundError(
+            "check_zpools not found in PATH and not running under uvx.\n"
+            "Install with: pip install check_zpools\n"
+            "Or run via: uvx check_zpools@latest service-install"
+        )
 
-    if method == "uv":
-        # For UV project, we'll use 'uv run check_zpools'
-        uv_path = shutil.which("uv")
-        if uv_path is None:
-            raise FileNotFoundError("UV installation detected but 'uv' command not found in PATH")
-        return Path(uv_path).resolve()
-
-    if path is None:
-        raise FileNotFoundError("Could not determine executable path")
-
-    return path
+    exec_path = Path(exec_path_str).resolve()
+    logger.info(f"Installation method: direct ({exec_path})")
+    return ("direct", exec_path, None)
 
 
 def _create_service_directories() -> None:
@@ -422,51 +210,36 @@ def _create_service_directories() -> None:
 def _generate_service_file_content(
     executable_path: Path,
     method: str,
-    venv_path: Path | None = None,
     uvx_version: str | None = None,
 ) -> str:
     """Generate systemd service file content with correct executable path.
 
+    Simplified to only support two installation methods:
+    - "uvx": uvx-based installation (requires cache directory access)
+    - "direct": Direct pip install (system or user)
+
     Parameters
     ----------
     executable_path:
-        Absolute path to check_zpools executable (or uv/uvx for UV installations).
+        Absolute path to uvx executable or check_zpools executable.
     method:
-        Installation method detected ("direct", "venv", "uv", "uvx").
-    venv_path:
-        Path to virtual environment root (for venv installations).
+        Installation method detected ("direct" or "uvx").
     uvx_version:
         Version specifier for uvx installations (e.g., '@latest', '@1.0.0').
 
     Returns
         Complete systemd service file content as string.
     """
-    # Determine the correct ExecStart command and writable paths based on installation method
-    # For uvx, we need to allow writes to uv's cache directory
+    # Build ExecStart command based on installation method
     if method == "uvx":
-        # uvx runs tools on-the-fly without permanent installation
-        # Add version specifier if provided (e.g., check_zpools@latest)
+        # uvx runs tools on-the-fly, creating temporary venvs in cache
         package_spec = f"check_zpools{uvx_version}" if uvx_version else "check_zpools"
         exec_start = f"{executable_path} {package_spec} daemon --foreground"
-        working_dir_line = ""  # uvx doesn't need specific working directory
-        # uvx needs write access to its cache directory
+        # uvx needs write access to its cache directory (blocked by ProtectSystem=strict)
         extra_writable_paths = " /root/.cache/uv"
-    elif method == "uv":
-        # uv run needs the project directory
-        exec_start = f"{executable_path} run check_zpools daemon --foreground"
-        working_dir_line = f"WorkingDirectory={Path.cwd()}"
-        # uv also needs cache access
-        extra_writable_paths = " /root/.cache/uv"
-    elif method == "venv" and venv_path:
-        exec_start = f"{executable_path} daemon --foreground"
-        # For venv, we need to ensure the venv's bin directory is in PATH
-        venv_bin = venv_path / "bin"
-        working_dir_line = f'Environment="PATH={venv_bin}:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"'
-        extra_writable_paths = ""
     else:
-        # Direct installation
+        # Direct installation - executable is already in PATH
         exec_start = f"{executable_path} daemon --foreground"
-        working_dir_line = ""
         extra_writable_paths = ""
 
     service_content = f"""[Unit]
@@ -481,9 +254,8 @@ Type=simple
 User=root
 Group=root
 
-# Path to check_zpools executable ({method} installation)
+# Installation method: {method}
 ExecStart={exec_start}
-{working_dir_line}
 
 # Restart policy
 Restart=on-failure
@@ -523,7 +295,6 @@ WantedBy=multi-user.target
 def _install_service_file(
     executable_path: Path,
     method: str,
-    venv_path: Path | None = None,
     uvx_version: str | None = None,
 ) -> None:
     """Write systemd service file to /etc/systemd/system/.
@@ -531,18 +302,16 @@ def _install_service_file(
     Parameters
     ----------
     executable_path:
-        Absolute path to check_zpools executable (or uv/uvx for UV installations).
+        Absolute path to check_zpools executable or uvx for uvx installations.
     method:
-        Installation method detected ("direct", "venv", "uv", "uvx").
-    venv_path:
-        Path to virtual environment root (for venv installations).
+        Installation method detected ("direct" or "uvx").
     uvx_version:
         Version specifier for uvx installations (e.g., '@latest', '@1.0.0').
 
     Side Effects
         Creates {SERVICE_FILE_PATH} with mode 644.
     """
-    content = _generate_service_file_content(executable_path, method, venv_path, uvx_version)
+    content = _generate_service_file_content(executable_path, method, uvx_version)
     logger.info(f"Installing service file: {SERVICE_FILE_PATH}")
     SERVICE_FILE_PATH.write_text(content, encoding="utf-8")
     SERVICE_FILE_PATH.chmod(0o644)
@@ -628,40 +397,25 @@ def install_service(*, enable: bool = True, start: bool = True, uvx_version: str
     # Verify prerequisites
     _check_root_privileges()
 
-    # Detect installation method
-    method, detected_path = _detect_invocation_method()
-    logger.info(f"Detected installation method: {method}")
+    # Detect installation method and find executable (unified call)
+    method, executable_path, detected_version = _find_executable()
 
-    # Get the executable path (might be uv for UV installations)
-    executable_path = _find_executable()
-    logger.info(f"Using executable: {executable_path}")
-
-    # Determine venv path if applicable
-    venv_path = None
-    if method == "venv" and detected_path:
-        import sys
-
-        venv_path = Path(sys.prefix)
-        logger.info(f"Virtual environment: {venv_path}")
-
-    # Auto-detect uvx version if not provided and method is uvx
-    if method == "uvx" and uvx_version is None:
-        logger.info("Attempting to auto-detect uvx version specifier from process tree...")
-        detected_version = _extract_uvx_version_from_process_tree()
-        if detected_version:
+    # Use detected version if not manually specified (uvx only)
+    if method == "uvx":
+        if not uvx_version:
             uvx_version = detected_version
-            logger.info(f"Auto-detected uvx version specifier: {uvx_version}")
-        else:
-            logger.warning("uvx installation detected but no version specifier found in process tree.")
-            logger.warning("Service will use 'uvx check_zpools' without version specifier.")
-            logger.warning("This may cause the service to fail. Consider running with --uvx-version flag.")
-            logger.warning("Example: uvx check_zpools@latest service-install --uvx-version @latest")
+
+        if not uvx_version:
+            logger.warning("uvx detected but no version specifier found.")
+            logger.warning("Service will use 'uvx check_zpools' without version.")
+            logger.warning("This may fail. Use explicit version: uvx check_zpools@2.0.4 service-install")
+            logger.warning("Or use @latest for auto-updates (not recommended for production)")
 
     # Create directories
     _create_service_directories()
 
     # Install service file
-    _install_service_file(executable_path, method, venv_path, uvx_version)
+    _install_service_file(executable_path, method, uvx_version)
 
     # Reload systemd daemon
     logger.info("Reloading systemd daemon")

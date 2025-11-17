@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.0.5] - 2025-11-18
+### Changed
+- **Service Installation (Code Refactoring)**: Significantly simplified service installation module
+  - Reduced code from 852 lines to 605 lines (29% reduction, 247 lines removed)
+  - Merged 3 redundant functions into single `_detect_uvx_from_process_tree()` function
+  - Removed support for unused installation methods (venv, uv project)
+  - Now only supports 2 installation methods: "uvx" and "direct"
+  - Simplified service file generation (removed 4 conditional branches)
+  - Improved code clarity and maintainability
+  - **Why this matters**: The previous code was over-engineered for edge cases that don't occur in practice. The simplified code is easier to understand, debug, and extend.
+
+### Fixed
+- **Service Installation (Warning Message)**: Fixed misleading warning about `@latest` being recommended
+  - Now correctly states: Use explicit version for production (e.g., `@2.0.4`)
+  - Clarifies that `@latest` is for auto-updates but not recommended for production
+
 ## [2.0.4] - 2025-11-18
 ### Fixed
 - **Service Installation (uvx cache directory access)**: Fixed "Read-only file system" error when running daemon via uvx
@@ -17,10 +33,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Provides helpful error message with example command when auto-detection fails
 
 ### Documentation
-- **Important**: When installing service via uvx, you MUST include the version specifier in the invocation:
-  - ✅ Correct: `uvx check_zpools@latest service-install`
-  - ❌ Wrong: `uvx check_zpools service-install`
-- Without `@latest` (or `@version`), the generated service file will fail because uvx cannot resolve the package
+- **Important**: When installing service via uvx, include a version specifier for best results:
+  - ✅ Recommended for production: `uvx check_zpools@2.0.4 service-install`
+  - ✅ Acceptable for auto-updates: `uvx check_zpools@latest service-install`
+  - ⚠️  Works but may use unexpected version: `uvx check_zpools service-install`
+- Version specifier is auto-detected from the invocation command and included in the service file
 
 ## [2.0.3] - 2025-11-17
 ### Fixed
