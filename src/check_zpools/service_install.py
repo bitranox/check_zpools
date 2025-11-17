@@ -197,8 +197,24 @@ def _find_uvx_executable(check_zpools_path: Path | None) -> Path:
         parent_process = current_process.parent()
         if parent_process:
             parent_cmdline = parent_process.cmdline()
+            logger.debug(f"Parent process cmdline: {parent_cmdline}")
             if parent_cmdline and len(parent_cmdline) > 0:
                 potential_uvx = Path(parent_cmdline[0])
+                # Resolve to absolute path in case it's relative
+                if not potential_uvx.is_absolute():
+                    # Try to resolve it
+                    try:
+                        potential_uvx = potential_uvx.resolve()
+                    except Exception:
+                        # If resolve fails, try using parent process exe
+                        try:
+                            parent_exe = Path(parent_process.exe())
+                            if parent_exe.name in ("uvx", "uvx.exe"):
+                                potential_uvx = parent_exe
+                                logger.debug(f"Used parent exe instead: {potential_uvx}")
+                        except Exception:
+                            pass
+
                 if potential_uvx.name in ("uvx", "uvx.exe"):
                     search_locations.append(potential_uvx)
                     logger.debug(f"Found uvx in parent process: {potential_uvx}")

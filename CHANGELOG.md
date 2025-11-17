@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.0.1] - 2025-11-17
+  - Resolves relative paths to absolute paths for parent process detection
+  - Falls back to parent process executable path if cmdline path resolution fails
+  - **Why this matters**: If user runs `/opt/venv/bin/uvx`, we must use THAT uvx, not a different one from PATH
+
 ## [2.0.0] - 2025-11-17
 ### Changed - BREAKING CHANGES
 - **CLI Command Naming**: Renamed service management commands for better consistency
@@ -28,8 +33,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
     2. Current working directory (`./uvx`)
     3. Same bin directory as check_zpools
     4. System PATH - LAST RESORT ONLY
-  - Uses `psutil` to examine parent process command line
+  - Uses `psutil` to examine parent process command line and executable path
   - Handles all invocation methods: `./uvx`, `/path/to/uvx`, `uvx` in PATH
+  - Resolves relative paths to absolute paths for parent process detection
+  - Falls back to parent process executable path if cmdline path resolution fails
   - **Why this matters**: If user runs `/opt/venv/bin/uvx`, we must use THAT uvx, not a different one from PATH
 
 ### Added
