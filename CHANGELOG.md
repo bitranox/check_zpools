@@ -3,7 +3,22 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.2] - 2025-11-18
+
+### Documentation
+- **README (Example Log Output)**: Updated example log output to show version field in daemon startup message
+  - Startup log now shows: `[version="2.1.1", interval_seconds=300, pools="all"]`
+  - Reflects the actual daemon behavior introduced in v2.1.1
+  - **Why this matters**: Documentation accurately reflects what administrators will see in their logs
+
 ## [2.1.1] - 2025-11-18
+
+### Added
+- **Daemon Logging (Version on Startup)**: Daemon now logs its version number on startup
+  - Version is included in the startup INFO log message
+  - Helps administrators identify which version is running in logs
+  - Useful for troubleshooting and verifying deployments
+  - **Why this matters**: Makes it easy to confirm daemon version from logs without checking package metadata
 
 ### Documentation
 - **README (Daemon Logging Section)**: Added comprehensive documentation for daemon logging features

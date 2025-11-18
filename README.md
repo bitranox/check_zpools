@@ -1024,7 +1024,7 @@ check_zpools daemon --foreground 2>&1 | tee -a /var/log/check_zpools.log
 Here's what a typical check cycle looks like in the logs:
 
 ```
-[2025-11-18 14:35:00] INFO: Starting ZFS pool monitoring daemon [interval_seconds=300, pools="all"]
+[2025-11-18 14:35:00] INFO: Starting ZFS pool monitoring daemon [version="2.1.1", interval_seconds=300, pools="all"]
 [2025-11-18 14:35:00] INFO: PoolMonitor initialized [capacity_warning=80, capacity_critical=90, scrub_max_age_days=30]
 [2025-11-18 14:35:05] INFO: Check cycle completed [check_number=1, uptime="0m", pools_checked=2, issues_found=0, severity="OK"]
 [2025-11-18 14:35:05] INFO: Pool: rpool [health="ONLINE", capacity_percent="45.2%", size="1.00 TB", allocated="452.00 GB", free="548.00 GB", read_errors=0, write_errors=0, checksum_errors=0, last_scrub="2025-11-18 02:00:00", scrub_errors=0, scrub_in_progress=False]

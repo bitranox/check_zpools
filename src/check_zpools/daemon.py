@@ -29,6 +29,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Any
 
+from . import __init__conf__
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
 from .models import CheckResult, PoolIssue, Severity
@@ -114,6 +115,7 @@ class ZPoolDaemon:
         logger.info(
             "Starting ZFS pool monitoring daemon",
             extra={
+                "version": __init__conf__.version,
                 "interval_seconds": self.check_interval,
                 "pools": self.pools_to_monitor or "all",
             },
