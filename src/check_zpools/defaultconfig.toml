@@ -311,7 +311,7 @@ environment = "prod"
 # Console Output Settings
 # ------------------------------------------------------------------------------
 
-console_level = "WARNING"
+console_level = "INFO"
 # Purpose: Minimum severity level emitted to Rich console
 # Type: string (case-insensitive)
 # Default: "INFO"
@@ -329,7 +329,7 @@ console_level = "WARNING"
 #       "none" suppresses all console output
 # Example: console_stream = "stdout"
 
-console_format_preset = "short_loc"
+console_format_preset = "full_loc"
 # Purpose: Console line layout preset
 # Type: string (case-insensitive)
 # Default: "full"

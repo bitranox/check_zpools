@@ -3,7 +3,29 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.3] - 2025-11-18
+
+### Changed
+- **Development**: Verified comprehensive daemon logging functionality
+  - Confirmed version number displays correctly in startup logs (`version=2.1.2`)
+  - Confirmed all context fields are properly formatted and visible
+  - Confirmed daemon handles ZFS command failures gracefully (continues running, logs errors)
+  - Tested on LXC container environment without ZFS pools to verify error handling
+  - **Why this matters**: Production deployments are validated to show complete logging information
+
 ## [2.1.2] - 2025-11-18
+
+### Fixed
+- **Logging (Default Console Level)**: Changed default console log level from WARNING to INFO
+  - Default was set to WARNING, which prevented INFO-level logs from being visible
+  - INFO-level logs include check cycle statistics, pool details, and version information
+  - Now matches the documented behavior and systemd service configuration
+  - **Why this matters**: Administrators can now see the comprehensive logging added in v2.1.0 without manually configuring log levels
+- **Logging (Default Format Preset)**: Changed default console format from "short_loc" to "full_loc"
+  - "short_loc" preset only shows timestamp, level, and message (no context fields)
+  - "full_loc" preset includes timestamp, level, logger name, message, and context fields
+  - Context fields include version, pool details, statistics, and other structured data
+  - **Why this matters**: All the rich logging data (version, pool metrics, statistics) is now visible by default
 
 ### Documentation
 - **README (Example Log Output)**: Updated example log output to show version field in daemon startup message
