@@ -3,14 +3,35 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.4] - 2025-11-18
+
+### Note
+- **Release**: This version contains all fixes from 2.1.3 that were not included in the initial PyPI release
+  - The PyPI version 2.1.3 was built before the ZFS dependency fix was committed
+  - Version 2.1.4 ensures all fixes are included in the published package
+  - **Why this matters**: Users installing from PyPI will now get all the fixes including the ZFS optional dependency
+
 ## [2.1.3] - 2025-11-18
+
+### Fixed
+- **Service Installation (Executable Detection)**: Fixed service installation to work with absolute paths
+  - Previously failed when running with `sudo` because it only searched PATH
+  - Now uses `sys.argv[0]` to detect the actual executable being run
+  - Falls back to PATH search if sys.argv[0] not available
+  - **Why this matters**: Service installation now works from virtualenvs and custom installation locations
+- **Service Installation (ZFS Dependency)**: Made ZFS services optional dependencies
+  - Changed `Requires=zfs-mount.service` to `Wants=zfs-mount.service`
+  - Service now starts even if ZFS kernel modules aren't loaded (e.g., in LXC containers)
+  - Still waits for ZFS services if they're available (`After=zfs-mount.service`)
+  - **Why this matters**: Service can be installed and tested in environments without ZFS
 
 ### Changed
 - **Development**: Verified comprehensive daemon logging functionality
-  - Confirmed version number displays correctly in startup logs (`version=2.1.2`)
-  - Confirmed all context fields are properly formatted and visible
+  - Confirmed version number displays correctly in startup logs (`version=2.1.3`)
+  - Confirmed all context fields are properly formatted and visible in journalctl
   - Confirmed daemon handles ZFS command failures gracefully (continues running, logs errors)
   - Tested on LXC container environment without ZFS pools to verify error handling
+  - Verified systemd service installation and journal logging
   - **Why this matters**: Production deployments are validated to show complete logging information
 
 ## [2.1.2] - 2025-11-18

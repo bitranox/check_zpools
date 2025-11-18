@@ -162,7 +162,7 @@ def _find_executable() -> tuple[str, Path, str | None]:
     Simplified Logic
         1. Check process tree for uvx (via "uv tool uvx" pattern)
         2. If uvx found: return uvx details
-        3. Otherwise: find check_zpools in PATH (direct installation)
+        3. Otherwise: use current executable path (sys.argv[0] or sys.executable)
         4. Fail if neither works
 
     Raises
@@ -174,18 +174,26 @@ def _find_executable() -> tuple[str, Path, str | None]:
         logger.info(f"Installation method: uvx ({uvx_path})")
         return ("uvx", uvx_path, uvx_version)
 
-    # Not uvx - must be direct installation, find in PATH
-    exec_path_str = shutil.which("check_zpools")
-    if not exec_path_str:
-        raise FileNotFoundError(
-            "check_zpools not found in PATH and not running under uvx.\n"
-            "Install with: pip install check_zpools\n"
-            "Or run via: uvx check_zpools@latest service-install"
-        )
+    # Not uvx - use the current executable path
+    # Try sys.argv[0] first (the command that was run)
+    import sys
 
-    exec_path = Path(exec_path_str).resolve()
-    logger.info(f"Installation method: direct ({exec_path})")
-    return ("direct", exec_path, None)
+    if sys.argv[0] and Path(sys.argv[0]).exists():
+        exec_path = Path(sys.argv[0]).resolve()
+        logger.info(f"Installation method: direct (from sys.argv[0]: {exec_path})")
+        return ("direct", exec_path, None)
+
+    # Fallback: try to find in PATH
+    exec_path_str = shutil.which("check_zpools")
+    if exec_path_str:
+        exec_path = Path(exec_path_str).resolve()
+        logger.info(f"Installation method: direct (from PATH: {exec_path})")
+        return ("direct", exec_path, None)
+
+    # Last resort: use the Python executable with -m
+    python_path = Path(sys.executable).resolve()
+    logger.info(f"Installation method: direct (using python -m: {python_path})")
+    return ("direct", python_path, None)
 
 
 def _create_service_directories() -> None:
@@ -246,8 +254,7 @@ def _generate_service_file_content(
 Description=ZFS Pool Monitoring Daemon
 Documentation=https://github.com/bitranox/check_zpools
 After=network-online.target zfs-mount.service zfs-import.target
-Wants=network-online.target
-Requires=zfs-mount.service
+Wants=network-online.target zfs-mount.service
 
 [Service]
 Type=simple
