@@ -14,7 +14,7 @@
 # ZFS Monitoring Configuration
 # ==============================================================================
 
-[check_zpools]
+[zfs]
 # Capacity thresholds (percentage of pool utilization)
 capacity_warning_percent = 80
 # Purpose: Percentage at which to trigger WARNING alerts for pool capacity
@@ -63,7 +63,7 @@ checksum_errors_warning = 1
 # Note: Checksum errors are serious and may indicate hardware issues
 # Example: checksum_errors_warning = 0  # Alert on any checksum error
 
-[check_zpools.daemon]
+[daemon]
 # Daemon mode configuration
 check_interval_seconds = 300
 # Purpose: Interval between pool checks when running as daemon
@@ -95,7 +95,7 @@ state_file = ""
 # Note: Default is ~/.cache/check_zpools/alert_state.json on Linux
 # Example: state_file = "/var/lib/check_zpools/alert_state.json"
 
-[check_zpools.alerts]
+[alerts]
 # Alert configuration
 alert_recipients = []
 # Purpose: Email addresses to receive alerts

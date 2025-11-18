@@ -24,7 +24,7 @@ name = "check_zpools"
 #: Human-readable summary shown in CLI help output.
 title = "Zpool Monitoring Daemon"
 #: Current release version pulled from ``pyproject.toml`` by automation.
-version = "2.1.6"
+version = "2.1.7"
 #: Repository homepage presented to users.
 homepage = "https://github.com/bitranox/check_zpools"
 #: Author attribution surfaced in CLI output.

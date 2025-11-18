@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.7] - 2025-11-18
+
+### Fixed
+- **Configuration (Critical Bug)**: Fixed section names in defaultconfig.toml to match what code expects
+  - Changed `[check_zpools]` → `[zfs]`
+  - Changed `[check_zpools.daemon]` → `[daemon]`
+  - Changed `[check_zpools.alerts]` → `[alerts]`
+  - **Root cause**: defaultconfig.toml used wrong section names, causing configuration to be ignored
+  - **Impact**: ALL configuration was being ignored - daemon used hardcoded defaults instead of config files
+  - **Symptom**: SMTP servers and alert recipients configured in `/etc/check_zpools/config.toml` were not loaded
+  - **Why this matters**: This was a critical bug preventing any configuration from working since v2.0.0
+  - **Note**: After updating to 2.1.7, you may need to regenerate config files or update section names manually
+
 ## [2.1.6] - 2025-11-18
 
 ### Fixed
