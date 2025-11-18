@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.8] - 2025-11-18
+
+### Fixed
+- **Logging (Backend Level)**: Set explicit `backend_level = "INFO"` for journald logging
+  - **Root cause**: `backend_level` was commented out, defaulting to "WARNING"
+  - **Impact**: INFO-level logs were not appearing in journald/systemd journal
+  - **Solution**: Explicitly set `backend_level = "INFO"` in defaultconfig.toml
+  - **Independence**: `console_level` and `backend_level` are now properly independent
+  - `console_level = "WARNING"` (minimal console output)
+  - `backend_level = "INFO"` (full journald logging for systemd deployments)
+  - **Why this matters**: Daemon statistics and pool details now appear in journald regardless of console_level
+
 ## [2.1.7] - 2025-11-18
 
 ### Fixed
