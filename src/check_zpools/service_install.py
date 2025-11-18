@@ -277,6 +277,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths={CACHE_DIR} {LIB_DIR}{extra_writable_paths}
+ReadOnlyPaths=/etc/check_zpools /etc/xdg/check_zpools
 
 # Logging
 StandardOutput=journal

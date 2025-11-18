@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.6] - 2025-11-18
+
+### Fixed
+- **Service Installation (Configuration Access)**: Fixed systemd service to allow reading configuration files
+  - Added `ReadOnlyPaths=/etc/check_zpools /etc/xdg/check_zpools` to service file
+  - **Root cause**: `ProtectSystem=strict` makes `/etc` read-only by default
+  - Service can now read configuration from both app layer (`/etc/check_zpools/config.toml`) and host layer (`/etc/xdg/check_zpools/config.toml`)
+  - **Why this matters**: Configuration files deployed with `config-deploy --target app` or `--target host` are now accessible to the daemon
+  - **Symptom**: Config worked in console mode but not when run as systemd service
+
 ## [2.1.5] - 2025-11-18
 
 ### Added
