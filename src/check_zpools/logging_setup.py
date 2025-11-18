@@ -114,8 +114,39 @@ def init_logging() -> None:
         _runtime_config = _build_runtime_config()
         lib_log_rich.runtime.init(_runtime_config)
 
-        # Bridge standard logging to lib_log_rich using the same level as console
-        logger_level = _runtime_config.console_level
+        # Bridge standard logging to lib_log_rich using minimum of all output levels
+        # This ensures logs aren't filtered before reaching their respective handlers
+        # (console, journald, graylog each apply their own level thresholds)
+        import logging as stdlib_logging
+
+        levels_to_consider = [_runtime_config.console_level]
+
+        # Add backend_level if journald or eventlog enabled
+        if _runtime_config.enable_journald or _runtime_config.enable_eventlog:
+            levels_to_consider.append(_runtime_config.backend_level)
+
+        # Add graylog_level if graylog enabled
+        if _runtime_config.enable_graylog:
+            levels_to_consider.append(_runtime_config.graylog_level)
+
+        # Convert LogLevel values to numeric and find minimum
+        # LogLevel can be either an enum (with .value) or a string (from env/dotenv)
+        numeric_levels = []
+        level_mapping = stdlib_logging.getLevelNamesMapping()
+
+        for level in levels_to_consider:
+            # Try to get .value first (LogLevel enum), otherwise treat as string
+            numeric_value = getattr(level, "value", None)
+            if numeric_value is not None:
+                numeric_levels.append(numeric_value)
+            else:
+                numeric_levels.append(level_mapping[str(level).upper()])
+
+        min_numeric_level: int = min(numeric_levels)
+
+        # Convert numeric level back to string name for attach_std_logging
+        logger_level: str = stdlib_logging.getLevelName(min_numeric_level)
+
         lib_log_rich.runtime.attach_std_logging(
             logger_level=logger_level,
             propagate=False,

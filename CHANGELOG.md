@@ -6,14 +6,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ## [2.1.8] - 2025-11-18
 
 ### Fixed
-- **Logging (Backend Level)**: Set explicit `backend_level = "INFO"` for journald logging
-  - **Root cause**: `backend_level` was commented out, defaulting to "WARNING"
-  - **Impact**: INFO-level logs were not appearing in journald/systemd journal
-  - **Solution**: Explicitly set `backend_level = "INFO"` in defaultconfig.toml
-  - **Independence**: `console_level` and `backend_level` are now properly independent
-  - `console_level = "WARNING"` (minimal console output)
-  - `backend_level = "INFO"` (full journald logging for systemd deployments)
-  - **Why this matters**: Daemon statistics and pool details now appear in journald regardless of console_level
+- **Logging (Critical Bug)**: Fixed logger_level to use minimum of all output levels
+  - **Root cause**: `attach_std_logging()` was using only `console_level` as `logger_level`
+  - **Impact**: When `console_level = "WARNING"` but `backend_level = "INFO"`, INFO logs were filtered by Python's logging module BEFORE reaching lib_log_rich
+  - **Result**: Journald never received INFO logs even with `backend_level = "INFO"` set
+  - **Solution**: Calculate minimum level across all enabled outputs (console, journald, graylog)
+  - **Behavior**:
+    - If `console_level = "WARNING"` and `backend_level = "INFO"` → logger_level = "INFO"
+    - Console handler still filters at WARNING (minimal output)
+    - Journald handler receives INFO logs (full logging)
+  - **Why this matters**: `console_level` and `backend_level` are now truly independent as documented
+  - **Note**: This was a bug in our integration code, not in lib_log_rich itself
 
 ## [2.1.7] - 2025-11-18
 
