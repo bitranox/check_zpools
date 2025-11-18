@@ -293,7 +293,6 @@ def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -
             extra={
                 "system_config": "/etc/xdg/check_zpools/config.toml",
                 "user_config": "~/.config/check_zpools/config.toml",
-                "note": "Use these paths, NOT /etc/check_zpools/",
             },
         )
 

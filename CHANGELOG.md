@@ -18,10 +18,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ### Fixed
 - **Documentation (Configuration Paths)**: Clarified correct configuration file locations
   - **IMPORTANT**: System config goes in `/etc/xdg/check_zpools/config.toml`
-  - **NOT** `/etc/check_zpools/config.toml` (this path is ignored by lib_layered_config)
   - Uses XDG Base Directory specification on Linux
-  - **Known Issue**: `config-deploy --target app` may create files in wrong location due to lib_layered_config bug
-  - **Workaround**: Manually move config file to correct XDG path: `sudo mv /etc/check_zpools/config.toml /etc/xdg/check_zpools/config.toml`
   - **Why this matters**: Configuration files must be in XDG-compliant paths to be loaded
 
 ### Note
