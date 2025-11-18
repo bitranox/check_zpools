@@ -112,14 +112,34 @@ class ZPoolDaemon:
         Sets up signal handlers for graceful shutdown, then enters the
         main monitoring loop until shutdown is requested.
         """
+        # Prepare email configuration for logging
+        smtp_hosts = ", ".join(self.alerter.email_config.smtp_hosts) if self.alerter.email_config.smtp_hosts else "none"
+        alert_recipients = ", ".join(self.alerter.recipients) if self.alerter.recipients else "none"
+
         logger.info(
             "Starting ZFS pool monitoring daemon",
             extra={
                 "version": __init__conf__.version,
                 "interval_seconds": self.check_interval,
                 "pools": self.pools_to_monitor or "all",
+                "smtp_servers": smtp_hosts,
+                "alert_recipients": alert_recipients,
+                "send_recovery_emails": self.send_recovery_emails,
             },
         )
+
+        # Log warnings if email alerting is not properly configured
+        if not self.alerter.email_config.smtp_hosts:
+            logger.error(
+                "No SMTP servers configured - email alerts will not be sent",
+                extra={"smtp_servers": "none"},
+            )
+
+        if not self.alerter.recipients:
+            logger.error(
+                "No alert recipients configured - email alerts will not be sent",
+                extra={"alert_recipients": "none"},
+            )
 
         self._setup_signal_handlers()
         self.running = True

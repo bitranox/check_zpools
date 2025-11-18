@@ -3,7 +3,29 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.5] - 2025-11-18
+
+### Note
+- **Release**: Final release with all daemon logging and email configuration enhancements
+  - Includes all features from 2.1.4 with proper PyPI packaging
+  - Verified working with uvx installation from PyPI
+  - Tested systemd service installation and journal logging
+  - **Why this matters**: Production-ready release with comprehensive logging features verified end-to-end
+
 ## [2.1.4] - 2025-11-18
+
+### Added
+- **Daemon Logging (Email Configuration)**: Daemon startup now logs email alerting configuration
+  - Logs SMTP servers list (or "none" if not configured)
+  - Logs alert recipients list (or "none" if not configured)
+  - Logs whether recovery emails are enabled
+  - **Why this matters**: Administrators can verify email configuration from logs without checking config files
+
+### Fixed
+- **Daemon Logging (Configuration Warnings)**: Added ERROR logs if email alerting is misconfigured
+  - Logs ERROR if no SMTP servers are configured
+  - Logs ERROR if no alert recipients are configured
+  - **Why this matters**: Administrators are immediately warned if alerts won't be sent due to missing configuration
 
 ### Note
 - **Release**: This version contains all fixes from 2.1.3 that were not included in the initial PyPI release
