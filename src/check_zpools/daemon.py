@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import signal
 import threading
+from datetime import datetime, timezone
 from typing import Any
 
 from .alert_state import AlertStateManager
@@ -89,6 +90,10 @@ class ZPoolDaemon:
         # Daemon state
         self.shutdown_event = threading.Event()
         self.running = False
+
+        # Statistics tracking
+        self.start_time = datetime.now(timezone.utc)
+        self.check_count = 0
 
         # Track issues from previous cycle for recovery detection
         self.previous_issues: dict[str, set[str]] = {}
@@ -219,6 +224,10 @@ class ZPoolDaemon:
         4. Send alerts for new/resendable issues
         5. Detect and notify recoveries
         """
+        # Increment check counter
+        self.check_count += 1
+        check_start_time = datetime.now(timezone.utc)
+
         logger.debug("Starting check cycle")
 
         # Fetch ZFS data
@@ -261,14 +270,24 @@ class ZPoolDaemon:
         # Check pools against thresholds
         result = self.monitor.check_all_pools(pools)
 
+        # Calculate daemon uptime and cycle duration
+        uptime = check_start_time - self.start_time
+        uptime_str = self._format_uptime(uptime.total_seconds())
+
+        # Log overall check cycle statistics
         logger.info(
             "Check cycle completed",
             extra={
+                "check_number": self.check_count,
+                "uptime": uptime_str,
                 "pools_checked": len(pools),
                 "issues_found": len(result.issues),
                 "severity": result.overall_severity.value,
             },
         )
+
+        # Log detailed information for each pool
+        self._log_pool_details(pools)
 
         # Detect and notify recoveries BEFORE updating previous_issues
         self._detect_recoveries(result)
@@ -396,6 +415,90 @@ class ZPoolDaemon:
             logger.warning(
                 "Failed to send alert",
                 extra={"pool": issue.pool_name, "category": issue.category},
+            )
+
+    def _format_uptime(self, seconds: float) -> str:
+        """Format uptime in human-readable format.
+
+        Parameters
+        ----------
+        seconds:
+            Total seconds of uptime.
+
+        Returns
+        -------
+        str:
+            Formatted uptime string (e.g., "2d 3h 45m", "5h 30m", "45m").
+        """
+        total_seconds = int(seconds)
+        days = total_seconds // 86400
+        hours = (total_seconds % 86400) // 3600
+        minutes = (total_seconds % 3600) // 60
+
+        parts = []
+        if days > 0:
+            parts.append(f"{days}d")
+        if hours > 0:
+            parts.append(f"{hours}h")
+        if minutes > 0 or len(parts) == 0:
+            parts.append(f"{minutes}m")
+
+        return " ".join(parts)
+
+    def _format_bytes(self, bytes_value: int) -> str:
+        """Format bytes in human-readable format.
+
+        Parameters
+        ----------
+        bytes_value:
+            Size in bytes.
+
+        Returns
+        -------
+        str:
+            Formatted size string (e.g., "1.00 TB", "464.00 GB").
+        """
+        units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        size = float(bytes_value)
+        unit_index = 0
+
+        while size >= 1024.0 and unit_index < len(units) - 1:
+            size /= 1024.0
+            unit_index += 1
+
+        return f"{size:.2f} {units[unit_index]}"
+
+    def _log_pool_details(self, pools: dict[str, Any]) -> None:
+        """Log detailed information for each pool.
+
+        Parameters
+        ----------
+        pools:
+            Dictionary of pool statuses.
+        """
+        for pool_name, pool in pools.items():
+            # Format last scrub time
+            if pool.last_scrub:
+                last_scrub = pool.last_scrub.strftime("%Y-%m-%d %H:%M:%S")
+            else:
+                last_scrub = "Never"
+
+            logger.info(
+                f"Pool: {pool_name}",
+                extra={
+                    "pool_name": pool_name,
+                    "health": pool.health.value,
+                    "capacity_percent": f"{pool.capacity_percent:.1f}%",
+                    "size": self._format_bytes(pool.size_bytes),
+                    "allocated": self._format_bytes(pool.allocated_bytes),
+                    "free": self._format_bytes(pool.free_bytes),
+                    "read_errors": pool.read_errors,
+                    "write_errors": pool.write_errors,
+                    "checksum_errors": pool.checksum_errors,
+                    "last_scrub": last_scrub,
+                    "scrub_errors": pool.scrub_errors,
+                    "scrub_in_progress": pool.scrub_in_progress,
+                },
             )
 
     def _detect_recoveries(self, result: CheckResult) -> None:

@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.0] - 2025-11-18
+
+### Added
+- **Daemon Logging (Statistics Tracking)**: Enhanced daemon mode with comprehensive statistics logging
+  - Logs check cycle number and daemon uptime on each check (e.g., "Check #42, uptime: 2d 5h 30m")
+  - Tracks total number of checks performed since daemon start
+  - Displays human-readable uptime in days, hours, and minutes format
+  - **Why this matters**: Administrators can monitor daemon health and track monitoring activity in logs
+- **Daemon Logging (Pool Details)**: Added detailed INFO-level logging for each pool on every check cycle
+  - Logs all key pool metrics: health, capacity, size, allocated, free, errors, scrub status
+  - Human-readable size formatting (e.g., "1.00 TB", "464.00 GB")
+  - Formatted scrub timestamps (e.g., "2025-11-18 14:30:00") or "Never" if never scrubbed
+  - Error counts for read/write/checksum errors
+  - **Why this matters**: Complete pool state is logged for troubleshooting and audit trail without running manual commands
+
 ## [2.0.6] - 2025-11-18
 
 ### Fixed
