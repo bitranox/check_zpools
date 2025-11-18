@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.0.6] - 2025-11-18
+
+### Fixed
+- **Service Installation (ProtectHome security setting)**: Removed `ProtectHome` directive from systemd service file
+  - `ProtectHome=true` completely blocks access to `/root`, preventing uvx from accessing `/root/.cache/uv`
+  - Even `ProtectHome=read-only` can cause issues with cache access
+  - Service still runs as root with `ProtectSystem=strict` and `NoNewPrivileges=true` for security
+  - **Why this matters**: The service needs access to `/root/.cache/uv` for uvx installations, and ProtectHome interferes with this requirement
+- **Service Installation (Warning Message)**: Updated version number in example to reflect current version
+  - Now correctly states: Use explicit version for production (e.g., `@2.0.6`)
+  - Clarifies that `@latest` is for auto-updates but not recommended for production
+
 ## [2.0.5] - 2025-11-18
 ### Changed
 - **Service Installation (Code Refactoring)**: Significantly simplified service installation module
@@ -13,11 +25,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Simplified service file generation (removed 4 conditional branches)
   - Improved code clarity and maintainability
   - **Why this matters**: The previous code was over-engineered for edge cases that don't occur in practice. The simplified code is easier to understand, debug, and extend.
-
-### Fixed
-- **Service Installation (Warning Message)**: Fixed misleading warning about `@latest` being recommended
-  - Now correctly states: Use explicit version for production (e.g., `@2.0.4`)
-  - Clarifies that `@latest` is for auto-updates but not recommended for production
 
 ## [2.0.4] - 2025-11-18
 ### Fixed

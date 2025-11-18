@@ -269,7 +269,6 @@ CPUQuota=10%
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ProtectHome=true
 ReadWritePaths={CACHE_DIR} {LIB_DIR}{extra_writable_paths}
 
 # Logging
