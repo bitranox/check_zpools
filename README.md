@@ -187,6 +187,10 @@ CHECK_ZPOOLS_DAEMON_CHECK_INTERVAL_SECONDS=600 check_zpools daemon --foreground
 - Sends recovery notifications when issues resolve
 - Handles SIGTERM/SIGINT for graceful shutdown
 - Logs to journald when run as systemd service
+- **Comprehensive logging:** Each check cycle logs:
+  - Check cycle number and daemon uptime (e.g., "Check #42, uptime: 2d 5h 30m")
+  - Overall statistics (pools checked, issues found, severity)
+  - Detailed metrics for each pool (health, capacity, size, errors, scrub status)
 
 **Systemd Usage:**
 ```bash
@@ -908,6 +912,164 @@ cat ~/.cache/check_zpools/alert_state.json
 
 # Force new alerts by clearing state
 rm ~/.cache/check_zpools/alert_state.json
+```
+
+---
+
+## Daemon Logging
+
+The daemon mode provides comprehensive logging to help monitor system health and troubleshoot issues. All logs are structured with additional metadata for easy filtering and analysis.
+
+### Log Levels
+
+Set the log level using the `LOG_CONSOLE_LEVEL` environment variable:
+
+```bash
+# Available levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_CONSOLE_LEVEL=INFO check_zpools daemon --foreground
+LOG_CONSOLE_LEVEL=DEBUG check_zpools daemon --foreground  # Detailed debugging
+```
+
+### Check Cycle Statistics
+
+On each check cycle, the daemon logs overall statistics at INFO level:
+
+```
+INFO: Check cycle completed [check_number=42, uptime="2d 5h 30m", pools_checked=3, issues_found=0, severity="OK"]
+```
+
+**Logged fields:**
+- `check_number` - Sequential check counter since daemon start
+- `uptime` - Human-readable daemon uptime (days, hours, minutes)
+- `pools_checked` - Number of pools monitored this cycle
+- `issues_found` - Total issues detected
+- `severity` - Overall severity level (OK, INFO, WARNING, CRITICAL)
+
+### Per-Pool Details
+
+For each pool, the daemon logs detailed metrics at INFO level:
+
+```
+INFO: Pool: rpool [health="ONLINE", capacity_percent="45.2%", size="1.00 TB", allocated="452.00 GB", free="548.00 GB", read_errors=0, write_errors=0, checksum_errors=0, last_scrub="2025-11-18 14:30:00", scrub_errors=0, scrub_in_progress=False]
+```
+
+**Logged fields per pool:**
+- `pool_name` - Name of the pool
+- `health` - Health status (ONLINE, DEGRADED, FAULTED, etc.)
+- `capacity_percent` - Used capacity percentage
+- `size` - Total pool size (human-readable)
+- `allocated` - Allocated/used space (human-readable)
+- `free` - Free space available (human-readable)
+- `read_errors` - Read I/O error count
+- `write_errors` - Write I/O error count
+- `checksum_errors` - Checksum error count (data corruption)
+- `last_scrub` - Timestamp of last scrub or "Never"
+- `scrub_errors` - Errors found during last scrub
+- `scrub_in_progress` - Whether scrub is currently running
+
+### Viewing Logs
+
+#### Systemd Service Logs
+
+When running as a systemd service, logs are sent to journald:
+
+```bash
+# Follow logs in real-time
+sudo journalctl -u check_zpools -f
+
+# View last 50 entries
+sudo journalctl -u check_zpools -n 50
+
+# View last 100 entries
+sudo journalctl -u check_zpools -n 100
+
+# View logs since boot
+sudo journalctl -u check_zpools -b
+
+# View logs for specific time range
+sudo journalctl -u check_zpools --since "2025-11-18 00:00:00" --until "2025-11-18 23:59:59"
+
+# Filter by log level
+sudo journalctl -u check_zpools -p info     # INFO and above
+sudo journalctl -u check_zpools -p warning  # WARNING and above
+sudo journalctl -u check_zpools -p err      # ERROR and above
+
+# Search for specific pool
+sudo journalctl -u check_zpools | grep "Pool: rpool"
+
+# Export logs to file
+sudo journalctl -u check_zpools > /tmp/check_zpools.log
+```
+
+#### Foreground Mode Logs
+
+When running in foreground, logs go to stdout:
+
+```bash
+# Run with default INFO level
+check_zpools daemon --foreground
+
+# Run with DEBUG level for troubleshooting
+LOG_CONSOLE_LEVEL=DEBUG check_zpools daemon --foreground
+
+# Redirect to file
+check_zpools daemon --foreground > /var/log/check_zpools.log 2>&1
+
+# Follow logs with tail
+check_zpools daemon --foreground 2>&1 | tee -a /var/log/check_zpools.log
+```
+
+### Example Log Output
+
+Here's what a typical check cycle looks like in the logs:
+
+```
+[2025-11-18 14:35:00] INFO: Starting ZFS pool monitoring daemon [interval_seconds=300, pools="all"]
+[2025-11-18 14:35:00] INFO: PoolMonitor initialized [capacity_warning=80, capacity_critical=90, scrub_max_age_days=30]
+[2025-11-18 14:35:05] INFO: Check cycle completed [check_number=1, uptime="0m", pools_checked=2, issues_found=0, severity="OK"]
+[2025-11-18 14:35:05] INFO: Pool: rpool [health="ONLINE", capacity_percent="45.2%", size="1.00 TB", allocated="452.00 GB", free="548.00 GB", read_errors=0, write_errors=0, checksum_errors=0, last_scrub="2025-11-18 02:00:00", scrub_errors=0, scrub_in_progress=False]
+[2025-11-18 14:35:05] INFO: Pool: backup [health="ONLINE", capacity_percent="62.5%", size="2.00 TB", allocated="1.25 TB", free="750.00 GB", read_errors=0, write_errors=0, checksum_errors=0, last_scrub="2025-11-17 02:00:00", scrub_errors=0, scrub_in_progress=False]
+[2025-11-18 14:40:05] INFO: Check cycle completed [check_number=2, uptime="5m", pools_checked=2, issues_found=0, severity="OK"]
+[2025-11-18 14:40:05] INFO: Pool: rpool [health="ONLINE", capacity_percent="45.2%", ...]
+[2025-11-18 14:40:05] INFO: Pool: backup [health="ONLINE", capacity_percent="62.5%", ...]
+```
+
+### Log Analysis Tips
+
+#### Monitor Daemon Health
+
+```bash
+# Check daemon uptime
+sudo journalctl -u check_zpools | grep "uptime=" | tail -1
+
+# Count total checks performed
+sudo journalctl -u check_zpools | grep "Check cycle completed" | wc -l
+
+# View last check statistics
+sudo journalctl -u check_zpools | grep "Check cycle completed" | tail -1
+```
+
+#### Track Pool Capacity Over Time
+
+```bash
+# Extract capacity percentages for specific pool
+sudo journalctl -u check_zpools | grep 'Pool: rpool' | grep -o 'capacity_percent="[^"]*"'
+
+# Monitor capacity growth
+sudo journalctl -u check_zpools --since "1 week ago" | grep 'Pool: rpool' | grep -o 'capacity_percent="[^"]*"'
+```
+
+#### Find Issues
+
+```bash
+# Find all warnings
+sudo journalctl -u check_zpools -p warning
+
+# Find cycles with issues
+sudo journalctl -u check_zpools | grep 'issues_found=[1-9]'
+
+# Find error events
+sudo journalctl -u check_zpools | grep -E '(read_errors=[1-9]|write_errors=[1-9]|checksum_errors=[1-9])'
 ```
 
 ---

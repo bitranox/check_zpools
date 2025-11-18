@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.1.1] - 2025-11-18
+
+### Documentation
+- **README (Daemon Logging Section)**: Added comprehensive documentation for daemon logging features
+  - New "Daemon Logging" section with complete guide to log levels, formats, and fields
+  - Examples of check cycle statistics and per-pool detail logs
+  - Systemd journald query examples (view last 50 entries, filter by level, time ranges)
+  - Foreground mode logging examples with DEBUG level and file redirection
+  - Real-world example log output showing multiple check cycles
+  - Log analysis tips for monitoring daemon health, tracking capacity, and finding issues
+  - **Why this matters**: Administrators now have clear documentation on how to monitor and troubleshoot the daemon using logs
+
 ## [2.1.0] - 2025-11-18
 
 ### Added
