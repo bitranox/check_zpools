@@ -9,26 +9,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **Daemon Logging (Configuration Sources)**: Added INFO-level logging for configuration paths
   - Logs which configuration sections are loaded (email, alerts, monitoring, daemon)
   - Logs all top-level configuration keys found
-  - **Logs the correct XDG config paths on startup** (NOT /etc/check_zpools/)
-  - Shows: `/etc/xdg/check_zpools/config.toml` for system config
-  - Shows: `~/.config/check_zpools/config.toml` for user config
+  - Logs all valid configuration file paths on startup
   - Helps troubleshoot configuration issues and verify layered config is working
   - **Why this matters**: Administrators can see exactly where to place config files
 
-### Fixed
-- **Documentation (Configuration Paths)**: Clarified correct configuration file locations
-  - **IMPORTANT**: System config goes in `/etc/xdg/check_zpools/config.toml`
-  - Uses XDG Base Directory specification on Linux
-  - **Why this matters**: Configuration files must be in XDG-compliant paths to be loaded
-
-### Note
-- **Configuration**: The daemon DOES load layered configuration files via lib_layered_config
+### Documentation
+- **Configuration Paths**: Documented layered configuration file locations on Linux
+  - **App layer**: `/etc/check_zpools/config.toml` (system-wide application defaults)
+  - **Host layer**: `/etc/xdg/check_zpools/config.toml` (system-wide XDG config)
+  - **User layer**: `~/.config/check_zpools/config.toml` (user-specific XDG config)
+  - Use `check_zpools config-deploy --target [app|host|user]` to create config files
   - Configuration precedence: defaults → app → host → user → dotenv → env
-  - Default config: `defaultconfig.toml` (bundled with package - always loaded)
-  - **System config**: `/etc/xdg/check_zpools/config.toml` (Linux XDG path)
-  - **User config**: `~/.config/check_zpools/config.toml` (Linux XDG path)
-  - Environment variables override all file-based configuration
-  - **Why this matters**: Follow XDG standards for proper configuration management
+  - **Why this matters**: Understanding the layer precedence helps with configuration management
 
 ## [2.1.4] - 2025-11-18
 

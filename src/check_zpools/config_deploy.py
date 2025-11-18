@@ -76,7 +76,7 @@ def deploy_configuration(
     Notes
     -----
     Platform-specific paths:
-    - Linux (app): /etc/xdg/{slug}/config.toml
+    - Linux (app): /etc/{slug}/config.toml
     - Linux (host): /etc/xdg/{slug}/config.toml
     - Linux (user): ~/.config/{slug}/config.toml
     - macOS (app): /Library/Application Support/{vendor}/{app}/config.toml

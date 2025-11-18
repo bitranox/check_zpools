@@ -289,10 +289,12 @@ def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -
 
         # Log expected config file paths for troubleshooting
         logger.info(
-            "Configuration file search paths (Linux/XDG)",
+            "Configuration file search paths (Linux)",
             extra={
-                "system_config": "/etc/xdg/check_zpools/config.toml",
-                "user_config": "~/.config/check_zpools/config.toml",
+                "app_layer": "/etc/check_zpools/config.toml",
+                "host_layer": "/etc/xdg/check_zpools/config.toml",
+                "user_layer": "~/.config/check_zpools/config.toml",
+                "precedence": "defaults → app → host → user → dotenv → env",
             },
         )
 
