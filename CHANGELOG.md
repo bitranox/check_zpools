@@ -5,12 +5,33 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [2.1.5] - 2025-11-18
 
+### Added
+- **Daemon Logging (Configuration Sources)**: Added INFO-level logging for configuration paths
+  - Logs which configuration sections are loaded (email, alerts, monitoring, daemon)
+  - Logs all top-level configuration keys found
+  - **Logs the correct XDG config paths on startup** (NOT /etc/check_zpools/)
+  - Shows: `/etc/xdg/check_zpools/config.toml` for system config
+  - Shows: `~/.config/check_zpools/config.toml` for user config
+  - Helps troubleshoot configuration issues and verify layered config is working
+  - **Why this matters**: Administrators can see exactly where to place config files
+
+### Fixed
+- **Documentation (Configuration Paths)**: Clarified correct configuration file locations
+  - **IMPORTANT**: System config goes in `/etc/xdg/check_zpools/config.toml`
+  - **NOT** `/etc/check_zpools/config.toml` (this path is ignored by lib_layered_config)
+  - Uses XDG Base Directory specification on Linux
+  - **Known Issue**: `config-deploy --target app` may create files in wrong location due to lib_layered_config bug
+  - **Workaround**: Manually move config file to correct XDG path: `sudo mv /etc/check_zpools/config.toml /etc/xdg/check_zpools/config.toml`
+  - **Why this matters**: Configuration files must be in XDG-compliant paths to be loaded
+
 ### Note
-- **Release**: Final release with all daemon logging and email configuration enhancements
-  - Includes all features from 2.1.4 with proper PyPI packaging
-  - Verified working with uvx installation from PyPI
-  - Tested systemd service installation and journal logging
-  - **Why this matters**: Production-ready release with comprehensive logging features verified end-to-end
+- **Configuration**: The daemon DOES load layered configuration files via lib_layered_config
+  - Configuration precedence: defaults → app → host → user → dotenv → env
+  - Default config: `defaultconfig.toml` (bundled with package - always loaded)
+  - **System config**: `/etc/xdg/check_zpools/config.toml` (Linux XDG path)
+  - **User config**: `~/.config/check_zpools/config.toml` (Linux XDG path)
+  - Environment variables override all file-based configuration
+  - **Why this matters**: Follow XDG standards for proper configuration management
 
 ## [2.1.4] - 2025-11-18
 
@@ -69,7 +90,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - "full_loc" preset includes timestamp, level, logger name, message, and context fields
   - Context fields include version, pool details, statistics, and other structured data
   - **Why this matters**: All the rich logging data (version, pool metrics, statistics) is now visible by default
-
+it looks like the daemon mode does not read the environmen 
 ### Documentation
 - **README (Example Log Output)**: Updated example log output to show version field in daemon startup message
   - Startup log now shows: `[version="2.1.1", interval_seconds=300, pools="all"]`

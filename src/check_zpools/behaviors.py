@@ -272,7 +272,30 @@ def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -
         When daemon initialization fails.
     """
     if config is None:
-        config = get_config().as_dict()
+        config_obj = get_config()
+        config = config_obj.as_dict()
+
+        # Log configuration sources for debugging
+        logger.info(
+            "Configuration loaded from layered sources",
+            extra={
+                "config_keys": list(config.keys()),
+                "has_email": "email" in config,
+                "has_alerts": "alerts" in config,
+                "has_monitoring": "monitoring" in config,
+                "has_daemon": "daemon" in config,
+            },
+        )
+
+        # Log expected config file paths for troubleshooting
+        logger.info(
+            "Configuration file search paths (Linux/XDG)",
+            extra={
+                "system_config": "/etc/xdg/check_zpools/config.toml",
+                "user_config": "~/.config/check_zpools/config.toml",
+                "note": "Use these paths, NOT /etc/check_zpools/",
+            },
+        )
 
     logger.info("Starting daemon mode", extra={"foreground": foreground})
 
