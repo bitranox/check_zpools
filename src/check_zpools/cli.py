@@ -622,6 +622,28 @@ def main(
         lib_log_rich.runtime.shutdown()
 
 
+def _handle_send_email_error(exc: Exception, error_type: str) -> None:
+    """Handle and log email sending errors.
+
+    Why
+    ---
+    Eliminates duplicated error handling across CLI email commands.
+    """
+    error_messages = {
+        "ValueError": ("Invalid email parameters", f"Invalid email parameters - {exc}"),
+        "FileNotFoundError": ("Attachment file not found", f"Attachment file not found - {exc}"),
+        "RuntimeError": ("SMTP delivery failed", f"Failed to send email - {exc}"),
+    }
+
+    log_msg, cli_msg = error_messages.get(
+        error_type, ("Unexpected error sending email", f"Unexpected error - {exc}")
+    )
+
+    logger.error(log_msg, extra={"error": str(exc)}, exc_info=(error_type not in error_messages))
+    click.echo(f"\nError: {cli_msg}", err=True)
+    raise SystemExit(1)
+
+
 @cli.command("send-email", context_settings=CLICK_CONTEXT_SETTINGS)
 @click.option(
     "--to",
@@ -707,10 +729,7 @@ def cli_send_email(
         extra={"command": "send-email", "recipients": list(recipients), "subject": subject},
     ):
         try:
-            # Load and validate email configuration
             email_config = _load_and_validate_email_config()
-
-            # Convert attachment paths
             attachment_paths = [Path(p) for p in attachments] if attachments else None
 
             logger.info(
@@ -723,7 +742,6 @@ def cli_send_email(
                 },
             )
 
-            # Send email
             result = send_email(
                 config=email_config,
                 recipients=list(recipients),
@@ -741,26 +759,10 @@ def cli_send_email(
                 click.echo("\nEmail sending failed.", err=True)
                 raise SystemExit(1)
 
-        except ValueError as exc:
-            logger.error("Invalid email parameters", extra={"error": str(exc)})
-            click.echo(f"\nError: Invalid email parameters - {exc}", err=True)
-            raise SystemExit(1)
-        except FileNotFoundError as exc:
-            logger.error("Attachment file not found", extra={"error": str(exc)})
-            click.echo(f"\nError: Attachment file not found - {exc}", err=True)
-            raise SystemExit(1)
-        except RuntimeError as exc:
-            logger.error("SMTP delivery failed", extra={"error": str(exc)})
-            click.echo(f"\nError: Failed to send email - {exc}", err=True)
-            raise SystemExit(1)
+        except (ValueError, FileNotFoundError, RuntimeError) as exc:
+            _handle_send_email_error(exc, type(exc).__name__)
         except Exception as exc:
-            logger.error(
-                "Unexpected error sending email",
-                extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
-            )
-            click.echo(f"\nError: Unexpected error - {exc}", err=True)
-            raise SystemExit(1)
+            _handle_send_email_error(exc, "Exception")
 
 
 @cli.command("send-notification", context_settings=CLICK_CONTEXT_SETTINGS)
