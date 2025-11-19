@@ -1,0 +1,20 @@
+9:**Feature Requirements:** ZFS pool health monitoring and alerting
+14:* Core: zfs_client.py, zfs_parser.py, monitor.py, alerting.py, daemon.py
+24:ZFS administrators need proactive monitoring of pool health, capacity, scrub status, and hardware errors. Manual checking is error-prone and reactive. The system must:
+28:3. Support daemon mode for background monitoring
+32:7. Maintain state across daemon restarts
+38:A layered architecture implementing ZFS pool monitoring with:
+41:* **Behaviors Layer:** High-level orchestration (daemon, check, watch)
+42:* **Domain Layer:** Core monitoring logic (threshold checks, health states)
+61:│  Commands: check, daemon, watch, alert, config           │
+68:│  • run_daemon()     • check_pools_once()                │
+77:│ (daemon.py) │ │(monitor) │ │(alerting)  │ │ (config) │
+97:                            │(zfs_client)  │
+112:### zfs_client.py
+128:**Tests:** test_zfs_client.py (25% coverage - requires actual ZFS system)
+133:### zfs_parser.py
+153:**Tests:** test_zfs_parser.py (97% coverage)
+166:### monitor.py
+168:**Purpose:** Pool health monitoring and threshold checking
+185:**Dependencies:** models, zfs_parser, config
+186:**Tests:** test_monitor.py (100% coverage)

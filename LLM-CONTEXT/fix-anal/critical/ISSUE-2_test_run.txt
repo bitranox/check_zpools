@@ -1,0 +1,20 @@
+tests/test_monitor.py::TestErrorMonitoring::test_a_pool_with_write_errors_triggers_warning PASSED [ 83%]
+tests/test_monitor.py::TestErrorMonitoring::test_a_pool_with_checksum_errors_triggers_warning PASSED [ 83%]
+tests/test_monitor.py::TestErrorMonitoring::test_a_pool_with_all_error_types_generates_three_issues PASSED [ 83%]
+tests/test_monitor.py::TestScrubStatusMonitoring::test_a_pool_with_scrub_errors_triggers_warning PASSED [ 84%]
+tests/test_zfs_parser.py::TestParsePoolStatus::test_parse_pool_with_errors PASSED [ 88%]
+tests/test_zfs_parser.py::TestParsePoolStatus::test_parse_scrub_errors PASSED [ 89%]
+tests/test_zfs_parser.py::TestMergePoolData::test_merge_combines_capacity_and_errors PASSED [ 89%]
+tests/test_zfs_parser.py::TestHelperMethods::test_extract_error_counts_from_vdev_tree PASSED [ 99%]
+tests/test_zfs_parser.py::TestHelperMethods::test_extract_error_counts_missing_stats PASSED [ 99%]
+================================ tests coverage ================================
+_______________ coverage: platform linux, python 3.14.0-final-0 ________________
+src/check_zpools/cli_errors.py           15      0      0      0   100%
+Coverage XML written to file coverage.xml
+Required test coverage of 60% reached. Total coverage: 74.55%
+================= 479 passed, 11 skipped in 100.83s (0:01:40) ==================
+[codecov-upload] $ /home/srvadmin/venvs/pycharm314/bin/codecovcli upload-coverage --file coverage.xml --disable-search --fail-on-error --sha a5b544469b84969ba4d55528ab80c158ef5f3291 --name local-Linux-3.14.0 --flag local --branch master --git-service github --slug bitranox/check_zpools
+warning - 2025-11-19 21:24:44,123 -- No coverage data found to transform
+info - 2025-11-19 21:24:44,185 -- Found 1 coverage files to report
+info - 2025-11-19 21:24:44,185 -- > /media/srv-main-softdev/projects/tools/check_zpools/coverage.xml
+All checks passed (coverage uploaded)
