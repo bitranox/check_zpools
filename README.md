@@ -436,6 +436,118 @@ sudo check_zpools config-deploy --target app --target user
 
 ### Testing & Utilities
 
+#### `hello` - Verify Installation
+
+Prints "Hello World" to verify the package is properly installed and executable.
+
+**Usage:**
+```bash
+check_zpools hello
+```
+
+**Output:**
+```
+Hello World
+```
+
+**Use Cases:**
+- Verify package installation succeeded
+- Test CLI entry point is working
+- Quick smoke test after deployment
+- Validate PATH configuration for installed command
+
+---
+
+#### `fail` - Test Error Handling
+
+Intentionally raises a RuntimeError to test error handling and logging.
+
+**Usage:**
+```bash
+check_zpools fail
+```
+
+**Behavior:**
+- Logs intentional failure at WARNING level
+- Raises RuntimeError with "Intentional failure for testing"
+- Exits with non-zero status code
+- Demonstrates error logging and traceback handling
+
+**Use Cases:**
+- Test error logging configuration
+- Verify exception handling is working
+- Test monitoring/alerting for failed commands
+- Validate log aggregation captures errors
+
+**Note:** This is a development/testing command. Use `--traceback` flag to see full stack trace.
+
+---
+
+#### `send-email` - Advanced Email Testing
+
+Sends a custom email using configured SMTP settings with full control over message content and attachments.
+
+**Usage:**
+```bash
+check_zpools send-email --to EMAIL --subject SUBJECT [OPTIONS]
+```
+
+**Options:**
+
+| Option | Type | Required | Description |
+|--------|------|----------|-------------|
+| `--to` | TEXT | Yes | Recipient email address (can specify multiple times) |
+| `--subject` | TEXT | Yes | Email subject line |
+| `--body` | TEXT | No | Plain-text email body |
+| `--body-html` | TEXT | No | HTML email body (sent as multipart with plain text) |
+| `--from` | TEXT | No | Override sender address (uses config default if not specified) |
+| `--attachment` | PATH | No | File to attach (can specify multiple times) |
+
+**Examples:**
+```bash
+# Send simple text email
+check_zpools send-email \
+  --to recipient@example.com \
+  --subject "Test Email" \
+  --body "Hello from check_zpools CLI"
+
+# Send HTML email with plain text fallback
+check_zpools send-email \
+  --to admin@example.com \
+  --subject "HTML Test" \
+  --body "Plain text version" \
+  --body-html "<h1>HTML Version</h1><p>Rich formatting</p>"
+
+# Send email with attachments
+check_zpools send-email \
+  --to ops@example.com \
+  --subject "System Report" \
+  --body "Please review attached logs" \
+  --attachment /var/log/zpool.log \
+  --attachment /tmp/report.pdf
+
+# Send to multiple recipients with custom sender
+check_zpools send-email \
+  --to user1@example.com \
+  --to user2@example.com \
+  --from "zfs-monitor@example.com" \
+  --subject "Alert" \
+  --body "Multi-recipient test"
+```
+
+**Use Cases:**
+- Test SMTP configuration with custom message content
+- Verify HTML email rendering in mail clients
+- Test attachment handling and size limits
+- Validate multi-recipient delivery
+- Test custom sender address override
+
+**Comparison with `send-notification`:**
+- `send-notification`: Simplified interface, notification-style messages
+- `send-email`: Full-featured, supports HTML, attachments, custom sender
+
+---
+
 #### `send-notification` - Test Email Configuration
 
 Sends a test notification email to verify SMTP settings are working correctly.
