@@ -1,0 +1,1254 @@
+============================= test session starts ==============================
+platform linux -- Python 3.14.0, pytest-9.0.1, pluggy-1.6.0 -- /home/srvadmin/venvs/pycharm314/bin/python
+cachedir: .pytest_cache
+hypothesis profile 'default'
+rootdir: /media/srv-main-softdev/projects/tools/check_zpools
+configfile: pyproject.toml
+plugins: cov-7.0.0, hypothesis-6.148.2, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... 
+======================================================================
+ANALYZING: src/check_zpools/zfs_client.py
+======================================================================
+
+✓ No functions exceed 50 lines
+
+All functions:
+   __init__() at line 109: 29 lines
+   check_zpool_available() at line 138: 19 lines
+   __init__() at line 58: 18 lines
+   get_pool_list() at line 157: 6 lines
+   get_pool_status() at line 210: 5 lines
+   get_pool_status_text() at line 257: 5 lines
+   _execute_command() at line 302: 5 lines
+   _execute_json_command() at line 379: 5 lines
+   _execute_text_command() at line 426: 5 lines
+
+======================================================================
+ANALYZING: src/check_zpools/alerting.py
+======================================================================
+
+⚠️  LONG FUNCTIONS (>50 lines):
+  - send_recovery() at line 156: 66 lines
+  - send_alert() at line 95: 61 lines
+  - _format_recovery_body() at line 735: 53 lines
+  - _format_recommended_actions_section() at line 384: 52 lines
+
+All functions:
+⚠️  send_recovery() at line 156: 66 lines
+⚠️  send_alert() at line 95: 61 lines
+⚠️  _format_recovery_body() at line 735: 53 lines
+⚠️  _format_recommended_actions_section() at line 384: 52 lines
+   _format_complete_pool_status() at line 456: 47 lines
+   _format_scrub_status_section() at line 558: 44 lines
+   _format_notes_section() at line 628: 44 lines
+   _format_body() at line 260: 43 lines
+   _format_alert_header() at line 303: 42 lines
+   _format_pool_details_section() at line 345: 39 lines
+   _format_capacity_section() at line 503: 30 lines
+   _format_health_assessment_section() at line 602: 26 lines
+   _format_error_statistics_section() at line 533: 25 lines
+   _format_subject() at line 222: 20 lines
+   _format_alert_footer() at line 436: 20 lines
+   _format_recovery_subject() at line 242: 18 lines
+   _calculate_scrub_age_days() at line 672: 17 lines
+   __init__() at line 76: 8 lines
+   _append_zpool_status() at line 689: 5 lines
+
+======================================================================
+ANALYZING: src/check_zpools/behaviors.py
+======================================================================
+
+⚠️  LONG FUNCTIONS (>50 lines):
+  - run_daemon() at line 244: 110 lines
+  - check_pools_once() at line 163: 81 lines
+  - _build_monitor_config() at line 354: 61 lines
+
+All functions:
+⚠️  run_daemon() at line 244: 110 lines
+⚠️  check_pools_once() at line 163: 81 lines
+⚠️  _build_monitor_config() at line 354: 61 lines
+   emit_greeting() at line 75: 37 lines
+   _get_state_file_path() at line 415: 30 lines
+   raise_intentional_failure() at line 112: 28 lines
+   noop_main() at line 140: 23 lines
+   _flush_if_possible() at line 67: 8 lines
+   _target_stream() at line 55: 6 lines
+   _greeting_line() at line 61: 6 lines
+
+
+======================================================================
+SUMMARY
+======================================================================
+
+Total files analyzed: 3
+Total long functions (>50 lines): 7
+
+⚠️  ACTION REQUIRED: 7 function(s) need refactoring
+
+======================================================================
+DUPLICATION ANALYSIS: src/check_zpools/zfs_client.py
+======================================================================
+
+⚠️  Found 272 potential duplication(s):
+
+  Lines 60-64 vs Lines 313-317
+  Similarity: 86.1%
+  Block 1 preview: 
+  Block 2 preview: 
+
+  Lines 60-64 vs Lines 386-390
+  Similarity: 86.1%
+  Block 1 preview: 
+  Block 2 preview: 
+
+  Lines 60-64 vs Lines 433-437
+  Similarity: 86.1%
+  Block 1 preview: 
+  Block 2 preview: 
+
+  Lines 100-104 vs Lines 148-152
+  Similarity: 85.1%
+  Block 1 preview: 
+  Block 2 preview: 
+
+  Lines 100-104 vs Lines 191-195
+  Similarity: 94.2%
+  Block 1 preview: 
+  Block 2 preview: 
+
+======================================================================
+DUPLICATION ANALYSIS: src/check_zpools/alerting.py
+======================================================================
+
+⚠️  Found 490 potential duplication(s):
+
+  Lines 108-112 vs Lines 263-267
+  Similarity: 86.3%
+  Block 1 preview:         Parameters
+  Block 2 preview:         Parameters
+
+  Lines 108-112 vs Lines 306-310
+  Similarity: 86.3%
+  Block 1 preview:         Parameters
+  Block 2 preview:         Parameters
+
+  Lines 108-112 vs Lines 387-391
+  Similarity: 86.3%
+  Block 1 preview:         Parameters
+  Block 2 preview:         Parameters
+
+  Lines 109-113 vs Lines 264-268
+  Similarity: 89.0%
+  Block 1 preview:         ----------
+  Block 2 preview:         ----------
+
+  Lines 109-113 vs Lines 307-311
+  Similarity: 89.0%
+  Block 1 preview:         ----------
+  Block 2 preview:         ----------
+
+
+======================================================================
+DUPLICATION SUMMARY
+======================================================================
+Total potential duplications: 762
+=== HIGH-COMPLEXITY FUNCTIONS - LINE COUNT ANALYSIS ===
+
+File                                          Function                       Start   Lines   Complexity
+========================================================================================================================
+src/check_zpools/zfs_parser.py                _parse_scrub_time              483     27      C (12-15)
+src/check_zpools/config_show.py               display_config                 141     26      C (12-15)
+src/check_zpools/service_install.py           _detect_uvx_from_process_tree  69      18      C (12-15)
+src/check_zpools/formatters.py                display_check_result_text      109     18      B (6-10)
+src/check_zpools/formatters.py                _format_last_scrub             186     2       B (6-10)
+src/check_zpools/monitor.py                   _check_errors                  327     65      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/monitor.py                   _check_scrub                   392     58      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/cli.py                       cli_send_email                 661     7       B (6-10)
+src/check_zpools/alerting.py                  _format_notes_section          628     44      B (6-10)
+src/check_zpools/zfs_parser.py                _extract_error_counts          433     50      B (6-10)
+src/check_zpools/alert_state.py               load_state                     259     67      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/config_show.py               _display_value_with_source     91      6       B (6-10)
+src/check_zpools/service_install.py           install_service                353     1       B (6-10)
+src/check_zpools/service_install.py           uninstall_service              458     1       B (6-10)
+src/check_zpools/daemon.py                    start                          102     59      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/daemon.py                    _detect_recoveries             526     1       B (6-10)
+src/check_zpools/daemon.py                    _run_check_cycle               232     33      B (6-10)
+src/check_zpools/mail.py                      load_email_config_from_dict    354     21      B (6-10)
+src/check_zpools/mail.py                      __post_init__                  88      45      B (6-10)
+src/check_zpools/mail.py                      send_email                     169     9       B (6-10)
+======================================================================
+ALERTING.PY REFACTORING VERIFICATION
+======================================================================
+✓ _append_zpool_status() method exists
+✓ Exception handling is specific (not broad)
+✓ _format_body() calls _append_zpool_status()
+  ✓ No duplication - delegates to helper
+✓ _format_recovery_body() calls _append_zpool_status()
+  ✓ No duplication - delegates to helper
+
+✓ PASS: zpool status fetching appears only ONCE (in helper)
+✓ subprocess import added
+
+======================================================================
+SUMMARY
+======================================================================
+✅ Refactoring appears correct!
+ZFSClient Methods:
+======================================================================
+_execute_command:
+  Lines: 302-377
+  Length: 76 lines
+  ✓ Good length for helper method
+
+_execute_json_command:
+  Lines: 379-424
+  Length: 46 lines
+  ⚠️  WARNING: Still too long after refactoring (46 lines)
+
+_execute_text_command:
+  Lines: 426-454
+  Length: 29 lines
+  ✓ Good - refactored to 29 lines
+
+
+======================================================================
+DUPLICATION CHECK
+======================================================================
+✓ PASS: _execute_json_command delegates to helper
+✓ PASS: _execute_text_command delegates to helper
+✓ PASS: _execute_json_command calls _execute_command()
+✓ PASS: _execute_text_command calls _execute_command()
+
+✅ Refactoring verified successfully!
+collected 490 items
+
+src/check_zpools/__init__conf__.py::check_zpools.__init__conf__.print_info PASSED
+src/check_zpools/behaviors.py::check_zpools.behaviors.emit_greeting PASSED
+src/check_zpools/behaviors.py::check_zpools.behaviors.noop_main PASSED
+src/check_zpools/behaviors.py::check_zpools.behaviors.raise_intentional_failure PASSED
+src/check_zpools/cli.py::check_zpools.cli.apply_traceback_preferences PASSED
+src/check_zpools/cli.py::check_zpools.cli.cli_main PASSED
+src/check_zpools/cli.py::check_zpools.cli.restore_traceback_state PASSED
+src/check_zpools/cli.py::check_zpools.cli.snapshot_traceback_state PASSED
+src/check_zpools/config.py::check_zpools.config.get_config PASSED
+src/check_zpools/config.py::check_zpools.config.get_default_config_path PASSED
+src/check_zpools/config_deploy.py::check_zpools.config_deploy.deploy_configuration SKIPPED
+src/check_zpools/config_show.py::check_zpools.config_show._collect_dotted_keys PASSED
+src/check_zpools/config_show.py::check_zpools.config_show._format_source_info PASSED
+src/check_zpools/config_show.py::check_zpools.config_show.display_config SKIPPED
+src/check_zpools/mail.py::check_zpools.mail.EmailConfig PASSED
+src/check_zpools/mail.py::check_zpools.mail.EmailConfig.__post_init__ PASSED
+src/check_zpools/mail.py::check_zpools.mail.EmailConfig.to_conf_mail PASSED
+src/check_zpools/mail.py::check_zpools.mail.load_email_config_from_dict PASSED
+src/check_zpools/mail.py::check_zpools.mail.send_email PASSED
+src/check_zpools/mail.py::check_zpools.mail.send_notification PASSED
+src/check_zpools/models.py::check_zpools.models.CheckResult PASSED
+src/check_zpools/models.py::check_zpools.models.CheckResult.critical_issues PASSED
+src/check_zpools/models.py::check_zpools.models.CheckResult.has_issues PASSED
+src/check_zpools/models.py::check_zpools.models.CheckResult.warning_issues PASSED
+src/check_zpools/models.py::check_zpools.models.PoolHealth PASSED
+src/check_zpools/models.py::check_zpools.models.PoolHealth.is_critical PASSED
+src/check_zpools/models.py::check_zpools.models.PoolHealth.is_healthy PASSED
+src/check_zpools/models.py::check_zpools.models.PoolIssue PASSED
+src/check_zpools/models.py::check_zpools.models.PoolIssue.__str__ PASSED
+src/check_zpools/models.py::check_zpools.models.PoolStatus PASSED
+src/check_zpools/models.py::check_zpools.models.PoolStatus.has_errors PASSED
+src/check_zpools/models.py::check_zpools.models.Severity PASSED
+src/check_zpools/models.py::check_zpools.models.Severity.__lt__ PASSED
+src/check_zpools/models.py::check_zpools.models.Severity.is_critical PASSED
+src/check_zpools/monitor.py::check_zpools.monitor.MonitorConfig PASSED
+src/check_zpools/monitor.py::check_zpools.monitor.PoolMonitor PASSED
+src/check_zpools/monitor.py::check_zpools.monitor.PoolMonitor.check_all_pools PASSED
+src/check_zpools/monitor.py::check_zpools.monitor.PoolMonitor.check_pool PASSED
+src/check_zpools/service_install.py::check_zpools.service_install._detect_uvx_from_process_tree SKIPPED
+src/check_zpools/service_install.py::check_zpools.service_install.get_service_status SKIPPED
+src/check_zpools/service_install.py::check_zpools.service_install.install_service SKIPPED
+src/check_zpools/service_install.py::check_zpools.service_install.uninstall_service SKIPPED
+src/check_zpools/zfs_client.py::check_zpools.zfs_client.ZFSClient SKIPPED
+src/check_zpools/zfs_client.py::check_zpools.zfs_client.ZFSClient.check_zpool_available SKIPPED
+src/check_zpools/zfs_client.py::check_zpools.zfs_client.ZFSClient.get_pool_list SKIPPED
+src/check_zpools/zfs_client.py::check_zpools.zfs_client.ZFSClient.get_pool_status SKIPPED
+src/check_zpools/zfs_client.py::check_zpools.zfs_client.ZFSClient.get_pool_status_text SKIPPED
+src/check_zpools/zfs_parser.py::check_zpools.zfs_parser.ZFSParser PASSED
+src/check_zpools/zfs_parser.py::check_zpools.zfs_parser.ZFSParser._parse_size_to_bytes PASSED
+src/check_zpools/zfs_parser.py::check_zpools.zfs_parser.ZFSParser.merge_pool_data PASSED
+src/check_zpools/zfs_parser.py::check_zpools.zfs_parser.ZFSParser.parse_pool_list PASSED
+tests/test_alert_state.py::TestAlertStateCreation::test_alert_state_remembers_pool_name PASSED
+tests/test_alert_state.py::TestAlertStateCreation::test_alert_state_remembers_issue_category PASSED
+tests/test_alert_state.py::TestAlertStateCreation::test_alert_state_remembers_timestamps PASSED
+tests/test_alert_state.py::TestAlertStateCreation::test_alert_state_remembers_alert_count PASSED
+tests/test_alert_state.py::TestStateManagerInitialization::test_manager_creates_parent_directory_if_missing PASSED
+tests/test_alert_state.py::TestStateManagerInitialization::test_new_manager_starts_with_empty_state PASSED
+tests/test_alert_state.py::TestNewIssueDetection::test_brand_new_issue_should_alert PASSED
+tests/test_alert_state.py::TestAlertSuppressionWithinInterval::test_immediate_duplicate_is_suppressed PASSED
+tests/test_alert_state.py::TestAlertSuppressionWithinInterval::test_duplicate_after_one_hour_is_suppressed PASSED
+tests/test_alert_state.py::TestAlertResendAfterInterval::test_resend_after_exact_interval_boundary PASSED
+tests/test_alert_state.py::TestAlertResendAfterInterval::test_resend_after_interval_plus_one_hour PASSED
+tests/test_alert_state.py::TestAlertResendAfterInterval::test_short_interval_allows_faster_resends PASSED
+tests/test_alert_state.py::TestRecordingNewAlerts::test_recording_creates_state_entry PASSED
+tests/test_alert_state.py::TestRecordingNewAlerts::test_recorded_state_has_correct_pool_name PASSED
+tests/test_alert_state.py::TestRecordingNewAlerts::test_recorded_state_has_correct_category PASSED
+tests/test_alert_state.py::TestRecordingNewAlerts::test_new_alert_starts_with_count_one PASSED
+tests/test_alert_state.py::TestRecordingRepeatedAlerts::test_second_alert_increments_count_to_two PASSED
+tests/test_alert_state.py::TestRecordingRepeatedAlerts::test_third_alert_increments_count_to_three PASSED
+tests/test_alert_state.py::TestClearingExistingIssues::test_clearing_removes_state_entry PASSED
+tests/test_alert_state.py::TestClearingExistingIssues::test_clearing_returns_true_when_found PASSED
+tests/test_alert_state.py::TestClearingNonexistentIssues::test_clearing_nonexistent_returns_false PASSED
+tests/test_alert_state.py::TestSavingState::test_save_creates_json_file PASSED
+tests/test_alert_state.py::TestSavingState::test_saved_json_has_version_field PASSED
+tests/test_alert_state.py::TestSavingState::test_saved_json_includes_alert_states PASSED
+tests/test_alert_state.py::TestLoadingValidState::test_load_restores_state_from_file PASSED
+tests/test_alert_state.py::TestLoadingWithMissingFile::test_missing_file_starts_empty PASSED
+tests/test_alert_state.py::TestLoadingWithCorruptData::test_corrupt_json_starts_empty PASSED
+tests/test_alert_state.py::TestLoadingWithCorruptData::test_wrong_version_starts_empty PASSED
+tests/test_alert_state.py::TestLoadingWithCorruptData::test_corrupt_entries_are_skipped_but_valid_loaded PASSED
+tests/test_alert_state.py::TestStatePersistenceAcrossRestarts::test_state_survives_manager_recreation PASSED
+tests/test_alert_state.py::TestTrackingMultipleIssues::test_different_categories_on_same_pool_tracked_separately PASSED
+tests/test_alert_state.py::TestTrackingMultipleIssues::test_same_category_on_different_pools_tracked_separately PASSED
+tests/test_alert_state.py::TestTrackingMultipleIssues::test_three_different_issues_all_tracked PASSED
+tests/test_alerting.py::TestEmailAlerterInitialization::test_alerter_stores_email_config PASSED
+tests/test_alerting.py::TestEmailAlerterInitialization::test_alerter_applies_custom_subject_prefix PASSED
+tests/test_alerting.py::TestEmailAlerterInitialization::test_alerter_stores_alert_recipients PASSED
+tests/test_alerting.py::TestEmailAlerterInitialization::test_alerter_uses_default_subject_prefix_when_not_configured PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_subject_includes_severity_and_pool PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_subject_for_critical_issue PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_body_includes_pool_details PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_body_includes_issue_details PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_body_includes_recommended_actions_for_capacity PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_body_includes_recommended_actions_for_errors PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_body_includes_recommended_actions_for_scrub PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_body_includes_recommended_actions_for_health PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_send_alert_calls_smtp PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_send_alert_handles_smtp_failure PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_send_alert_returns_false_with_no_recipients PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_recovery_subject PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_format_recovery_body PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_send_recovery_calls_smtp PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_send_recovery_respects_config_flag PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_send_recovery_handles_smtp_failure PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_send_recovery_returns_false_with_no_recipients PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_email_includes_hostname PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_email_includes_version PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_pool_with_scrub_in_progress PASSED
+tests/test_alerting.py::TestEmailSubjectFormatting::test_pool_never_scrubbed PASSED
+tests/test_behaviors.py::test_when_the_greeting_is_sung_it_reaches_the_buffer PASSED
+tests/test_behaviors.py::test_when_no_stream_is_named_stdout_hears_the_song PASSED
+tests/test_behaviors.py::test_when_flush_is_possible_the_stream_is_polished PASSED
+tests/test_behaviors.py::test_when_failure_is_invoked_a_runtime_error_rises PASSED
+tests/test_behaviors.py::test_when_no_work_is_requested_the_placeholder_sits_still PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_build_with_defaults PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_build_with_custom_capacity PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_build_with_custom_scrub PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_build_with_custom_errors PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_warning_below_zero PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_warning_zero PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_warning_above_100 PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_critical_zero PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_critical_above_100 PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_warning_greater_than_critical PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_warning_equal_to_critical PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_scrub_age_negative PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_read_errors_negative PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_write_errors_negative PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_validate_checksum_errors_negative PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_allow_scrub_age_zero PASSED
+tests/test_behaviors.py::TestBuildMonitorConfig::test_allow_critical_100_percent PASSED
+tests/test_behaviors.py::TestCheckPoolsOnce::test_check_pools_once_success PASSED
+tests/test_behaviors.py::TestCheckPoolsOnce::test_check_pools_once_with_custom_config PASSED
+tests/test_behaviors.py::TestCheckPoolsOnce::test_check_pools_once_handles_zfs_not_available PASSED
+tests/test_behaviors.py::TestGetStateFilePath::test_get_state_file_path_with_custom_path PASSED
+tests/test_behaviors.py::TestGetStateFilePath::test_get_state_file_path_with_default PASSED
+tests/test_cli.py::test_when_we_snapshot_traceback_the_initial_state_is_quiet PASSED
+tests/test_cli.py::test_when_we_enable_traceback_the_config_sings_true PASSED
+tests/test_cli.py::test_when_we_restore_traceback_the_config_whispers_false PASSED
+tests/test_cli.py::test_when_info_runs_with_traceback_the_choice_is_shared PASSED
+tests/test_cli.py::test_when_main_is_called_it_delegates_to_run_cli PASSED
+tests/test_cli.py::test_when_cli_runs_without_arguments_help_is_printed PASSED
+tests/test_cli.py::test_when_main_receives_no_arguments_cli_main_is_exercised PASSED
+tests/test_cli.py::test_when_traceback_is_requested_without_command_the_domain_runs PASSED
+tests/test_cli.py::test_when_traceback_flag_is_passed_the_full_story_is_printed PASSED
+tests/test_cli.py::test_when_hello_is_invoked_the_cli_smiles PASSED
+tests/test_cli.py::test_when_fail_is_invoked_the_cli_raises PASSED
+tests/test_cli.py::test_when_info_is_invoked_the_metadata_is_displayed PASSED
+tests/test_cli.py::test_when_config_is_invoked_it_displays_configuration PASSED
+tests/test_cli.py::test_when_config_is_invoked_with_json_format_it_outputs_json PASSED
+tests/test_cli.py::test_when_config_is_invoked_with_nonexistent_section_it_fails PASSED
+tests/test_cli.py::test_when_config_is_invoked_with_mocked_data_it_displays_sections PASSED
+tests/test_cli.py::test_when_config_is_invoked_with_json_format_and_section_it_shows_section PASSED
+tests/test_cli.py::test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fails PASSED2025-11-19T21:30:13 ⚠ WARNING check_zpools.cli — Executing intentional failure 
+command environment=prod extra={'command': 'fail'} filename=cli.py 
+funcName=cli_fail hostname=lxc-pydev job_id=cli-fail lineno=477 
+message=Executing intentional failure command module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_cli.py::test_when_config_is_invoked_with_section_showing_complex_values PASSED
+tests/test_cli.py::test_when_config_shows_all_sections_with_complex_values PASSED
+tests/test_cli.py::test_when_config_deploy_is_invoked_without_target_it_fails PASSED
+tests/test_cli.py::test_when_config_deploy_is_invoked_it_deploys_configuration 2025-11-19T21:30:13 ✖   ERROR check_zpools.behaviors — About to raise 
+intentional failure for testing environment=prod extra={'command': 'fail'} 
+filename=behaviors.py funcName=raise_intentional_failure hostname=lxc-pydev 
+job_id=cli-fail lineno=136 message=About to raise intentional failure for 
+testing module=behaviors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/be
+haviors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+test_mode=True user_name=srvadmin
+PASSED
+tests/test_cli.py::test_when_config_deploy_finds_no_files_to_create_it_informs_user PASSED
+tests/test_cli.py::test_when_config_deploy_encounters_permission_error_it_handles_gracefully PASSED
+tests/test_cli.py::test_when_config_deploy_supports_multiple_targets 2025-11-19T21:30:13 ✖   ERROR check_zpools.cli — Permission denied when 
+deploying configuration environment=prod error=Permission denied 
+extra={'command': 'config-deploy', 'targets': ('app',), 'force': False} 
+filename=cli.py funcName=cli_config_deploy hostname=lxc-pydev 
+job_id=cli-config-deploy lineno=569 message=Permission denied when deploying 
+configuration module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+PASSED
+tests/test_cli.py::test_when_an_unknown_command_is_used_a_helpful_error_appears PASSED
+tests/test_cli.py::test_when_restore_is_disabled_the_traceback_choice_remains Hello World
+PASSED
+tests/test_cli.py::test_when_send_email_is_invoked_without_smtp_hosts_it_fails PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli — No SMTP hosts configured 
+environment=prod extra={'command': 'send-email', 'recipients': 
+['recipient@test.com'], 'subject': 'Test'} filename=cli.py 
+funcName=_load_and_validate_email_config hostname=lxc-pydev 
+job_id=cli-send-email lineno=1121 message=No SMTP hosts configured module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_cli.py::test_when_send_email_is_invoked_with_valid_config_it_sends PASSED
+tests/test_cli.py::test_when_send_email_receives_multiple_recipients_it_accepts_them PASSED
+tests/test_cli.py::test_when_send_email_includes_html_body_it_sends PASSED
+tests/test_cli.py::test_when_send_email_has_attachments_it_sends PASSED
+tests/test_cli.py::test_when_send_email_smtp_fails_it_reports_error PASSED
+tests/test_cli.py::test_when_send_notification_is_invoked_without_smtp_hosts_it_fails PASSED2025-11-19T21:30:13 ⚠ WARNING btx_lib_mail — can not send mail to 
+"recipient@test.com" via host "smtp.test.com:587" environment=prod 
+exc_text=Traceback (most recent call last):
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 331, in _deliver_to_any_host
+    _deliver_via_host(
+    ~~~~~~~~~~~~~~~~~^
+        host=host,
+        ^^^^^^^^^^
+    ...<6 lines>...
+        delivery=delivery,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 392, in _deliver_via_host
+    with smtplib.SMTP(hostname, port=p… extra={'command': 'send-email', 
+'recipients': ['recipient@test.com'], 'subject': 'Test'} filename=lib_mail.py 
+funcName=_deliver_to_any_host hostname=lxc-pydev job_id=cli-send-email 
+lineno=344 message=can not send mail to "recipient@test.com" via host 
+"smtp.test.com:587" module=lib_mail 
+pathname=/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_ma
+il/lib_mail.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_cli.py::test_when_send_notification_is_invoked_with_valid_config_it_sends PASSED
+tests/test_cli.py::test_when_send_notification_receives_multiple_recipients_it_accepts_them PASSED
+tests/test_cli.py::test_when_send_notification_smtp_fails_it_reports_error PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['admin@test.com']" on all 
+of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most recent 
+call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… extra={'command': 'send-notification', 'recipients': 
+['admin@test.com'], 'subject': 'Alert'} filename=mail.py from=alerts@test.com 
+funcName=send_email hostname=lxc-pydev job_id=cli-send-notification lineno=278 
+message=Failed to send email module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=111684 process_id_chain=[111684] recipients=['admin@test.com'] 
+service=check_zpools user_name=srvadmin
+
+tests/test_cli_errors.py::TestZfsNotAvailableExitBehavior::test_handler_exits_with_code_one 
+Error: ZFS kernel module not loaded
+PASSED
+tests/test_cli_errors.py::TestZfsNotAvailableLogging::test_handler_logs_error_message_with_details 
+Error: ZFS kernel module not loaded
+PASSED
+tests/test_cli_errors.py::TestZfsNotAvailableLogging::test_handler_uses_default_operation_name_when_not_provided 
+Error: ZFS not found
+PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli — SMTP delivery failed 
+environment=prod error=following recipients failed "['admin@test.com']" on all 
+of following hosts : "('smtp.test.com:587',)" extra={'command': 
+'send-notification', 'recipients': ['admin@test.com'], 'subject': 'Alert'} 
+filename=cli.py funcName=cli_send_notification hostname=lxc-pydev 
+job_id=cli-send-notification lineno=845 message=SMTP delivery failed module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_cli_errors.py::TestZfsNotAvailableStderrOutput::test_handler_displays_error_message_to_stderr PASSED
+tests/test_cli_errors.py::TestGenericErrorExitBehavior::test_handler_exits_with_code_one 
+Error: Something went wrong
+PASSED
+tests/test_cli_errors.py::TestGenericErrorLogging::test_handler_logs_error_with_full_traceback 
+Error: Invalid configuration
+PASSED
+tests/test_cli_errors.py::TestGenericErrorLogging::test_handler_logs_exception_type_name 
+Error: 'missing_key'
+PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — ZFS not available 
+environment=prod error=ZFS kernel module not loaded filename=cli_errors.py 
+funcName=handle_zfs_not_available hostname=lxc-pydev job_id=bootstrap lineno=51 
+message=ZFS not available module=cli_errors operation=Operation 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_cli_errors.py::TestGenericErrorLogging::test_handler_uses_default_operation_name_when_not_provided 
+Error: Generic error
+PASSED
+tests/test_cli_errors.py::TestGenericErrorStderrOutput::test_handler_displays_error_message_to_stderr PASSED
+tests/test_cli_errors.py::TestGenericErrorHandlesVariousExceptionTypes::test_value_error_exits_with_code_one PASSED
+tests/test_cli_errors.py::TestGenericErrorHandlesVariousExceptionTypes::test_key_error_exits_with_code_one PASSED
+tests/test_cli_errors.py::TestGenericErrorHandlesVariousExceptionTypes::test_file_not_found_error_exits_with_code_one PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — ZFS not available 
+environment=prod error=ZFS not found filename=cli_errors.py 
+funcName=handle_zfs_not_available hostname=lxc-pydev job_id=bootstrap lineno=51 
+message=ZFS not available module=cli_errors operation=Operation 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_cli_errors.py::TestGenericErrorHandlesVariousExceptionTypes::test_permission_error_exits_with_code_one PASSED
+tests/test_cli_errors.py::TestGenericErrorHandlesVariousExceptionTypes::test_runtime_error_exits_with_code_one PASSED
+tests/test_config_deploy.py::TestDeployToUserTarget::test_deploy_to_user_calls_deploy_config_with_user_target PASSED
+tests/test_config_deploy.py::TestDeployToUserTarget::test_deploy_to_user_returns_deployed_path PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — ZFS not available 
+environment=prod error=ZFS kernel module not loaded filename=cli_errors.py 
+funcName=handle_zfs_not_available hostname=lxc-pydev job_id=bootstrap lineno=51 
+message=ZFS not available module=cli_errors operation=Operation 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_config_deploy.py::TestDeployToHostTarget::test_deploy_to_host_calls_deploy_config_with_host_target PASSED
+tests/test_config_deploy.py::TestDeployToHostTarget::test_deploy_to_host_returns_system_path PASSED
+tests/test_config_deploy.py::TestDeployToAppTarget::test_deploy_to_app_calls_deploy_config_with_app_target PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — Operation failed 
+environment=prod error=Something went wrong error_type=RuntimeError 
+exc_text=NoneType: None filename=cli_errors.py funcName=handle_generic_error 
+hostname=lxc-pydev job_id=bootstrap lineno=80 message=Operation failed 
+module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_config_deploy.py::TestDeployToAppTarget::test_deploy_to_app_returns_application_path PASSED
+tests/test_config_deploy.py::TestDeployToMultipleTargets::test_deploy_to_app_and_user_includes_both_targets PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — config validation failed
+environment=prod error=Invalid configuration error_type=ValueError 
+exc_text=NoneType: None filename=cli_errors.py funcName=handle_generic_error 
+hostname=lxc-pydev job_id=bootstrap lineno=80 message=config validation failed 
+module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_config_deploy.py::TestDeployToMultipleTargets::test_deploy_to_multiple_targets_returns_all_paths PASSED
+tests/test_config_deploy.py::TestForceOverwriteBehavior::test_deploy_without_force_defaults_to_false PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — parse failed 
+environment=prod error='missing_key' error_type=KeyError exc_text=NoneType: None
+filename=cli_errors.py funcName=handle_generic_error hostname=lxc-pydev 
+job_id=bootstrap lineno=80 message=parse failed module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_config_deploy.py::TestForceOverwriteBehavior::test_deploy_with_force_passes_true_to_deploy_config PASSED
+tests/test_config_deploy.py::TestForceOverwriteBehavior::test_deploy_returns_empty_list_when_files_exist_without_force PASSED
+tests/test_config_deploy.py::TestPackageMetadataIntegration::test_deploy_passes_vendor_from_package_metadata PASSED
+tests/test_config_deploy.py::TestPackageMetadataIntegration::test_deploy_passes_app_from_package_metadata PASSED
+tests/test_config_deploy.py::TestPackageMetadataIntegration::test_deploy_passes_slug_from_package_metadata PASSED
+tests/test_config_deploy.py::TestSourcePathResolution::test_deploy_uses_default_config_path_as_source PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — Operation failed 
+environment=prod error=Generic error error_type=Exception exc_text=NoneType: 
+None filename=cli_errors.py funcName=handle_generic_error hostname=lxc-pydev 
+job_id=bootstrap lineno=80 message=Operation failed module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_daemon.py::TestDaemonInitialization::test_daemon_remembers_all_provided_components PASSED
+tests/test_daemon.py::TestDaemonInitialization::test_daemon_applies_configured_check_interval PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — load config failed 
+environment=prod error=Configuration file not found error_type=RuntimeError 
+exc_text=NoneType: None filename=cli_errors.py funcName=handle_generic_error 
+hostname=lxc-pydev job_id=bootstrap lineno=80 message=load config failed 
+module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_daemon.py::TestDaemonInitialization::test_daemon_uses_five_minute_default_when_interval_not_specified PASSED
+tests/test_daemon.py::TestCheckCycle::test_check_cycle_fetches_pool_list_from_zfs PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error=Invalid value error_type=ValueError exc_text=NoneType: 
+None filename=cli_errors.py funcName=handle_generic_error hostname=lxc-pydev 
+job_id=bootstrap lineno=80 message=test failed module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_daemon.py::TestCheckCycle::test_check_cycle_fetches_pool_status_from_zfs PASSED
+tests/test_daemon.py::TestCheckCycle::test_check_cycle_passes_parsed_pools_to_monitor PASSED2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error='missing_key' error_type=KeyError exc_text=NoneType: None
+filename=cli_errors.py funcName=handle_generic_error hostname=lxc-pydev 
+job_id=bootstrap lineno=80 message=test failed module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+
+tests/test_daemon.py::TestCheckCycle::test_check_cycle_monitors_specific_pool_by_name PASSED
+tests/test_daemon.py::TestCheckCycle::test_check_cycle_recovers_from_zfs_fetch_errors 2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error=File not found error_type=FileNotFoundError 
+exc_text=NoneType: None filename=cli_errors.py funcName=handle_generic_error 
+hostname=lxc-pydev job_id=bootstrap lineno=80 message=test failed 
+module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error=Permission denied error_type=PermissionError 
+exc_text=NoneType: None filename=cli_errors.py funcName=handle_generic_error 
+hostname=lxc-pydev job_id=bootstrap lineno=80 message=test failed 
+module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+PASSED
+tests/test_daemon.py::TestCheckCycle::test_check_cycle_recovers_from_parse_errors 2025-11-19T21:30:13 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error=Runtime error error_type=RuntimeError exc_text=NoneType: 
+None filename=cli_errors.py funcName=handle_generic_error hostname=lxc-pydev 
+job_id=bootstrap lineno=80 message=test failed module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+PASSED
+tests/test_daemon.py::TestAlertHandling::test_new_issue_triggers_email_alert PASSED
+tests/test_daemon.py::TestAlertHandling::test_new_issue_alert_includes_issue_details PASSED
+tests/test_daemon.py::TestAlertHandling::test_new_issue_alert_includes_pool_status PASSED
+tests/test_daemon.py::TestAlertHandling::test_new_issue_updates_state_manager PASSED
+tests/test_daemon.py::TestAlertHandling::test_duplicate_issue_alert_is_suppressed PASSED
+tests/test_daemon.py::TestAlertHandling::test_ok_severity_issues_do_not_trigger_alerts PASSED
+tests/test_daemon.py::TestRecoveryDetection::test_resolved_issue_triggers_recovery_notification PASSED
+tests/test_daemon.py::TestRecoveryDetection::test_recovery_notification_includes_pool_name PASSED
+tests/test_daemon.py::TestRecoveryDetection::test_recovery_notification_includes_issue_category PASSED
+tests/test_daemon.py::TestRecoveryDetection::test_recovery_notification_includes_pool_status PASSED
+tests/test_daemon.py::TestRecoveryDetection::test_recovery_clears_issue_from_state_manager PASSED
+tests/test_daemon.py::TestSignalHandling::test_setup_registers_sigterm_handler PASSED
+tests/test_daemon.py::TestSignalHandling::test_setup_registers_sigint_handler PASSED
+tests/test_daemon.py::TestDaemonStopBehavior::test_stop_sets_shutdown_event PASSED
+tests/test_daemon.py::TestDaemonStopBehavior::test_stop_sets_running_flag_to_false PASSED
+tests/test_daemon.py::TestDaemonStopBehavior::test_stop_is_idempotent PASSED
+tests/test_daemon.py::TestDaemonLoop::test_loop_executes_at_least_one_check_cycle 2025-11-19T21:30:13 ✖   ERROR check_zpools.daemon — Failed to fetch ZFS data 
+environment=prod error=ZFS error error_type=RuntimeError exc_text=Traceback 
+(most recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py"
+, line 242, in _fetch_and_parse_pools
+    list_data = self.zfs_client.get_pool_list()
+  File "/opt/Python-3.14.0/lib/python3.14/unittest/mock.py", line 1175, in 
+__call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/opt/Python-3.14.0/lib/python3.14/unittest/mock.py", line 1179, in 
+_mock_call
+    return self._execute_mock_call… filename=daemon.py 
+funcName=_fetch_and_parse_pools hostname=lxc-pydev job_id=bootstrap lineno=245 
+message=Failed to fetch ZFS data module=daemon 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/da
+emon.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+2025-11-19T21:30:13 ⚠ WARNING check_zpools.zfs_parser — No pools found in zpool 
+list output environment=prod filename=zfs_parser.py funcName=parse_pool_list 
+hostname=lxc-pydev job_id=bootstrap lineno=119 message=No pools found in zpool 
+list output module=zfs_parser 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zf
+s_parser.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+2025-11-19T21:30:13 ⚠ WARNING check_zpools.zfs_parser — Pool rpool in status but
+not in list environment=prod filename=zfs_parser.py funcName=merge_pool_data 
+hostname=lxc-pydev job_id=bootstrap lineno=250 message=Pool rpool in status but 
+not in list module=zfs_parser 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zf
+s_parser.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+PASSED
+tests/test_daemon.py::TestDaemonLoop::test_loop_continues_after_transient_errors 2025-11-19T21:30:16 ✖   ERROR check_zpools.daemon — Failed to fetch ZFS data 
+environment=prod error=Temporary error error_type=RuntimeError 
+exc_text=Traceback (most recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py"
+, line 242, in _fetch_and_parse_pools
+    list_data = self.zfs_client.get_pool_list()
+  File "/opt/Python-3.14.0/lib/python3.14/unittest/mock.py", line 1175, in 
+__call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/opt/Python-3.14.0/lib/python3.14/unittest/mock.py", line 1179, in 
+_mock_call
+    return self._execute_mock_call… filename=daemon.py 
+funcName=_fetch_and_parse_pools hostname=lxc-pydev job_id=bootstrap lineno=245 
+message=Failed to fetch ZFS data module=daemon 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/da
+emon.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+PASSED
+tests/test_formatters.py::TestJsonFormattingWithNoIssues::test_ok_result_produces_valid_json PASSED
+tests/test_formatters.py::TestJsonFormattingWithNoIssues::test_ok_result_includes_timestamp PASSED
+tests/test_formatters.py::TestJsonFormattingWithNoIssues::test_ok_result_includes_overall_severity PASSED
+tests/test_formatters.py::TestJsonFormattingWithNoIssues::test_ok_result_includes_pool_details PASSED
+tests/test_formatters.py::TestJsonFormattingWithNoIssues::test_ok_result_includes_empty_issues_list PASSED
+tests/test_formatters.py::TestJsonFormattingWithWarningIssues::test_warning_result_includes_warning_severity PASSED
+tests/test_formatters.py::TestJsonFormattingWithWarningIssues::test_warning_result_includes_issue_details PASSED
+tests/test_formatters.py::TestJsonFormattingWithWarningIssues::test_warning_result_includes_issue_detail_fields PASSED
+tests/test_formatters.py::TestJsonFormattingWithCriticalIssues::test_critical_result_includes_critical_severity PASSED
+tests/test_formatters.py::TestJsonFormattingWithCriticalIssues::test_critical_result_includes_health_category PASSED
+tests/test_formatters.py::TestJsonFormattingWithMultipleEntities::test_multiple_pools_appear_in_json_array PASSED
+tests/test_formatters.py::TestJsonFormattingWithMultipleEntities::test_multiple_issues_appear_in_json_array PASSED
+tests/test_formatters.py::TestJsonFormattingStyle::test_json_output_is_pretty_printed_with_newlines PASSED
+tests/test_formatters.py::TestJsonFormattingStyle::test_json_output_uses_two_space_indentation PASSED
+tests/test_formatters.py::TestTextFormattingWithNoIssues::test_ok_result_includes_header PASSED
+tests/test_formatters.py::TestTextFormattingWithNoIssues::test_ok_result_includes_formatted_timestamp PASSED
+tests/test_formatters.py::TestTextFormattingWithNoIssues::test_ok_result_shows_overall_status PASSED
+tests/test_formatters.py::TestTextFormattingWithNoIssues::test_ok_result_shows_no_issues_message PASSED
+tests/test_formatters.py::TestTextFormattingWithNoIssues::test_ok_result_shows_pool_count PASSED
+tests/test_formatters.py::TestTextFormattingWithWarningIssues::test_warning_result_shows_warning_status PASSED
+tests/test_formatters.py::TestTextFormattingWithWarningIssues::test_warning_result_shows_issues_found_section PASSED
+tests/test_formatters.py::TestTextFormattingWithWarningIssues::test_warning_severity_appears_in_yellow PASSED
+tests/test_formatters.py::TestTextFormattingWithWarningIssues::test_warning_result_includes_issue_message PASSED
+tests/test_formatters.py::TestTextFormattingWithCriticalIssues::test_critical_result_shows_critical_status PASSED
+tests/test_formatters.py::TestTextFormattingWithCriticalIssues::test_critical_severity_appears_in_red PASSED
+tests/test_formatters.py::TestTextFormattingWithCriticalIssues::test_critical_result_includes_issue_message PASSED
+tests/test_formatters.py::TestTextFormattingWithInfoSeverity::test_info_severity_appears_in_green PASSED
+tests/test_formatters.py::TestTextFormattingWithInfoSeverity::test_info_result_includes_message PASSED
+tests/test_formatters.py::TestTextFormattingWithMultipleIssues::test_multiple_issues_all_appear_in_output PASSED
+tests/test_formatters.py::TestTextFormattingWithMultipleIssues::test_multiple_issues_show_different_colors PASSED
+tests/test_formatters.py::TestExitCodeMappingForOkAndInfo::test_ok_severity_maps_to_exit_code_zero PASSED
+tests/test_formatters.py::TestExitCodeMappingForOkAndInfo::test_info_severity_maps_to_exit_code_zero PASSED
+tests/test_formatters.py::TestExitCodeMappingForWarning::test_warning_severity_maps_to_exit_code_one PASSED
+tests/test_formatters.py::TestExitCodeMappingForCritical::test_critical_severity_maps_to_exit_code_two PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithNoIssues::test_display_includes_header_and_timestamp PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithNoIssues::test_display_shows_overall_status PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithNoIssues::test_display_shows_pool_status_table PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithNoIssues::test_display_shows_no_issues_message PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithNoIssues::test_display_shows_pools_checked_count PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithIssues::test_display_shows_issues_found_section PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithIssues::test_display_shows_warning_issue_message PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithIssues::test_display_shows_critical_issue_message PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithIssues::test_display_shows_multiple_issues PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithTableColumns::test_table_includes_health_column PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithTableColumns::test_table_includes_capacity_column PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithTableColumns::test_table_includes_size_column_with_human_readable_format PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithTableColumns::test_table_includes_error_column PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithTableColumns::test_table_shows_pool_with_errors PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithMultiplePools::test_table_shows_all_pools PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextWithMultiplePools::test_pools_checked_count_matches_pool_count PASSED
+tests/test_formatters.py::TestDisplayCheckResultTextDefaultConsole::test_can_call_without_console_parameter 
+ZFS Pool Check - 2025-01-15 10:30:00
+Overall Status: OK
+
+                             Pool Status                             
+┏━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ Pool  ┃ Health ┃ Capacity ┃    Size ┃ Errors (R/W/C) ┃ Last Scrub ┃
+┡━━━━━━━╇━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ rpool │ ONLINE │    50.0% │ 1.00 TB │          0/0/0 │      Today │
+└───────┴────────┴──────────┴─────────┴────────────────┴────────────┘
+
+No issues detected
+
+Pools Checked: 1
+PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_none_returns_never_yellow PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_today_returns_green PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_yesterday_returns_green PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_three_days_ago_returns_green PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_six_days_ago_returns_green PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_two_weeks_ago_returns_green PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_29_days_ago_returns_green PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_45_days_ago_returns_yellow PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_59_days_ago_returns_yellow PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_90_days_ago_returns_red PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_180_days_ago_returns_red PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_naive_datetime_is_treated_as_utc PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_timezone_aware_datetime_converted_to_utc PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_boundary_7_days_shows_weeks PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_boundary_30_days_shows_days_not_months PASSED
+tests/test_formatters.py::TestFormatLastScrub::test_boundary_60_days_shows_months PASSED
+tests/test_mail.py::TestEmailConfig::test_default_values PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_negative_timeout_raises PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_zero_timeout_raises PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_invalid_from_address_raises PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_invalid_smtp_host_port_format PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_invalid_port_number PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_port_out_of_range_high PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_port_out_of_range_low PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_smtp_host_without_port_valid PASSED
+tests/test_mail.py::TestEmailConfig::test_validation_smtp_host_with_valid_port PASSED
+tests/test_mail.py::TestEmailConfig::test_custom_values PASSED
+tests/test_mail.py::TestEmailConfig::test_frozen_dataclass PASSED
+tests/test_mail.py::TestEmailConfig::test_to_conf_mail PASSED
+tests/test_mail.py::TestLoadEmailConfigFromDict::test_empty_config PASSED
+tests/test_mail.py::TestLoadEmailConfigFromDict::test_email_section_loaded PASSED
+tests/test_mail.py::TestLoadEmailConfigFromDict::test_partial_config PASSED
+tests/test_mail.py::TestLoadEmailConfigFromDict::test_invalid_email_section PASSED
+tests/test_mail.py::TestSendEmail::test_send_simple_email PASSED
+tests/test_mail.py::TestSendEmail::test_send_email_with_html PASSED
+tests/test_mail.py::TestSendEmail::test_send_email_multiple_recipients PASSED
+tests/test_mail.py::TestSendEmail::test_send_email_with_from_override PASSED
+tests/test_mail.py::TestSendEmail::test_send_email_with_attachments PASSED
+tests/test_mail.py::TestSendEmail::test_send_email_with_credentials PASSED
+tests/test_mail.py::TestSendNotification::test_send_simple_notification PASSED
+tests/test_mail.py::TestSendNotification::test_send_notification_multiple_recipients PASSED
+tests/test_mail.py::TestEmailErrorScenarios::test_send_email_smtp_connection_failure 2025-11-19T21:30:19 ⚠ WARNING btx_lib_mail — can not send mail to 
+"recipient@test.com" via host "smtp.test.com:587" environment=prod 
+exc_text=Traceback (most recent call last):
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 331, in _deliver_to_any_host
+    _deliver_via_host(
+    ~~~~~~~~~~~~~~~~~^
+        host=host,
+        ^^^^^^^^^^
+    ...<6 lines>...
+        delivery=delivery,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 392, in _deliver_via_host
+    with smtplib.SMTP(hostname, port=p… filename=lib_mail.py 
+funcName=_deliver_to_any_host hostname=lxc-pydev job_id=bootstrap lineno=344 
+message=can not send mail to "recipient@test.com" via host "smtp.test.com:587" 
+module=lib_mail 
+pathname=/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_ma
+il/lib_mail.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+PASSED2025-11-19T21:30:19 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most 
+recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… filename=mail.py from=sender@test.com funcName=send_email 
+hostname=lxc-pydev job_id=bootstrap lineno=278 message=Failed to send email 
+module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=111684 process_id_chain=[111684] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+
+tests/test_mail.py::TestEmailErrorScenarios::test_send_email_authentication_failure 2025-11-19T21:30:19 ⚠ WARNING btx_lib_mail — can not send mail to 
+"recipient@test.com" via host "smtp.test.com:587" environment=prod 
+exc_text=Traceback (most recent call last):
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 331, in _deliver_to_any_host
+    _deliver_via_host(
+    ~~~~~~~~~~~~~~~~~^
+        host=host,
+        ^^^^^^^^^^
+    ...<6 lines>...
+        delivery=delivery,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 397, in _deliver_via_host
+    smtp_connection.login(username, pa… filename=lib_mail.py 
+funcName=_deliver_to_any_host hostname=lxc-pydev job_id=bootstrap lineno=344 
+message=can not send mail to "recipient@test.com" via host "smtp.test.com:587" 
+module=lib_mail 
+pathname=/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_ma
+il/lib_mail.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+PASSED
+tests/test_mail.py::TestEmailErrorScenarios::test_send_email_invalid_recipients 2025-11-19T21:30:19 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most 
+recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… filename=mail.py from=sender@test.com funcName=send_email 
+hostname=lxc-pydev job_id=bootstrap lineno=278 message=Failed to send email 
+module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=111684 process_id_chain=[111684] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+PASSED
+tests/test_mail.py::TestEmailErrorScenarios::test_send_email_missing_attachment_raises 2025-11-19T21:30:19 ⚠ WARNING btx_lib_mail — can not send mail to 
+"recipient@test.com" via host "smtp.test.com:587" environment=prod 
+exc_text=Traceback (most recent call last):
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 331, in _deliver_to_any_host
+    _deliver_via_host(
+    ~~~~~~~~~~~~~~~~~^
+        host=host,
+        ^^^^^^^^^^
+    ...<6 lines>...
+        delivery=delivery,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 392, in _deliver_via_host
+    with smtplib.SMTP(hostname, port=p… filename=lib_mail.py 
+funcName=_deliver_to_any_host hostname=lxc-pydev job_id=bootstrap lineno=344 
+message=can not send mail to "recipient@test.com" via host "smtp.test.com:587" 
+module=lib_mail 
+pathname=/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_ma
+il/lib_mail.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+2025-11-19T21:30:19 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most 
+recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… filename=mail.py from=sender@test.com funcName=send_email 
+hostname=lxc-pydev job_id=bootstrap lineno=278 message=Failed to send email 
+module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=111684 process_id_chain=[111684] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+PASSED2025-11-19T21:30:19 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=Attachment File 
+"/tmp/pytest-of-srvadmin/pytest-42/test_send_email_missing_attach0/nonexistent.t
+xt" can not be found exc_text=Traceback (most recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 206, in send
+    attachments = _prepare_attachments(tuple(attachment_file_paths or ()))
+  File "/home/srvadmin/venvs/pycharm314/lib/python3.14/sit… filename=mail.py 
+from=sender@test.com funcName=send_email hostname=lxc-pydev job_id=bootstrap 
+lineno=278 message=Failed to send email module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=111684 process_id_chain=[111684] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+
+tests/test_mail.py::TestEmailErrorScenarios::test_send_email_all_smtp_hosts_fail 2025-11-19T21:30:19 ⚠ WARNING btx_lib_mail — can not send mail to 
+"recipient@test.com" via host "smtp1.test.com:587" environment=prod 
+exc_text=Traceback (most recent call last):
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 331, in _deliver_to_any_host
+    _deliver_via_host(
+    ~~~~~~~~~~~~~~~~~^
+        host=host,
+        ^^^^^^^^^^
+    ...<6 lines>...
+        delivery=delivery,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 392, in _deliver_via_host
+    with smtplib.SMTP(hostname, port=p… filename=lib_mail.py 
+funcName=_deliver_to_any_host hostname=lxc-pydev job_id=bootstrap lineno=344 
+message=can not send mail to "recipient@test.com" via host "smtp1.test.com:587" 
+module=lib_mail 
+pathname=/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_ma
+il/lib_mail.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+2025-11-19T21:30:19 ⚠ WARNING btx_lib_mail — can not send mail to 
+"recipient@test.com" via host "smtp2.test.com:587" environment=prod 
+exc_text=Traceback (most recent call last):
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 331, in _deliver_to_any_host
+    _deliver_via_host(
+    ~~~~~~~~~~~~~~~~~^
+        host=host,
+        ^^^^^^^^^^
+    ...<6 lines>...
+        delivery=delivery,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 392, in _deliver_via_host
+    with smtplib.SMTP(hostname, port=p… filename=lib_mail.py 
+funcName=_deliver_to_any_host hostname=lxc-pydev job_id=bootstrap lineno=344 
+message=can not send mail to "recipient@test.com" via host "smtp2.test.com:587" 
+module=lib_mail 
+pathname=/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_ma
+il/lib_mail.py process_id=111684 process_id_chain=[111684] service=check_zpools 
+user_name=srvadmin
+PASSED2025-11-19T21:30:19 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp1.test.com:587', 'smtp2.test.com:587')" 
+exc_text=Traceback (most recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… filename=mail.py from=sender@test.com funcName=send_email 
+hostname=lxc-pydev job_id=bootstrap lineno=278 message=Failed to send email 
+module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=111684 process_id_chain=[111684] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+
+tests/test_mail.py::TestLoadEmailConfigEdgeCases::test_malformed_timeout_uses_default PASSED
+tests/test_mail.py::TestLoadEmailConfigEdgeCases::test_smtp_hosts_not_list_uses_default PASSED
+tests/test_mail.py::TestLoadEmailConfigEdgeCases::test_boolean_as_string_uses_default PASSED
+tests/test_mail.py::TestLoadEmailConfigEdgeCases::test_empty_string_username_becomes_none PASSED
+tests/test_mail.py::TestLoadEmailConfigEdgeCases::test_mixed_valid_invalid_config PASSED
+tests/test_mail.py::TestRealSMTPIntegration::test_send_real_email PASSED
+tests/test_mail.py::TestRealSMTPIntegration::test_send_real_email_with_html PASSED
+tests/test_mail.py::TestRealSMTPIntegration::test_send_real_notification PASSED
+tests/test_metadata.py::test_when_print_info_runs_it_lists_every_field PASSED
+tests/test_metadata.py::test_the_metadata_constants_match_the_project PASSED
+tests/test_models.py::TestPoolHealthStates::test_all_six_zfs_health_states_exist PASSED
+tests/test_models.py::TestPoolHealthStates::test_health_states_can_be_constructed_from_strings PASSED
+tests/test_models.py::TestPoolHealthStates::test_invalid_health_state_raises_value_error PASSED
+tests/test_models.py::TestPoolHealthQueries::test_only_online_is_considered_healthy PASSED
+tests/test_models.py::TestPoolHealthQueries::test_faulted_unavail_and_removed_are_critical PASSED
+tests/test_models.py::TestPoolHealthQueries::test_online_degraded_and_offline_are_not_critical PASSED
+tests/test_models.py::TestSeverityLevels::test_all_four_severity_levels_exist PASSED
+tests/test_models.py::TestSeverityLevels::test_severities_have_natural_ordering PASSED
+tests/test_models.py::TestSeverityLevels::test_max_returns_highest_severity PASSED
+tests/test_models.py::TestSeverityLevels::test_max_of_non_critical_severities_returns_highest PASSED
+tests/test_models.py::TestSeverityLevels::test_severities_support_equality_comparison PASSED
+tests/test_models.py::TestPoolStatusCreation::test_a_pool_status_remembers_all_its_attributes PASSED
+tests/test_models.py::TestPoolStatusImmutability::test_pool_name_cannot_be_changed_after_creation PASSED
+tests/test_models.py::TestPoolStatusImmutability::test_pool_health_cannot_be_modified PASSED
+tests/test_models.py::TestPoolStatusErrorDetection::test_a_pool_with_read_errors_knows_it_has_problems PASSED
+tests/test_models.py::TestPoolStatusErrorDetection::test_a_pool_with_write_errors_knows_it_has_problems PASSED
+tests/test_models.py::TestPoolStatusErrorDetection::test_a_pool_with_checksum_errors_knows_it_has_problems PASSED
+tests/test_models.py::TestPoolStatusErrorDetection::test_a_pool_with_multiple_error_types_reports_errors PASSED
+tests/test_models.py::TestPoolStatusErrorDetection::test_a_pool_with_zero_errors_is_error_free PASSED
+tests/test_models.py::TestPoolIssueCreation::test_an_issue_remembers_its_pool_and_severity PASSED
+tests/test_models.py::TestPoolIssueImmutability::test_issue_pool_name_cannot_be_changed PASSED
+tests/test_models.py::TestPoolIssueImmutability::test_issue_severity_cannot_be_modified PASSED
+tests/test_models.py::TestPoolIssueStringRepresentation::test_issue_string_contains_severity_pool_and_message PASSED
+tests/test_models.py::TestPoolIssueStringRepresentation::test_critical_issue_string_shows_critical_severity PASSED
+tests/test_models.py::TestCheckResultCreation::test_a_check_result_remembers_timestamp_pools_and_issues PASSED
+tests/test_models.py::TestCheckResultImmutability::test_overall_severity_cannot_be_changed PASSED
+tests/test_models.py::TestCheckResultIssueQueries::test_check_result_with_no_issues_reports_none PASSED
+tests/test_models.py::TestCheckResultIssueQueries::test_check_result_with_any_issue_reports_it PASSED
+tests/test_models.py::TestCheckResultIssueFiltering::test_critical_issues_returns_only_critical_severity PASSED
+tests/test_models.py::TestCheckResultIssueFiltering::test_warning_issues_returns_only_warning_severity PASSED
+tests/test_models.py::TestCheckResultIssueFiltering::test_filtering_with_no_matching_issues_returns_empty_list PASSED
+tests/test_models.py::TestCheckResultWithMultiplePools::test_check_result_preserves_order_of_multiple_pools PASSED
+tests/test_models.py::TestPoolStatusEdgeCases::test_pool_with_zero_capacity_is_valid PASSED
+tests/test_models.py::TestPoolStatusEdgeCases::test_pool_with_full_capacity_is_valid PASSED
+tests/test_models.py::TestPoolStatusEdgeCases::test_pool_with_no_last_scrub_is_valid PASSED
+tests/test_models.py::TestPoolStatusEdgeCases::test_pool_with_scrub_in_progress_is_valid PASSED
+tests/test_models.py::TestPoolStatusEdgeCases::test_pool_with_large_error_counts_is_valid PASSED
+tests/test_models.py::TestSeverityEdgeCases::test_severity_ok_is_minimum PASSED
+tests/test_models.py::TestSeverityEdgeCases::test_severity_critical_is_maximum PASSED
+tests/test_models.py::TestSeverityEdgeCases::test_max_of_single_severity_returns_that_severity PASSED
+tests/test_models.py::TestCheckResultEdgeCases::test_check_result_with_empty_pools_list_is_valid PASSED
+tests/test_models.py::TestCheckResultEdgeCases::test_check_result_with_many_issues_preserves_all PASSED
+tests/test_module_entry.py::test_when_module_entry_returns_zero_the_story_matches_cli PASSED
+tests/test_module_entry.py::test_when_module_entry_raises_the_exit_helpers_format_the_song PASSED
+tests/test_module_entry.py::test_when_traceback_flag_is_used_via_module_entry_the_full_poem_is_printed PASSED
+tests/test_module_entry.py::test_when_module_entry_imports_cli_the_alias_stays_intact PASSED
+tests/test_monitor.py::TestMonitorConfigDefaults::test_default_capacity_warning_is_eighty_percent PASSED
+tests/test_monitor.py::TestMonitorConfigDefaults::test_default_capacity_critical_is_ninety_percent PASSED
+tests/test_monitor.py::TestMonitorConfigDefaults::test_default_scrub_max_age_is_thirty_days PASSED
+tests/test_monitor.py::TestMonitorConfigDefaults::test_default_error_thresholds_are_one PASSED
+tests/test_monitor.py::TestMonitorConfigCustomization::test_custom_capacity_thresholds_are_preserved PASSED
+tests/test_monitor.py::TestMonitorConfigCustomization::test_custom_scrub_age_is_preserved PASSED
+tests/test_monitor.py::TestMonitorConfigValidation::test_warning_greater_than_critical_is_rejected PASSED
+tests/test_monitor.py::TestMonitorConfigValidation::test_warning_equal_to_critical_is_rejected PASSED
+tests/test_monitor.py::TestMonitorConfigValidation::test_negative_capacity_percentage_is_rejected PASSED
+tests/test_monitor.py::TestMonitorConfigValidation::test_capacity_percentage_above_hundred_is_rejected PASSED
+tests/test_monitor.py::TestHealthStateMonitoring::test_an_online_pool_generates_no_health_issues PASSED
+tests/test_monitor.py::TestHealthStateMonitoring::test_a_degraded_pool_triggers_warning PASSED
+tests/test_monitor.py::TestHealthStateMonitoring::test_a_faulted_pool_triggers_critical PASSED
+tests/test_monitor.py::TestHealthStateMonitoring::test_an_unavailable_pool_triggers_critical PASSED
+tests/test_monitor.py::TestCapacityBelowWarningThreshold::test_capacity_at_seventy_nine_percent_is_ok PASSED
+tests/test_monitor.py::TestCapacityBelowWarningThreshold::test_capacity_at_fifty_percent_is_ok PASSED
+tests/test_monitor.py::TestCapacityAtWarningThreshold::test_capacity_at_exactly_eighty_percent_triggers_warning PASSED
+tests/test_monitor.py::TestCapacityAtWarningThreshold::test_capacity_at_eighty_one_percent_triggers_warning PASSED
+tests/test_monitor.py::TestCapacityBetweenThresholds::test_capacity_at_eighty_five_percent_triggers_warning PASSED
+tests/test_monitor.py::TestCapacityAtCriticalThreshold::test_capacity_at_exactly_ninety_percent_triggers_critical PASSED
+tests/test_monitor.py::TestCapacityAtCriticalThreshold::test_capacity_at_ninety_five_percent_triggers_critical PASSED
+tests/test_monitor.py::TestCapacityAtCriticalThreshold::test_capacity_at_full_one_hundred_percent_triggers_critical PASSED
+tests/test_monitor.py::TestErrorMonitoring::test_a_pool_with_no_errors_generates_no_error_issues PASSED
+tests/test_monitor.py::TestErrorMonitoring::test_a_pool_with_read_errors_triggers_warning PASSED
+tests/test_monitor.py::TestErrorMonitoring::test_a_pool_with_write_errors_triggers_warning PASSED
+tests/test_monitor.py::TestErrorMonitoring::test_a_pool_with_checksum_errors_triggers_warning PASSED
+tests/test_monitor.py::TestErrorMonitoring::test_a_pool_with_all_error_types_generates_three_issues PASSED
+tests/test_monitor.py::TestScrubStatusMonitoring::test_a_recently_scrubbed_pool_generates_no_scrub_issues PASSED
+tests/test_monitor.py::TestScrubStatusMonitoring::test_a_never_scrubbed_pool_triggers_info PASSED
+tests/test_monitor.py::TestScrubStatusMonitoring::test_a_pool_with_old_scrub_triggers_info PASSED
+tests/test_monitor.py::TestScrubStatusMonitoring::test_a_pool_with_scrub_errors_triggers_warning PASSED
+tests/test_monitor.py::TestScrubStatusMonitoring::test_scrub_age_checking_can_be_disabled PASSED
+tests/test_monitor.py::TestAggregateMonitoring::test_monitoring_multiple_pools_aggregates_all_results PASSED
+tests/test_monitor.py::TestAggregateMonitoring::test_overall_severity_is_maximum_of_all_issues PASSED
+tests/test_monitor.py::TestAggregateMonitoring::test_all_healthy_pools_result_in_ok_severity PASSED
+tests/test_monitor.py::TestCapacityEdgeCases::test_capacity_at_zero_percent_generates_no_issues PASSED
+tests/test_monitor.py::TestCapacityEdgeCases::test_capacity_at_89_point_9_percent_triggers_warning_not_critical PASSED
+tests/test_monitor.py::TestScrubEdgeCases::test_scrub_exactly_at_max_age_boundary_triggers_info PASSED
+tests/test_monitor.py::TestScrubEdgeCases::test_scrub_at_29_days_generates_no_issues PASSED
+tests/test_monitor.py::TestCustomThresholds::test_strict_capacity_thresholds_trigger_earlier PASSED
+tests/test_monitor.py::TestMultipleIssuesOnSinglePool::test_a_pool_with_multiple_problems_generates_multiple_issues PASSED
+tests/test_scripts.py::test_get_project_metadata_fields PASSED
+tests/test_scripts.py::test_build_script_uses_metadata PASSED
+tests/test_scripts.py::test_dev_script_installs_dev_extras PASSED
+tests/test_scripts.py::test_install_script_installs_package PASSED
+tests/test_scripts.py::test_run_cli_imports_dynamic_package PASSED
+tests/test_scripts.py::test_test_script_uses_pyproject_configuration PASSED
+tests/test_zfs_parser.py::TestParsePoolList::test_parse_empty_pools PASSED
+tests/test_zfs_parser.py::TestParsePoolList::test_parse_missing_pools_key PASSED
+tests/test_zfs_parser.py::TestParsePoolList::test_parse_single_healthy_pool PASSED
+tests/test_zfs_parser.py::TestParsePoolList::test_parse_multiple_pools PASSED
+tests/test_zfs_parser.py::TestParsePoolList::test_parse_pool_with_missing_properties PASSED
+tests/test_zfs_parser.py::TestParsePoolStatus::test_parse_degraded_pool PASSED
+tests/test_zfs_parser.py::TestParsePoolStatus::test_parse_pool_with_errors PASSED
+tests/test_zfs_parser.py::TestParsePoolStatus::test_parse_scrub_information PASSED
+tests/test_zfs_parser.py::TestParsePoolStatus::test_parse_scrub_errors PASSED
+tests/test_zfs_parser.py::TestParsePoolStatus::test_parse_pool_with_unknown_health PASSED
+tests/test_zfs_parser.py::TestMergePoolData::test_merge_combines_capacity_and_errors PASSED
+tests/test_zfs_parser.py::TestMergePoolData::test_merge_handles_pool_only_in_list PASSED
+tests/test_zfs_parser.py::TestMergePoolData::test_merge_handles_pool_only_in_status PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_get_property_value_with_dict PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_get_property_value_missing_key PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_to_bytes_numeric PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[0-0] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1-1] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1000-1000] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1000000-1000000] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1234567890-1234567890] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1.5-1] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[10.5-10] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[100.9-100] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1K-1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[10K-10240] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1.5K-1536] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1M-1048576] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[10M-10485760] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1.5M-1572864] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1G-1073741824] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[10G-10737418240] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1.5G-1610612736] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1T-1099511627776] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[2T-2199023255552] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1.5T-1649267441664] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1P-1125899906842624] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[2P-2251799813685248] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1k-1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1m-1048576] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1g-1073741824] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1t-1099511627776] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1 K-1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[ 1K -1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1K -1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[ 1K-1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[   ] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[abc] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[K] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[1X] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[1 2 K] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[K1] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[1KK] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[-1K] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_caching PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_extract_error_counts_from_vdev_tree PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_extract_error_counts_missing_stats PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_scrub_time_with_valid_timestamp PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_scrub_time_with_no_end_time PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_scrub_time_with_empty_scan_info PASSED
+
+================= 479 passed, 11 skipped in 100.26s (0:01:40) ==================
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1T-1099511627776] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[2T-2199023255552] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1.5T-1649267441664] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1P-1125899906842624] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[2P-2251799813685248] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1k-1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1m-1048576] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1g-1073741824] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1t-1099511627776] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1 K-1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[ 1K -1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[1K -1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_with_suffix[ 1K-1024] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[   ] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[abc] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[K] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[1X] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[1 2 K] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[K1] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[1KK] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_invalid_format[-1K] PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_size_caching PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_extract_error_counts_from_vdev_tree PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_extract_error_counts_missing_stats PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_scrub_time_with_valid_timestamp PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_scrub_time_with_no_end_time PASSED
+tests/test_zfs_parser.py::TestHelperMethods::test_parse_scrub_time_with_empty_scan_info PASSED
+
+================= 479 passed, 11 skipped in 100.20s (0:01:40) ==================

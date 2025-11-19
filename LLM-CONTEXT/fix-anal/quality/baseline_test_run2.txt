@@ -1,0 +1,357 @@
+..........s..s........................sssssssss......................... [ 14%]
+........................................................................ [ 29%]
+...2025-11-19T21:33:46 ⚠ WARNING check_zpools.cli — Executing intentional failure 
+command environment=prod extra={'command': 'fail'} filename=cli.py 
+funcName=cli_fail hostname=lxc-pydev job_id=cli-fail lineno=477 
+message=Executing intentional failure command module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+2025-11-19T21:33:46 ✖   ERROR check_zpools.behaviors — About to raise 
+intentional failure for testing environment=prod extra={'command': 'fail'} 
+filename=behaviors.py funcName=raise_intentional_failure hostname=lxc-pydev 
+job_id=cli-fail lineno=136 message=About to raise intentional failure for 
+testing module=behaviors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/be
+haviors.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+test_mode=True user_name=srvadmin
+............2025-11-19T21:33:46 ✖   ERROR check_zpools.cli — Permission denied when 
+deploying configuration environment=prod error=Permission denied 
+extra={'command': 'config-deploy', 'targets': ('app',), 'force': False} 
+filename=cli.py funcName=cli_config_deploy hostname=lxc-pydev 
+job_id=cli-config-deploy lineno=569 message=Permission denied when deploying 
+configuration module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+....2025-11-19T21:33:46 ✖   ERROR check_zpools.cli — No SMTP hosts configured 
+environment=prod extra={'command': 'send-email', 'recipients': 
+['recipient@test.com'], 'subject': 'Test'} filename=cli.py 
+funcName=_load_and_validate_email_config hostname=lxc-pydev 
+job_id=cli-send-email lineno=1121 message=No SMTP hosts configured module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.....2025-11-19T21:33:46 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most 
+recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… extra={'command': 'send-email', 'recipients': 
+['recipient@test.com'], 'subject': 'Test'} filename=mail.py from=sender@test.com
+funcName=send_email hostname=lxc-pydev job_id=cli-send-email lineno=278 
+message=Failed to send email module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=112110 process_id_chain=[112110] 
+recipients=['recipient@test.com'] service=check_zpools user_name=srvadmin
+.2025-11-19T21:33:46 ✖   ERROR check_zpools.cli — SMTP delivery failed 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp.test.com:587',)" extra={'command': 
+'send-email', 'recipients': ['recipient@test.com'], 'subject': 'Test'} 
+filename=cli.py funcName=cli_send_email hostname=lxc-pydev job_id=cli-send-email
+lineno=753 message=SMTP delivery failed module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+2025-11-19T21:33:46 ✖   ERROR check_zpools.cli — No SMTP hosts configured 
+environment=prod extra={'command': 'send-notification', 'recipients': 
+['admin@test.com'], 'subject': 'Alert'} filename=cli.py 
+funcName=_load_and_validate_email_config hostname=lxc-pydev 
+job_id=cli-send-notification lineno=1121 message=No SMTP hosts configured 
+module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+...2025-11-19T21:33:46 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['admin@test.com']" on all 
+of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most recent 
+call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… extra={'command': 'send-notification', 'recipients': 
+['admin@test.com'], 'subject': 'Alert'} filename=mail.py from=alerts@test.com 
+funcName=send_email hostname=lxc-pydev job_id=cli-send-notification lineno=278 
+message=Failed to send email module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=112110 process_id_chain=[112110] recipients=['admin@test.com'] 
+service=check_zpools user_name=srvadmin
+.2025-11-19T21:33:46 ✖   ERROR check_zpools.cli — SMTP delivery failed 
+environment=prod error=following recipients failed "['admin@test.com']" on all 
+of following hosts : "('smtp.test.com:587',)" extra={'command': 
+'send-notification', 'recipients': ['admin@test.com'], 'subject': 'Alert'} 
+filename=cli.py funcName=cli_send_notification hostname=lxc-pydev 
+job_id=cli-send-notification lineno=845 message=SMTP delivery failed module=cli 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+...2025-11-19T21:33:46 ✖   ERROR check_zpools.cli_errors — ZFS not available 
+environment=prod error=ZFS kernel module not loaded filename=cli_errors.py 
+funcName=handle_zfs_not_available hostname=lxc-pydev job_id=bootstrap lineno=51 
+message=ZFS not available module=cli_errors operation=Operation 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.....2025-11-19T21:33:46 ✖   ERROR check_zpools.cli_errors — load config failed 
+environment=prod error=Configuration file not found error_type=RuntimeError 
+exc_text=NoneType: None filename=cli_errors.py funcName=handle_generic_error 
+hostname=lxc-pydev job_id=bootstrap lineno=80 message=load config failed 
+module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.2025-11-19T21:33:46 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error=Invalid value error_type=ValueError exc_text=NoneType: 
+None filename=cli_errors.py funcName=handle_generic_error hostname=lxc-pydev 
+job_id=bootstrap lineno=80 message=test failed module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.2025-11-19T21:33:46 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error='missing_key' error_type=KeyError exc_text=NoneType: None
+filename=cli_errors.py funcName=handle_generic_error hostname=lxc-pydev 
+job_id=bootstrap lineno=80 message=test failed module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.2025-11-19T21:33:46 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error=File not found error_type=FileNotFoundError 
+exc_text=NoneType: None filename=cli_errors.py funcName=handle_generic_error 
+hostname=lxc-pydev job_id=bootstrap lineno=80 message=test failed 
+module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.2025-11-19T21:33:46 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error=Permission denied error_type=PermissionError 
+exc_text=NoneType: None filename=cli_errors.py funcName=handle_generic_error 
+hostname=lxc-pydev job_id=bootstrap lineno=80 message=test failed 
+module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.2025-11-19T21:33:46 ✖   ERROR check_zpools.cli_errors — test failed 
+environment=prod error=Runtime error error_type=RuntimeError exc_text=NoneType: 
+None filename=cli_errors.py funcName=handle_generic_error hostname=lxc-pydev 
+job_id=bootstrap lineno=80 message=test failed module=cli_errors 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cl
+i_errors.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.......................2025-11-19T21:33:46 ✖   ERROR check_zpools.daemon — Failed to fetch ZFS data 
+environment=prod error=ZFS error error_type=RuntimeError exc_text=Traceback 
+(most recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py"
+, line 242, in _fetch_and_parse_pools
+    list_data = self.zfs_client.get_pool_list()
+  File "/opt/Python-3.14.0/lib/python3.14/unittest/mock.py", line 1175, in 
+__call__
+    return self._mock_call(*args, **kwargs)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/opt/Python-3.14.0/lib/python3.14/unittest/mock.py", line 1179, in 
+_mock_call
+    return self._execute_mock_call… filename=daemon.py 
+funcName=_fetch_and_parse_pools hostname=lxc-pydev job_id=bootstrap lineno=245 
+message=Failed to fetch ZFS data module=daemon 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/da
+emon.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+..2025-11-19T21:33:46 ⚠ WARNING check_zpools.zfs_parser — No pools found in zpool 
+list output environment=prod filename=zfs_parser.py funcName=parse_pool_list 
+hostname=lxc-pydev job_id=bootstrap lineno=119 message=No pools found in zpool 
+list output module=zfs_parser 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zf
+s_parser.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+..... [ 44%]
+........................................................................ [ 58%]
+.................................2025-11-19T21:33:51 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most 
+recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… filename=mail.py from=sender@test.com funcName=send_email 
+hostname=lxc-pydev job_id=bootstrap lineno=278 message=Failed to send email 
+module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=112110 process_id_chain=[112110] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+.2025-11-19T21:33:51 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most 
+recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… filename=mail.py from=sender@test.com funcName=send_email 
+hostname=lxc-pydev job_id=bootstrap lineno=278 message=Failed to send email 
+module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=112110 process_id_chain=[112110] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+.2025-11-19T21:33:51 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp.test.com:587',)" exc_text=Traceback (most 
+recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… filename=mail.py from=sender@test.com funcName=send_email 
+hostname=lxc-pydev job_id=bootstrap lineno=278 message=Failed to send email 
+module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=112110 process_id_chain=[112110] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+.2025-11-19T21:33:51 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=Attachment File 
+"/tmp/pytest-of-srvadmin/pytest-44/test_send_email_missing_attach0/nonexistent.t
+xt" can not be found exc_text=Traceback (most recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 206, in send
+    attachments = _prepare_attachments(tuple(attachment_file_paths or ()))
+  File "/home/srvadmin/venvs/pycharm314/lib/python3.14/sit… filename=mail.py 
+from=sender@test.com funcName=send_email hostname=lxc-pydev job_id=bootstrap 
+lineno=278 message=Failed to send email module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=112110 process_id_chain=[112110] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+.2025-11-19T21:33:51 ⚠ WARNING btx_lib_mail — can not send mail to 
+"recipient@test.com" via host "smtp1.test.com:587" environment=prod 
+exc_text=Traceback (most recent call last):
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 331, in _deliver_to_any_host
+    _deliver_via_host(
+    ~~~~~~~~~~~~~~~~~^
+        host=host,
+        ^^^^^^^^^^
+    ...<6 lines>...
+        delivery=delivery,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 392, in _deliver_via_host
+    with smtplib.SMTP(hostname, port=p… filename=lib_mail.py 
+funcName=_deliver_to_any_host hostname=lxc-pydev job_id=bootstrap lineno=344 
+message=can not send mail to "recipient@test.com" via host "smtp1.test.com:587" 
+module=lib_mail 
+pathname=/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_ma
+il/lib_mail.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.2025-11-19T21:33:51 ⚠ WARNING btx_lib_mail — can not send mail to 
+"recipient@test.com" via host "smtp2.test.com:587" environment=prod 
+exc_text=Traceback (most recent call last):
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 331, in _deliver_to_any_host
+    _deliver_via_host(
+    ~~~~~~~~~~~~~~~~~^
+        host=host,
+        ^^^^^^^^^^
+    ...<6 lines>...
+        delivery=delivery,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 392, in _deliver_via_host
+    with smtplib.SMTP(hostname, port=p… filename=lib_mail.py 
+funcName=_deliver_to_any_host hostname=lxc-pydev job_id=bootstrap lineno=344 
+message=can not send mail to "recipient@test.com" via host "smtp2.test.com:587" 
+module=lib_mail 
+pathname=/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_ma
+il/lib_mail.py process_id=112110 process_id_chain=[112110] service=check_zpools 
+user_name=srvadmin
+.2025-11-19T21:33:51 ✖   ERROR check_zpools.mail — Failed to send email 
+environment=prod error=following recipients failed "['recipient@test.com']" on 
+all of following hosts : "('smtp1.test.com:587', 'smtp2.test.com:587')" 
+exc_text=Traceback (most recent call last):
+  File 
+"/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py", 
+line 254, in send_email
+    result = btx_send(
+        mail_from=sender,
+    ...<8 lines>...
+        timeout=config.timeout,
+    )
+  File 
+"/home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_m
+ail.py", line 230, in send
+    raise RuntimeError(f'following recipients failed "{failed_recipients}" on 
+all of following hosts : "{hosts}"')
+RuntimeError: foll… filename=mail.py from=sender@test.com funcName=send_email 
+hostname=lxc-pydev job_id=bootstrap lineno=278 message=Failed to send email 
+module=mail 
+pathname=/media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/ma
+il.py process_id=112110 process_id_chain=[112110] recipients=recipient@test.com 
+service=check_zpools user_name=srvadmin
+................................. [ 73%]
+........................................................................ [ 88%]
+..........................................................               [100%]
+479 passed, 11 skipped in 99.82s (0:01:39)

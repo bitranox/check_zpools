@@ -241,6 +241,85 @@ def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
     return result
 
 
+def _load_config_with_logging(config: dict[str, Any] | None) -> dict[str, Any]:
+    """Load and log configuration sources.
+
+    Why
+    ---
+    Centralizes configuration loading and diagnostic logging.
+    """
+    if config is not None:
+        return config
+
+    config_obj = get_config()
+    config = config_obj.as_dict()
+
+    # Log configuration sources for debugging
+    logger.info(
+        "Configuration loaded from layered sources",
+        extra={
+            "config_keys": list(config.keys()),
+            "has_email": "email" in config,
+            "has_alerts": "alerts" in config,
+            "has_monitoring": "monitoring" in config,
+            "has_daemon": "daemon" in config,
+        },
+    )
+
+    # Log expected config file paths for troubleshooting
+    logger.info(
+        "Configuration file search paths (Linux)",
+        extra={
+            "app_layer": "/etc/check_zpools/config.toml",
+            "host_layer": "/etc/xdg/check_zpools/config.toml",
+            "user_layer": "~/.config/check_zpools/config.toml",
+            "precedence": "defaults → app → host → user → dotenv → env",
+        },
+    )
+
+    return config
+
+
+def _initialize_daemon_components(
+    config: dict[str, Any],
+) -> tuple[ZFSClient, PoolMonitor, EmailAlerter, AlertStateManager, dict[str, Any]]:
+    """Initialize all daemon components.
+
+    Why
+    ---
+    Separates component initialization from daemon lifecycle management.
+    """
+    # Validate ZFS availability
+    client = ZFSClient()
+    if not client.check_zpool_available():
+        raise ZFSNotAvailableError("zpool command not found - is ZFS installed?")
+
+    # Initialize monitoring
+    monitor_config = _build_monitor_config(config)
+    monitor = PoolMonitor(monitor_config)
+
+    # Initialize alerting with threshold values from monitor config
+    email_config = load_email_config_from_dict(config)
+    alert_config = config.get("alerts", {})
+    alerter = EmailAlerter(
+        email_config,
+        alert_config,
+        capacity_warning_percent=monitor_config.capacity_warning_percent,
+        capacity_critical_percent=monitor_config.capacity_critical_percent,
+        scrub_max_age_days=monitor_config.scrub_max_age_days,
+        zfs_client=client,
+    )
+
+    # Initialize state management
+    state_file = _get_state_file_path(config)
+    resend_interval = config.get("daemon", {}).get("alert_resend_hours", 24)
+    state_manager = AlertStateManager(state_file, resend_interval)
+
+    daemon_config = config.get("daemon", {})
+
+    return client, monitor, alerter, state_manager, daemon_config
+
+
 def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -> None:
     """Start daemon mode for continuous ZFS pool monitoring.
 
@@ -271,63 +350,10 @@ def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -
     RuntimeError
         When daemon initialization fails.
     """
-    if config is None:
-        config_obj = get_config()
-        config = config_obj.as_dict()
-
-        # Log configuration sources for debugging
-        logger.info(
-            "Configuration loaded from layered sources",
-            extra={
-                "config_keys": list(config.keys()),
-                "has_email": "email" in config,
-                "has_alerts": "alerts" in config,
-                "has_monitoring": "monitoring" in config,
-                "has_daemon": "daemon" in config,
-            },
-        )
-
-        # Log expected config file paths for troubleshooting
-        logger.info(
-            "Configuration file search paths (Linux)",
-            extra={
-                "app_layer": "/etc/check_zpools/config.toml",
-                "host_layer": "/etc/xdg/check_zpools/config.toml",
-                "user_layer": "~/.config/check_zpools/config.toml",
-                "precedence": "defaults → app → host → user → dotenv → env",
-            },
-        )
-
+    config = _load_config_with_logging(config)
     logger.info("Starting daemon mode", extra={"foreground": foreground})
 
-    # Validate ZFS availability before starting daemon
-    client = ZFSClient()
-    if not client.check_zpool_available():
-        raise ZFSNotAvailableError("zpool command not found - is ZFS installed?")
-
-    # Initialize components
-    monitor_config = _build_monitor_config(config)
-    monitor = PoolMonitor(monitor_config)
-
-    # Initialize alerting with threshold values from monitor config
-    email_config = load_email_config_from_dict(config)
-    alert_config = config.get("alerts", {})
-    alerter = EmailAlerter(
-        email_config,
-        alert_config,
-        capacity_warning_percent=monitor_config.capacity_warning_percent,
-        capacity_critical_percent=monitor_config.capacity_critical_percent,
-        scrub_max_age_days=monitor_config.scrub_max_age_days,
-        zfs_client=client,
-    )
-
-    # Initialize state management
-    state_file = _get_state_file_path(config)
-    resend_interval = config.get("daemon", {}).get("alert_resend_hours", 24)
-    state_manager = AlertStateManager(state_file, resend_interval)
-
-    # Build daemon config
-    daemon_config = config.get("daemon", {})
+    client, monitor, alerter, state_manager, daemon_config = _initialize_daemon_components(config)
 
     # Create and start daemon
     daemon = ZPoolDaemon(
