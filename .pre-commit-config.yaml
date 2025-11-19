@@ -1,0 +1,89 @@
+# Pre-commit hooks for check_zpools
+# See https://pre-commit.com for more information
+
+repos:
+  # Ruff - Fast Python linter and formatter (replaces black, isort, flake8)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      # Run the linter
+      - id: ruff
+        args: [--fix]
+        types_or: [python, pyi, jupyter]
+      # Run the formatter
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]
+
+  # Pyright - Static type checker
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.406
+    hooks:
+      - id: pyright
+        additional_dependencies: []
+        # Note: Pyright requires dependencies to be installed
+        # Run 'pip install -e .[dev]' before using pre-commit
+
+  # Bandit - Security linter
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.8.6
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml, -q]
+        additional_dependencies: ["bandit[toml]"]
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      # Prevent large files from being committed
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+        exclude: ^tests/fixtures/
+      # Trim trailing whitespace
+      - id: trailing-whitespace
+        exclude: ^tests/fixtures/
+      # Check YAML syntax
+      - id: check-yaml
+        args: [--safe]
+      # Check TOML syntax
+      - id: check-toml
+      # Detect private keys
+      - id: detect-private-key
+      # Check for merge conflicts
+      - id: check-merge-conflict
+      # Ensure Python files are valid syntax
+      - id: check-ast
+      # Check for debugger imports
+      - id: debug-statements
+      # Prevent commits to main branch (use --no-verify to override)
+      - id: no-commit-to-branch
+        args: [--branch, master, --branch, main]
+
+# Configuration
+default_language_version:
+  python: python3.14
+
+# Faster hook execution
+default_stages: [commit]
+fail_fast: false
+
+# Exclude patterns
+exclude: |
+  (?x)(
+    ^\.git/|
+    ^\.tox/|
+    ^\.venv/|
+    ^venv/|
+    ^build/|
+    ^dist/|
+    ^\.eggs/|
+    ^\.pytest_cache/|
+    ^\.mypy_cache/|
+    ^\.ruff_cache/|
+    ^__pycache__/|
+    ^\.devcontainer/|
+    ^notebooks/.*\.ipynb$|
+    ^LLM-CONTEXT/
+  )
