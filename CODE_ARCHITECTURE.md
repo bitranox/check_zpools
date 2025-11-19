@@ -311,6 +311,223 @@ Maps severity to rich console color markup (red/yellow/green).
 - **Maintainability**: Changes to output format isolated to one module
 - **CLI Simplicity**: CLI commands reduced from 60+ lines to ~25 lines
 
+## Data Models Module (`models.py`)
+
+### Purpose
+
+Defines immutable data structures representing ZFS pool state, issues, and check
+results. These models serve as the domain model layer, providing type-safe
+containers for all ZFS data flowing through the system.
+
+### Design Principles
+
+**Immutability**: All models are frozen dataclasses (`@dataclass(frozen=True)`)
+- Prevents accidental state modification
+- Enables safe concurrent access in daemon mode
+- Makes data flow predictable and testable
+
+**Type Safety**: Comprehensive type hints and enums
+- All fields have explicit type annotations
+- Enums for fixed vocabularies (health states, severities)
+- Union types for optional values (`datetime | None`)
+
+**Single Responsibility**: Models contain only data, no business logic
+- Parsing logic lives in `zfs_parser.py`
+- Monitoring logic lives in `monitor.py`
+- Alerting logic lives in `alerting.py`
+
+### Core Data Structures
+
+#### `PoolHealth` Enum
+
+Represents ZFS pool health states:
+
+```python
+class PoolHealth(str, Enum):
+    ONLINE = "ONLINE"      # Fully operational
+    DEGRADED = "DEGRADED"  # Operational but degraded
+    FAULTED = "FAULTED"    # Cannot provide data
+    OFFLINE = "OFFLINE"    # Manually offline
+    UNAVAIL = "UNAVAIL"    # Insufficient devices
+    REMOVED = "REMOVED"    # Removed from system
+```
+
+**Methods:**
+- `is_healthy() -> bool`: Returns True only for ONLINE
+- `is_critical() -> bool`: Returns True for FAULTED, UNAVAIL, REMOVED
+
+**Caching**: Both methods use `@lru_cache(maxsize=6)` for performance
+(only 6 enum values possible)
+
+#### `Severity` Enum
+
+Represents issue severity levels with ordering:
+
+```python
+class Severity(str, Enum):
+    OK = "OK"              # No issues
+    WARNING = "WARNING"    # Attention needed
+    CRITICAL = "CRITICAL"  # Urgent action required
+```
+
+**Methods:**
+- `is_critical() -> bool`: Returns True for CRITICAL severity
+- `__lt__(other) -> bool`: Enables severity comparison (OK < WARNING < CRITICAL)
+
+**Ordering**: Implements `__lt__` for severity comparison logic used by
+`CheckResult.overall_severity` aggregation.
+
+#### `PoolStatus` Dataclass
+
+Complete snapshot of a single ZFS pool:
+
+```python
+@dataclass(frozen=True)
+class PoolStatus:
+    name: str
+    health: PoolHealth
+    capacity_percent: float
+    size_bytes: int
+    allocated_bytes: int
+    free_bytes: int
+    read_errors: int
+    write_errors: int
+    checksum_errors: int
+    last_scrub: datetime | None
+    scrub_errors: int
+    scrub_in_progress: bool
+```
+
+**Properties:**
+- `has_errors() -> bool`: Returns True if any error count > 0
+
+**Usage**: Created by `ZFSParser`, consumed by `PoolMonitor` and `EmailAlerter`.
+
+#### `PoolIssue` Dataclass
+
+Represents a detected issue with a pool:
+
+```python
+@dataclass(frozen=True)
+class PoolIssue:
+    pool_name: str
+    severity: Severity
+    category: str          # 'capacity', 'health', 'errors', 'scrub'
+    message: str           # Human-readable description
+    details: dict[str, Any]  # Additional context
+```
+
+**Methods:**
+- `__str__() -> str`: Formats as `[SEVERITY] pool_name: message`
+
+**Category Values:**
+- `capacity`: Pool capacity threshold exceeded
+- `health`: Pool health degraded/faulted
+- `errors`: Read/write/checksum errors detected
+- `scrub`: Scrub overdue or errors found
+
+**Usage**: Created by `PoolMonitor.check_pool()`, consumed by `EmailAlerter`
+and `AlertStateManager`.
+
+#### `CheckResult` Dataclass
+
+Aggregated result of checking all pools:
+
+```python
+@dataclass(frozen=True)
+class CheckResult:
+    timestamp: datetime
+    pools: list[PoolStatus]
+    issues: list[PoolIssue]
+    overall_severity: Severity
+```
+
+**Properties:**
+- `has_issues() -> bool`: Returns True if any issues exist
+- `critical_issues() -> list[PoolIssue]`: Filters to CRITICAL issues only
+- `warning_issues() -> list[PoolIssue]`: Filters to WARNING issues only
+
+**Overall Severity Calculation**: Set to highest severity found among all
+issues, defaults to OK if no issues.
+
+**Usage**: Returned by `PoolMonitor.check_all_pools()`, consumed by CLI
+commands and daemon monitoring loop.
+
+### Performance Optimizations
+
+**LRU Caching**: `PoolHealth.is_healthy()` and `PoolHealth.is_critical()`
+use `@lru_cache(maxsize=6)` since:
+- Only 6 possible enum values
+- Called frequently during monitoring
+- Eliminates repeated enum comparisons
+
+**Frozen Dataclasses**: Immutability enables:
+- Safe sharing across threads in daemon mode
+- Hashable types for caching
+- Predictable behavior in concurrent scenarios
+
+### Serialization
+
+All models are designed for easy serialization:
+
+**JSON Export**: Used by `format_check_result_json()` for CLI output
+```python
+{
+  "timestamp": "2025-11-19T22:00:00Z",
+  "pools": [...],
+  "issues": [...],
+  "overall_severity": "WARNING"
+}
+```
+
+**State Persistence**: Used by `AlertStateManager` for alert deduplication
+state storage.
+
+### Integration Points
+
+**Parsers → Models**: `ZFSParser` creates `PoolStatus` from raw ZFS output
+- `parse_pool_list()` → list of `PoolStatus`
+- `parse_pool_status()` → dict of `PoolStatus`
+- `merge_pool_data()` → combined `PoolStatus`
+
+**Models → Monitor**: `PoolMonitor` consumes `PoolStatus`, produces `CheckResult`
+- `check_pool(PoolStatus)` → list of `PoolIssue`
+- `check_all_pools(dict[str, PoolStatus])` → `CheckResult`
+
+**Models → Alerting**: `EmailAlerter` consumes `PoolIssue` and `PoolStatus`
+- `send_alert(issue, pool)` → formats email from issue + pool data
+- `send_recovery(pool_name, category, pool)` → recovery notification
+
+**Models → State**: `AlertStateManager` tracks `PoolIssue` for deduplication
+- `should_alert(issue)` → checks if issue should trigger alert
+- `record_alert(issue)` → records alert sent timestamp
+
+### Testing Recommendations
+
+**Unit Tests:**
+- Enum method behavior (`is_healthy()`, `is_critical()`)
+- Property calculations (`has_errors()`, `critical_issues()`)
+- String formatting (`PoolIssue.__str__()`)
+- Severity ordering (`Severity.__lt__()`)
+
+**Integration Tests:**
+- Round-trip serialization (model → JSON → model)
+- Parser output validation (ensure all fields populated)
+- State persistence (AlertStateManager with real PoolIssue)
+
+**Fixtures:**
+Create factory functions for common test scenarios:
+```python
+def create_healthy_pool(name="tank") -> PoolStatus:
+    """Factory for healthy pool test data."""
+    return PoolStatus(
+        name=name,
+        health=PoolHealth.ONLINE,
+        capacity_percent=45.0,
+        # ... other fields
+    )
+```
+
 ## Code Quality Standards
 
 ### Type Hints
