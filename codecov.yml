@@ -9,6 +9,9 @@ coverage:
   status:
     project:
       default:
+        # CI target is 70% (higher than local 60% in pyproject.toml)
+        # Local: 60% allows rapid iteration during development
+        # CI: 70% ensures production quality before merge
         target: 70%
         threshold: 1%
     patch:
