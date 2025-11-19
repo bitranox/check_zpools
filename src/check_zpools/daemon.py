@@ -194,6 +194,25 @@ class ZPoolDaemon:
         """
 
         def signal_handler(signum: int, frame: Any) -> None:
+            """Handle shutdown signals by triggering graceful daemon stop.
+
+            Why
+            ---
+            When the daemon receives SIGTERM or SIGINT, it must shut down
+            gracefully to complete the current check cycle and persist state.
+
+            What
+            ---
+            Logs the received signal and triggers the daemon's stop() method
+            to initiate graceful shutdown.
+
+            Parameters
+            ----------
+            signum:
+                Signal number received (SIGTERM=15, SIGINT=2).
+            frame:
+                Current stack frame (unused but required by signal API).
+            """
             sig_name = signal.Signals(signum).name
             logger.info(f"Received {sig_name}, initiating shutdown")
             self.stop()
