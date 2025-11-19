@@ -1,0 +1,144 @@
+{
+  "direct": [],
+  "transitive": [
+    {
+      "name": "CacheControl",
+      "version": "0.14.3",
+      "latest_version": "0.14.4",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "cachetools",
+      "version": "6.2.1",
+      "latest_version": "6.2.2",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "certifi",
+      "version": "2025.10.5",
+      "latest_version": "2025.11.12",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "click",
+      "version": "8.2.1",
+      "latest_version": "8.3.1",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "coverage",
+      "version": "7.11.0",
+      "latest_version": "7.12.0",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "cyclonedx-python-lib",
+      "version": "9.1.0",
+      "latest_version": "11.5.0",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "docutils",
+      "version": "0.22.2",
+      "latest_version": "0.22.3",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "hypothesis",
+      "version": "6.142.5",
+      "latest_version": "6.148.2",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "keyring",
+      "version": "25.6.0",
+      "latest_version": "25.7.0",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "mando",
+      "version": "0.7.1",
+      "latest_version": "0.8.2",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "pydantic",
+      "version": "2.12.3",
+      "latest_version": "2.12.4",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.41.4",
+      "latest_version": "2.41.5",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "PyNaCl",
+      "version": "1.6.0",
+      "latest_version": "1.6.1",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "pytest-asyncio",
+      "version": "1.2.0",
+      "latest_version": "1.3.0",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "redis",
+      "version": "7.0.1",
+      "latest_version": "7.1.0",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "responses",
+      "version": "0.21.0",
+      "latest_version": "0.25.8",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "rpds-py",
+      "version": "0.28.0",
+      "latest_version": "0.29.0",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "SecretStorage",
+      "version": "3.4.0",
+      "latest_version": "3.4.1",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "sentry-sdk",
+      "version": "2.43.0",
+      "latest_version": "2.45.0",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "test_results_parser",
+      "version": "0.6.0",
+      "latest_version": "0.6.1",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "trove-classifiers",
+      "version": "2025.9.11.17",
+      "latest_version": "2025.11.14.15",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "uv",
+      "version": "0.9.7",
+      "latest_version": "0.9.10",
+      "latest_filetype": "wheel"
+    },
+    {
+      "name": "wrapt",
+      "version": "2.0.0",
+      "latest_version": "2.0.1",
+      "latest_filetype": "wheel"
+    }
+  ],
+  "total_count": 23
+}

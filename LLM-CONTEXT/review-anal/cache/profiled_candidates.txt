@@ -1,0 +1,185 @@
+CACHING CANDIDATES FROM PROFILING
+================================================================================
+
+Found 31 candidates
+
+1. send_email (mail.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py:169
+   Calls: 24
+   Total time: 0.12 ms
+   Cumulative time: 213.84 ms
+   Per-call (tot): 0.0050 ms
+   Per-call (cum): 8.9100 ms
+   Impact score: 5.1322
+
+2. _run_check_cycle (daemon.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py:311
+   Calls: 33
+   Total time: 0.26 ms
+   Cumulative time: 56.05 ms
+   Per-call (tot): 0.0078 ms
+   Per-call (cum): 1.6984 ms
+   Impact score: 1.8496
+
+3. display_check_result_text (formatters.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/formatters.py:189
+   Calls: 17
+   Total time: 0.22 ms
+   Cumulative time: 59.79 ms
+   Per-call (tot): 0.0128 ms
+   Per-call (cum): 3.5170 ms
+   Impact score: 1.0164
+
+4. cli (cli.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cli.py:376
+   Calls: 33
+   Total time: 0.07 ms
+   Cumulative time: 28.09 ms
+   Per-call (tot): 0.0022 ms
+   Per-call (cum): 0.8511 ms
+   Impact score: 0.9268
+
+5. _fetch_and_parse_pools (daemon.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py:232
+   Calls: 33
+   Total time: 0.13 ms
+   Cumulative time: 26.05 ms
+   Per-call (tot): 0.0040 ms
+   Per-call (cum): 0.7895 ms
+   Impact score: 0.8598
+
+6. pytest_runtest_setup (conftest.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/tests/conftest.py:92
+   Calls: 459
+   Total time: 0.45 ms
+   Cumulative time: 1.45 ms
+   Per-call (tot): 0.0010 ms
+   Per-call (cum): 0.0032 ms
+   Impact score: 0.6678
+
+7. parse_pool_list (zfs_parser.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:86
+   Calls: 40
+   Total time: 0.11 ms
+   Cumulative time: 13.94 ms
+   Per-call (tot): 0.0027 ms
+   Per-call (cum): 0.3485 ms
+   Impact score: 0.5576
+
+8. _parse_scrub_time (zfs_parser.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:555
+   Calls: 44
+   Total time: 0.05 ms
+   Cumulative time: 8.72 ms
+   Per-call (tot): 0.0010 ms
+   Per-call (cum): 0.1981 ms
+   Impact score: 0.3836
+
+9. send_notification (mail.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py:290
+   Calls: 6
+   Total time: 0.01 ms
+   Cumulative time: 52.01 ms
+   Per-call (tot): 0.0012 ms
+   Per-call (cum): 8.6676 ms
+   Impact score: 0.3120
+
+10. parse_pool_status (zfs_parser.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:142
+   Calls: 40
+   Total time: 0.09 ms
+   Cumulative time: 7.54 ms
+   Per-call (tot): 0.0023 ms
+   Per-call (cum): 0.1885 ms
+   Impact score: 0.3017
+
+11. _log_pool_details (daemon.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py:523
+   Calls: 31
+   Total time: 0.18 ms
+   Cumulative time: 8.81 ms
+   Per-call (tot): 0.0057 ms
+   Per-call (cum): 0.2842 ms
+   Impact score: 0.2731
+
+12. cli_send_email (cli.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/cli.py:625
+   Calls: 6
+   Total time: 0.06 ms
+   Cumulative time: 37.69 ms
+   Per-call (tot): 0.0094 ms
+   Per-call (cum): 6.2815 ms
+   Impact score: 0.2261
+
+13. _log_cycle_completion (daemon.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py:285
+   Calls: 31
+   Total time: 0.10 ms
+   Cumulative time: 7.01 ms
+   Per-call (tot): 0.0033 ms
+   Per-call (cum): 0.2262 ms
+   Impact score: 0.2174
+
+14. merge_pool_data (zfs_parser.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:191
+   Calls: 35
+   Total time: 0.10 ms
+   Cumulative time: 5.17 ms
+   Per-call (tot): 0.0029 ms
+   Per-call (cum): 0.1477 ms
+   Impact score: 0.1810
+
+15. _parse_size_to_bytes (zfs_parser.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:360
+   Calls: 92
+   Total time: 0.18 ms
+   Cumulative time: 1.70 ms
+   Per-call (tot): 0.0019 ms
+   Per-call (cum): 0.0185 ms
+   Impact score: 0.1564
+
+16. check_pool (monitor.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/monitor.py:127
+   Calls: 35
+   Total time: 0.12 ms
+   Cumulative time: 3.33 ms
+   Per-call (tot): 0.0034 ms
+   Per-call (cum): 0.0953 ms
+   Impact score: 0.1167
+
+17. _display_issues (formatters.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/formatters.py:170
+   Calls: 17
+   Total time: 0.04 ms
+   Cumulative time: 5.24 ms
+   Per-call (tot): 0.0025 ms
+   Per-call (cum): 0.3085 ms
+   Impact score: 0.0892
+
+18. _handle_check_result (daemon.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py:353
+   Calls: 31
+   Total time: 0.02 ms
+   Cumulative time: 2.68 ms
+   Per-call (tot): 0.0007 ms
+   Per-call (cum): 0.0863 ms
+   Impact score: 0.0830
+
+19. save_state (alert_state.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alert_state.py:326
+   Calls: 28
+   Total time: 0.16 ms
+   Cumulative time: 2.93 ms
+   Per-call (tot): 0.0059 ms
+   Per-call (cum): 0.1046 ms
+   Impact score: 0.0820
+
+20. _detect_recoveries (daemon.py)
+   Location: /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py:556
+   Calls: 31
+   Total time: 0.07 ms
+   Cumulative time: 2.31 ms
+   Per-call (tot): 0.0022 ms
+   Per-call (cum): 0.0745 ms
+   Impact score: 0.0716
+

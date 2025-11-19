@@ -1,0 +1,1934 @@
+================================================================================
+CODE DUPLICATION ANALYSIS
+================================================================================
+
+Found 131 duplicate code blocks
+
+
+Duplicate #1 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/_utils.py:146-151
+  - tests/test_scripts.py:55-60
+  - tests/test_scripts.py:81-86
+
+Content:
+*,
+check: bool = True,
+capture: bool = True,
+cwd: str | None = None,
+env: Mapping[str, str] | None = None,
+dry_run: bool = False,
+
+Duplicate #2 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/_utils.py:147-152
+  - tests/test_scripts.py:82-87
+
+Content:
+check: bool = True,
+capture: bool = True,
+cwd: str | None = None,
+env: Mapping[str, str] | None = None,
+dry_run: bool = False,
+) -> RunResult:
+
+Duplicate #3 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/_utils.py:643-648
+  - src/check_zpools/__init__conf__.py:62-67
+
+Content:
+fields = [
+("name", name),
+("title", title),
+("version", version),
+("homepage", homepage),
+("author", author),
+
+Duplicate #4 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/_utils.py:644-649
+  - src/check_zpools/__init__conf__.py:63-68
+
+Content:
+("name", name),
+("title", title),
+("version", version),
+("homepage", homepage),
+("author", author),
+("author_email", author_email),
+
+Duplicate #5 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/_utils.py:645-650
+  - src/check_zpools/__init__conf__.py:64-69
+
+Content:
+("title", title),
+("version", version),
+("homepage", homepage),
+("author", author),
+("author_email", author_email),
+("shell_command", shell_command),
+
+Duplicate #6 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/_utils.py:646-651
+  - src/check_zpools/__init__conf__.py:65-70
+
+Content:
+("version", version),
+("homepage", homepage),
+("author", author),
+("author_email", author_email),
+("shell_command", shell_command),
+]
+
+Duplicate #7 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/_utils.py:647-652
+  - src/check_zpools/__init__conf__.py:66-71
+
+Content:
+("homepage", homepage),
+("author", author),
+("author_email", author_email),
+("shell_command", shell_command),
+]
+pad = max(len(label) for label, _ in fields)
+
+Duplicate #8 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:22-27
+  - scripts/menu.py:40-45
+
+Content:
+from textual import events
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widgets import (
+
+Duplicate #9 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:23-28
+  - scripts/menu.py:41-46
+
+Content:
+from textual.app import App, ComposeResult
+from textual.containers import Container, Horizontal, Vertical
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widgets import (
+Button,
+
+Duplicate #10 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:24-29
+  - scripts/menu.py:42-47
+
+Content:
+from textual.containers import Container, Horizontal, Vertical
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widgets import (
+Button,
+Footer,
+
+Duplicate #11 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:25-30
+  - scripts/menu.py:43-48
+
+Content:
+from textual.reactive import reactive
+from textual.screen import Screen
+from textual.widgets import (
+Button,
+Footer,
+Input,
+
+Duplicate #12 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:26-31
+  - scripts/menu.py:44-49
+
+Content:
+from textual.screen import Screen
+from textual.widgets import (
+Button,
+Footer,
+Input,
+Label,
+
+Duplicate #13 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:27-32
+  - scripts/menu.py:45-50
+
+Content:
+from textual.widgets import (
+Button,
+Footer,
+Input,
+Label,
+ListItem,
+
+Duplicate #14 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:28-33
+  - scripts/menu.py:46-51
+
+Content:
+Button,
+Footer,
+Input,
+Label,
+ListItem,
+ListView,
+
+Duplicate #15 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:29-34
+  - scripts/menu.py:47-52
+
+Content:
+Footer,
+Input,
+Label,
+ListItem,
+ListView,
+RichLog,
+
+Duplicate #16 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:30-35
+  - scripts/menu.py:48-53
+
+Content:
+Input,
+Label,
+ListItem,
+ListView,
+RichLog,
+Select,
+
+Duplicate #17 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:31-36
+  - scripts/menu.py:49-54
+
+Content:
+Label,
+ListItem,
+ListView,
+RichLog,
+Select,
+Static,
+
+Duplicate #18 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:32-37
+  - scripts/menu.py:50-55
+
+Content:
+ListItem,
+ListView,
+RichLog,
+Select,
+Static,
+)
+
+Duplicate #19 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/menu.py:120-125
+  - scripts/menu.py:129-134
+
+Content:
+if event.list_view.id != "menu":
+return
+index = event.list_view.index
+if index is None:
+return
+self.selected_index = index
+
+Duplicate #20 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/target_metadata.py:133-138
+  - scripts/target_metadata.py:150-155
+
+Content:
+(
+ParamSpec(
+"REMOTE",
+"Git remote",
+default=_env_default("REMOTE", "origin"),
+),
+
+Duplicate #21 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/test.py:440-445
+  - scripts/test.py:456-461
+
+Content:
+capture_output=True,
+text=True,
+check=False,
+)
+if proc.returncode != 0:
+return None
+
+Duplicate #22 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - scripts/test.py:441-446
+  - scripts/test.py:457-462
+
+Content:
+text=True,
+check=False,
+)
+if proc.returncode != 0:
+return None
+candidate = proc.stdout.strip()
+
+Duplicate #23 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alert_state.py:156-161
+  - src/check_zpools/alert_state.py:165-170
+
+Content:
+extra={
+"pool": issue.pool_name,
+"category": issue.category,
+"hours_since_last": elapsed.total_seconds() / 3600,
+},
+)
+
+Duplicate #24 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:137-142
+  - src/check_zpools/alerting.py:203-208
+
+Content:
+try:
+return send_email(
+config=self.email_config,
+recipients=self.recipients,
+subject=subject,
+body=body,
+
+Duplicate #25 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:138-143
+  - src/check_zpools/alerting.py:204-209
+
+Content:
+return send_email(
+config=self.email_config,
+recipients=self.recipients,
+subject=subject,
+body=body,
+)
+
+Duplicate #26 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:139-144
+  - src/check_zpools/alerting.py:205-210
+
+Content:
+config=self.email_config,
+recipients=self.recipients,
+subject=subject,
+body=body,
+)
+except Exception as exc:
+
+Duplicate #27 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:140-145
+  - src/check_zpools/alerting.py:206-211
+
+Content:
+recipients=self.recipients,
+subject=subject,
+body=body,
+)
+except Exception as exc:
+logger.error(
+
+Duplicate #28 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:149-154
+  - src/check_zpools/alerting.py:215-220
+
+Content:
+"error": str(exc),
+"error_type": type(exc).__name__,
+},
+exc_info=True,
+)
+return False
+
+Duplicate #29 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:234-239
+  - src/check_zpools/alerting.py:252-257
+
+Content:
+Returns
+-------
+str
+Formatted subject line.
+"""
+hostname = socket.gethostname()
+
+Duplicate #30 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:245-250
+  - src/check_zpools/alerting.py:738-743
+
+Content:
+Parameters
+----------
+pool_name:
+Name of recovered pool.
+category:
+Issue category that resolved.
+
+Duplicate #31 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:263-268
+  - src/check_zpools/alerting.py:306-311
+  - src/check_zpools/alerting.py:387-392
+
+Content:
+Parameters
+----------
+issue:
+The pool issue being reported.
+pool:
+Complete pool status for context.
+
+Duplicate #32 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:270-275
+  - src/check_zpools/alerting.py:747-752
+
+Content:
+Returns
+-------
+str
+Formatted email body.
+"""
+hostname = socket.gethostname()
+
+Duplicate #33 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/alerting.py:271-276
+  - src/check_zpools/alerting.py:748-753
+
+Content:
+-------
+str
+Formatted email body.
+"""
+hostname = socket.gethostname()
+timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S %Z")
+
+Duplicate #34 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/cli.py:626-631
+  - src/check_zpools/cli.py:767-772
+
+Content:
+@click.option(
+"--to",
+"recipients",
+multiple=True,
+required=True,
+help="Recipient email address (can specify multiple)",
+
+Duplicate #35 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/cli.py:627-632
+  - src/check_zpools/cli.py:768-773
+
+Content:
+"--to",
+"recipients",
+multiple=True,
+required=True,
+help="Recipient email address (can specify multiple)",
+)
+
+Duplicate #36 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/cli.py:628-633
+  - src/check_zpools/cli.py:769-774
+
+Content:
+"recipients",
+multiple=True,
+required=True,
+help="Recipient email address (can specify multiple)",
+)
+@click.option(
+
+Duplicate #37 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/cli.py:629-634
+  - src/check_zpools/cli.py:770-775
+
+Content:
+multiple=True,
+required=True,
+help="Recipient email address (can specify multiple)",
+)
+@click.option(
+"--subject",
+
+Duplicate #38 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/cli.py:630-635
+  - src/check_zpools/cli.py:771-776
+
+Content:
+required=True,
+help="Recipient email address (can specify multiple)",
+)
+@click.option(
+"--subject",
+required=True,
+
+Duplicate #39 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/config_show.py:151-156
+  - src/check_zpools/config_show.py:199-204
+
+Content:
+Raises
+------
+SystemExit:
+Exit code 1 if requested section doesn't exist.
+"""
+if section:
+
+Duplicate #40 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/config_show.py:152-157
+  - src/check_zpools/config_show.py:200-205
+
+Content:
+------
+SystemExit:
+Exit code 1 if requested section doesn't exist.
+"""
+if section:
+section_data = config.get(section, default={})
+
+Duplicate #41 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/config_show.py:153-158
+  - src/check_zpools/config_show.py:201-206
+
+Content:
+SystemExit:
+Exit code 1 if requested section doesn't exist.
+"""
+if section:
+section_data = config.get(section, default={})
+if section_data:
+
+Duplicate #42 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/mail.py:357-362
+  - src/check_zpools/mail.py:378-383
+  - src/check_zpools/mail.py:397-402
+  - src/check_zpools/mail.py:418-423
+
+Content:
+Parameters
+----------
+section:
+Configuration section to extract from
+key:
+Key to look up
+
+Duplicate #43 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/mail.py:358-363
+  - src/check_zpools/mail.py:398-403
+  - src/check_zpools/mail.py:419-424
+
+Content:
+----------
+section:
+Configuration section to extract from
+key:
+Key to look up
+default:
+
+Duplicate #44 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/mail.py:359-364
+  - src/check_zpools/mail.py:399-404
+  - src/check_zpools/mail.py:420-425
+
+Content:
+section:
+Configuration section to extract from
+key:
+Key to look up
+default:
+Default value if key missing or wrong type
+
+Duplicate #45 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/models.py:443-448
+  - src/check_zpools/models.py:463-468
+
+Content:
+Examples
+--------
+>>> issue1 = PoolIssue("pool1", Severity.WARNING, "capacity", "High", {})
+>>> issue2 = PoolIssue("pool2", Severity.CRITICAL, "health", "Faulted", {})
+>>> result = CheckResult(
+...     timestamp=datetime.now(UTC),
+
+Duplicate #46 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/models.py:444-449
+  - src/check_zpools/models.py:464-469
+
+Content:
+--------
+>>> issue1 = PoolIssue("pool1", Severity.WARNING, "capacity", "High", {})
+>>> issue2 = PoolIssue("pool2", Severity.CRITICAL, "health", "Faulted", {})
+>>> result = CheckResult(
+...     timestamp=datetime.now(UTC),
+...     pools=[],
+
+Duplicate #47 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/models.py:445-450
+  - src/check_zpools/models.py:465-470
+
+Content:
+>>> issue1 = PoolIssue("pool1", Severity.WARNING, "capacity", "High", {})
+>>> issue2 = PoolIssue("pool2", Severity.CRITICAL, "health", "Faulted", {})
+>>> result = CheckResult(
+...     timestamp=datetime.now(UTC),
+...     pools=[],
+...     issues=[issue1, issue2],
+
+Duplicate #48 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/models.py:446-451
+  - src/check_zpools/models.py:466-471
+
+Content:
+>>> issue2 = PoolIssue("pool2", Severity.CRITICAL, "health", "Faulted", {})
+>>> result = CheckResult(
+...     timestamp=datetime.now(UTC),
+...     pools=[],
+...     issues=[issue1, issue2],
+...     overall_severity=Severity.CRITICAL
+
+Duplicate #49 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/models.py:447-452
+  - src/check_zpools/models.py:467-472
+
+Content:
+>>> result = CheckResult(
+...     timestamp=datetime.now(UTC),
+...     pools=[],
+...     issues=[issue1, issue2],
+...     overall_severity=Severity.CRITICAL
+... )
+
+Duplicate #50 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/zfs_client.py:185-190
+  - src/check_zpools/zfs_client.py:235-240
+
+Content:
+Raises
+------
+ZFSCommandError:
+When command fails or returns non-zero exit code.
+json.JSONDecodeError:
+When command output is not valid JSON.
+
+Duplicate #51 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/zfs_client.py:223-228
+  - src/check_zpools/zfs_client.py:270-275
+
+Content:
+Parameters
+----------
+pool_name:
+Optional specific pool to query. If None, gets all pools.
+timeout:
+Command timeout in seconds. Uses default_timeout if None.
+
+Duplicate #52 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/zfs_client.py:314-319
+  - src/check_zpools/zfs_client.py:387-392
+  - src/check_zpools/zfs_client.py:434-439
+
+Content:
+Parameters
+----------
+command:
+Full command to execute as list of strings.
+timeout:
+Timeout in seconds. Uses default_timeout if None.
+
+Duplicate #53 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/zfs_parser.py:258-263
+  - src/check_zpools/zfs_parser.py:298-303
+
+Content:
+Parameters
+----------
+pool_name:
+Name of the pool
+pool_data:
+Pool data from JSON
+
+Duplicate #54 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/zfs_parser.py:288-293
+  - tests/test_alerting.py:370-375
+
+Content:
+write_errors=0,
+checksum_errors=0,
+last_scrub=None,
+scrub_errors=0,
+scrub_in_progress=False,
+)
+
+Duplicate #55 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - src/check_zpools/zfs_parser.py:486-491
+  - src/check_zpools/zfs_parser.py:513-518
+
+Content:
+Parameters
+----------
+scan_info:
+Scan/scrub information from zpool status
+field_names:
+List of field names to try
+
+Duplicate #56 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/conftest.py:231-236
+  - tests/conftest.py:472-477
+  - tests/test_behaviors.py:273-278
+  - tests/test_daemon.py:41-46
+
+Content:
+read_errors=0,
+write_errors=0,
+checksum_errors=0,
+last_scrub=datetime.now(UTC),
+scrub_errors=0,
+scrub_in_progress=False,
+
+Duplicate #57 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/conftest.py:232-237
+  - tests/conftest.py:473-478
+  - tests/test_behaviors.py:274-279
+  - tests/test_daemon.py:42-47
+
+Content:
+write_errors=0,
+checksum_errors=0,
+last_scrub=datetime.now(UTC),
+scrub_errors=0,
+scrub_in_progress=False,
+)
+
+Duplicate #58 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/conftest.py:267-272
+  - tests/test_monitor.py:63-68
+
+Content:
+"read_errors": 0,
+"write_errors": 0,
+"checksum_errors": 0,
+"last_scrub": None,
+"scrub_errors": 0,
+"scrub_in_progress": False,
+
+Duplicate #59 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/conftest.py:268-273
+  - tests/test_monitor.py:64-69
+
+Content:
+"write_errors": 0,
+"checksum_errors": 0,
+"last_scrub": None,
+"scrub_errors": 0,
+"scrub_in_progress": False,
+}
+
+Duplicate #60 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/conftest.py:269-274
+  - tests/test_monitor.py:65-70
+
+Content:
+"checksum_errors": 0,
+"last_scrub": None,
+"scrub_errors": 0,
+"scrub_in_progress": False,
+}
+return PoolStatus(**{**defaults, **overrides})  # type: ignore[arg-type]
+
+Duplicate #61 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/conftest.py:347-352
+  - tests/test_formatters.py:78-83
+
+Content:
+return PoolIssue(
+pool_name=pool_name,
+severity=severity,
+category=category,
+message=message,
+details={},
+
+Duplicate #62 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/conftest.py:348-353
+  - tests/test_formatters.py:79-84
+
+Content:
+pool_name=pool_name,
+severity=severity,
+category=category,
+message=message,
+details={},
+)
+
+Duplicate #63 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alert_state.py:452-457
+  - tests/test_alert_state.py:526-531
+
+Content:
+state_file = tmp_path / "alert_state.json"
+now = datetime.now(UTC)
+data = {
+"version": 1,
+"alerts": {
+"rpool:capacity": {
+
+Duplicate #64 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alert_state.py:453-458
+  - tests/test_alert_state.py:527-532
+
+Content:
+now = datetime.now(UTC)
+data = {
+"version": 1,
+"alerts": {
+"rpool:capacity": {
+"pool_name": "rpool",
+
+Duplicate #65 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alert_state.py:454-459
+  - tests/test_alert_state.py:528-533
+
+Content:
+data = {
+"version": 1,
+"alerts": {
+"rpool:capacity": {
+"pool_name": "rpool",
+"issue_category": "capacity",
+
+Duplicate #66 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alert_state.py:455-460
+  - tests/test_alert_state.py:529-534
+
+Content:
+"version": 1,
+"alerts": {
+"rpool:capacity": {
+"pool_name": "rpool",
+"issue_category": "capacity",
+"first_seen": now.isoformat(),
+
+Duplicate #67 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alert_state.py:456-461
+  - tests/test_alert_state.py:530-535
+
+Content:
+"alerts": {
+"rpool:capacity": {
+"pool_name": "rpool",
+"issue_category": "capacity",
+"first_seen": now.isoformat(),
+"last_alerted": now.isoformat(),
+
+Duplicate #68 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alerting.py:210-215
+  - tests/test_alerting.py:233-238
+
+Content:
+self,
+mock_send: MagicMock,
+alerter: EmailAlerter,
+sample_issue: PoolIssue,
+sample_pool: PoolStatus,
+) -> None:
+
+Duplicate #69 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alerting.py:341-346
+  - tests/test_alerting.py:362-367
+
+Content:
+pool = PoolStatus(
+name="rpool",
+health=PoolHealth.ONLINE,
+capacity_percent=50.0,
+size_bytes=1024**4,
+allocated_bytes=int(0.5 * 1024**4),
+
+Duplicate #70 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alerting.py:342-347
+  - tests/test_alerting.py:363-368
+  - tests/test_behaviors.py:267-272
+
+Content:
+name="rpool",
+health=PoolHealth.ONLINE,
+capacity_percent=50.0,
+size_bytes=1024**4,
+allocated_bytes=int(0.5 * 1024**4),
+free_bytes=int(0.5 * 1024**4),
+
+Duplicate #71 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alerting.py:343-348
+  - tests/test_alerting.py:364-369
+  - tests/test_behaviors.py:268-273
+  - tests/test_daemon.py:36-41
+
+Content:
+health=PoolHealth.ONLINE,
+capacity_percent=50.0,
+size_bytes=1024**4,
+allocated_bytes=int(0.5 * 1024**4),
+free_bytes=int(0.5 * 1024**4),
+read_errors=0,
+
+Duplicate #72 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alerting.py:344-349
+  - tests/test_alerting.py:365-370
+  - tests/test_behaviors.py:269-274
+  - tests/test_daemon.py:37-42
+
+Content:
+capacity_percent=50.0,
+size_bytes=1024**4,
+allocated_bytes=int(0.5 * 1024**4),
+free_bytes=int(0.5 * 1024**4),
+read_errors=0,
+write_errors=0,
+
+Duplicate #73 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alerting.py:345-350
+  - tests/test_alerting.py:366-371
+  - tests/test_behaviors.py:270-275
+  - tests/test_daemon.py:38-43
+
+Content:
+size_bytes=1024**4,
+allocated_bytes=int(0.5 * 1024**4),
+free_bytes=int(0.5 * 1024**4),
+read_errors=0,
+write_errors=0,
+checksum_errors=0,
+
+Duplicate #74 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alerting.py:346-351
+  - tests/test_behaviors.py:271-276
+  - tests/test_daemon.py:39-44
+
+Content:
+allocated_bytes=int(0.5 * 1024**4),
+free_bytes=int(0.5 * 1024**4),
+read_errors=0,
+write_errors=0,
+checksum_errors=0,
+last_scrub=datetime.now(UTC),
+
+Duplicate #75 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_alerting.py:347-352
+  - tests/test_behaviors.py:272-277
+  - tests/test_daemon.py:40-45
+
+Content:
+free_bytes=int(0.5 * 1024**4),
+read_errors=0,
+write_errors=0,
+checksum_errors=0,
+last_scrub=datetime.now(UTC),
+scrub_errors=0,
+
+Duplicate #76 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:60-65
+  - tests/test_cli.py:184-189
+
+Content:
+command: Any,
+argv: Sequence[str] | None = None,
+*,
+prog_name: str | None = None,
+signal_specs: Any = None,
+install_signals: bool = True,
+
+Duplicate #77 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:61-66
+  - tests/test_cli.py:185-190
+
+Content:
+argv: Sequence[str] | None = None,
+*,
+prog_name: str | None = None,
+signal_specs: Any = None,
+install_signals: bool = True,
+) -> int:
+
+Duplicate #78 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:682-687
+  - tests/test_cli.py:723-728
+  - tests/test_cli.py:794-799
+  - tests/test_cli.py:835-840
+  - tests/test_cli.py:873-878
+
+Content:
+result: Result = cli_runner.invoke(
+cli_mod.cli,
+[
+"send-email",
+"--to",
+"recipient@test.com",
+
+Duplicate #79 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:683-688
+  - tests/test_cli.py:724-729
+  - tests/test_cli.py:795-800
+  - tests/test_cli.py:836-841
+  - tests/test_cli.py:874-879
+
+Content:
+cli_mod.cli,
+[
+"send-email",
+"--to",
+"recipient@test.com",
+"--subject",
+
+Duplicate #80 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:684-689
+  - tests/test_cli.py:796-801
+  - tests/test_cli.py:837-842
+  - tests/test_cli.py:875-880
+
+Content:
+[
+"send-email",
+"--to",
+"recipient@test.com",
+"--subject",
+"Test",
+
+Duplicate #81 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:685-690
+  - tests/test_cli.py:797-802
+  - tests/test_cli.py:838-843
+  - tests/test_cli.py:876-881
+
+Content:
+"send-email",
+"--to",
+"recipient@test.com",
+"--subject",
+"Test",
+"--body",
+
+Duplicate #82 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:686-691
+  - tests/test_cli.py:877-882
+
+Content:
+"--to",
+"recipient@test.com",
+"--subject",
+"Test",
+"--body",
+"Hello",
+
+Duplicate #83 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:687-692
+  - tests/test_cli.py:878-883
+
+Content:
+"recipient@test.com",
+"--subject",
+"Test",
+"--body",
+"Hello",
+],
+
+Duplicate #84 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:688-693
+  - tests/test_cli.py:766-771
+  - tests/test_cli.py:879-884
+
+Content:
+"--subject",
+"Test",
+"--body",
+"Hello",
+],
+)
+
+Duplicate #85 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:714-719
+  - tests/test_cli.py:749-754
+  - tests/test_cli.py:785-790
+  - tests/test_cli.py:826-831
+  - tests/test_cli.py:864-869
+
+Content:
+mock_config_obj = MagicMock()
+mock_config_obj.as_dict.return_value = {
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+"from_address": "sender@test.com",
+}
+
+Duplicate #86 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:715-720
+  - tests/test_cli.py:750-755
+  - tests/test_cli.py:786-791
+  - tests/test_cli.py:827-832
+  - tests/test_cli.py:865-870
+
+Content:
+mock_config_obj.as_dict.return_value = {
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+"from_address": "sender@test.com",
+}
+}
+
+Duplicate #87 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:716-721
+  - tests/test_cli.py:751-756
+  - tests/test_cli.py:787-792
+  - tests/test_cli.py:828-833
+  - tests/test_cli.py:866-871
+
+Content:
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+"from_address": "sender@test.com",
+}
+}
+mock_get_config.return_value = mock_config_obj
+
+Duplicate #88 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:747-752
+  - tests/test_cli.py:783-788
+  - tests/test_cli.py:824-829
+  - tests/test_cli.py:919-924
+  - tests/test_cli.py:954-959
+
+Content:
+with patch("check_zpools.cli.get_config") as mock_get_config:
+with patch("smtplib.SMTP"):
+mock_config_obj = MagicMock()
+mock_config_obj.as_dict.return_value = {
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+
+Duplicate #89 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:748-753
+  - tests/test_cli.py:784-789
+  - tests/test_cli.py:825-830
+
+Content:
+with patch("smtplib.SMTP"):
+mock_config_obj = MagicMock()
+mock_config_obj.as_dict.return_value = {
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+"from_address": "sender@test.com",
+
+Duplicate #90 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:895-900
+  - tests/test_cli.py:930-935
+  - tests/test_cli.py:1003-1008
+
+Content:
+result: Result = cli_runner.invoke(
+cli_mod.cli,
+[
+"send-notification",
+"--to",
+"admin@test.com",
+
+Duplicate #91 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:896-901
+  - tests/test_cli.py:931-936
+  - tests/test_cli.py:1004-1009
+
+Content:
+cli_mod.cli,
+[
+"send-notification",
+"--to",
+"admin@test.com",
+"--subject",
+
+Duplicate #92 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:897-902
+  - tests/test_cli.py:932-937
+  - tests/test_cli.py:1005-1010
+
+Content:
+[
+"send-notification",
+"--to",
+"admin@test.com",
+"--subject",
+"Alert",
+
+Duplicate #93 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:898-903
+  - tests/test_cli.py:933-938
+  - tests/test_cli.py:1006-1011
+
+Content:
+"send-notification",
+"--to",
+"admin@test.com",
+"--subject",
+"Alert",
+"--message",
+
+Duplicate #94 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:899-904
+  - tests/test_cli.py:934-939
+  - tests/test_cli.py:1007-1012
+
+Content:
+"--to",
+"admin@test.com",
+"--subject",
+"Alert",
+"--message",
+"System notification",
+
+Duplicate #95 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:900-905
+  - tests/test_cli.py:935-940
+  - tests/test_cli.py:1008-1013
+
+Content:
+"admin@test.com",
+"--subject",
+"Alert",
+"--message",
+"System notification",
+],
+
+Duplicate #96 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:901-906
+  - tests/test_cli.py:936-941
+  - tests/test_cli.py:973-978
+  - tests/test_cli.py:1009-1014
+
+Content:
+"--subject",
+"Alert",
+"--message",
+"System notification",
+],
+)
+
+Duplicate #97 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:920-925
+  - tests/test_cli.py:955-960
+
+Content:
+with patch("smtplib.SMTP"):
+mock_config_obj = MagicMock()
+mock_config_obj.as_dict.return_value = {
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+"from_address": "alerts@test.com",
+
+Duplicate #98 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:921-926
+  - tests/test_cli.py:956-961
+  - tests/test_cli.py:994-999
+
+Content:
+mock_config_obj = MagicMock()
+mock_config_obj.as_dict.return_value = {
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+"from_address": "alerts@test.com",
+}
+
+Duplicate #99 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:922-927
+  - tests/test_cli.py:957-962
+  - tests/test_cli.py:995-1000
+
+Content:
+mock_config_obj.as_dict.return_value = {
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+"from_address": "alerts@test.com",
+}
+}
+
+Duplicate #100 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_cli.py:923-928
+  - tests/test_cli.py:958-963
+  - tests/test_cli.py:996-1001
+
+Content:
+"email": {
+"smtp_hosts": ["smtp.test.com:587"],
+"from_address": "alerts@test.com",
+}
+}
+mock_get_config.return_value = mock_config_obj
+
+Duplicate #101 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:79-84
+  - tests/test_daemon.py:105-110
+
+Content:
+return {
+"output_version": {"command": "zpool status", "vers_major": 0, "vers_minor": 1},
+"pools": {
+"rpool": {
+"name": "rpool",
+"type": "POOL",
+
+Duplicate #102 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:81-86
+  - tests/test_daemon.py:133-138
+
+Content:
+"pools": {
+"rpool": {
+"name": "rpool",
+"type": "POOL",
+"state": "ONLINE",
+"pool_guid": "17068583395379267683",
+
+Duplicate #103 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:82-87
+  - tests/test_daemon.py:134-139
+
+Content:
+"rpool": {
+"name": "rpool",
+"type": "POOL",
+"state": "ONLINE",
+"pool_guid": "17068583395379267683",
+"txg": "2888298",
+
+Duplicate #104 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:83-88
+  - tests/test_daemon.py:135-140
+
+Content:
+"name": "rpool",
+"type": "POOL",
+"state": "ONLINE",
+"pool_guid": "17068583395379267683",
+"txg": "2888298",
+"spa_version": "5000",
+
+Duplicate #105 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:84-89
+  - tests/test_daemon.py:136-141
+
+Content:
+"type": "POOL",
+"state": "ONLINE",
+"pool_guid": "17068583395379267683",
+"txg": "2888298",
+"spa_version": "5000",
+"zpl_version": "5",
+
+Duplicate #106 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:219-224
+  - tests/test_daemon.py:242-247
+  - tests/test_daemon.py:265-270
+
+Content:
+zfs_client=mock_zfs_client,
+monitor=mock_monitor,
+alerter=mock_alerter,
+state_manager=mock_state_manager,
+config=daemon_config,
+)
+
+Duplicate #107 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:232-237
+  - tests/test_daemon.py:255-260
+
+Content:
+self,
+mock_zfs_client: Mock,
+mock_monitor: Mock,
+mock_alerter: Mock,
+mock_state_manager: Mock,
+daemon_config: dict,
+
+Duplicate #108 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:233-238
+  - tests/test_daemon.py:256-261
+
+Content:
+mock_zfs_client: Mock,
+mock_monitor: Mock,
+mock_alerter: Mock,
+mock_state_manager: Mock,
+daemon_config: dict,
+) -> None:
+
+Duplicate #109 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:241-246
+  - tests/test_daemon.py:264-269
+
+Content:
+daemon = ZPoolDaemon(
+zfs_client=mock_zfs_client,
+monitor=mock_monitor,
+alerter=mock_alerter,
+state_manager=mock_state_manager,
+config=daemon_config,
+
+Duplicate #110 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:352-357
+  - tests/test_daemon.py:376-381
+  - tests/test_daemon.py:401-406
+  - tests/test_daemon.py:426-431
+  - tests/test_daemon.py:450-455
+  - tests/test_daemon.py:507-512
+  - tests/test_daemon.py:540-545
+  - tests/test_daemon.py:572-577
+  - tests/test_daemon.py:604-609
+  - tests/test_daemon.py:636-641
+
+Content:
+self,
+daemon: ZPoolDaemon,
+mock_alerter: Mock,
+mock_state_manager: Mock,
+mock_monitor: Mock,
+) -> None:
+
+Duplicate #111 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:363-368
+  - tests/test_daemon.py:387-392
+  - tests/test_daemon.py:412-417
+  - tests/test_daemon.py:437-442
+  - tests/test_daemon.py:461-466
+  - tests/test_daemon.py:519-524
+  - tests/test_daemon.py:551-556
+  - tests/test_daemon.py:583-588
+  - tests/test_daemon.py:615-620
+  - tests/test_daemon.py:647-652
+
+Content:
+mock_monitor.check_all_pools.return_value = CheckResult(
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[issue],
+overall_severity=Severity.WARNING,
+)
+
+Duplicate #112 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:364-369
+  - tests/test_daemon.py:388-393
+  - tests/test_daemon.py:413-418
+  - tests/test_daemon.py:438-443
+
+Content:
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[issue],
+overall_severity=Severity.WARNING,
+)
+mock_state_manager.should_alert.return_value = True
+
+Duplicate #113 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:377-382
+  - tests/test_daemon.py:402-407
+  - tests/test_daemon.py:427-432
+
+Content:
+daemon: ZPoolDaemon,
+mock_alerter: Mock,
+mock_state_manager: Mock,
+mock_monitor: Mock,
+) -> None:
+"""When alerting on a new issue,
+
+Duplicate #114 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:462-467
+  - tests/test_daemon.py:520-525
+  - tests/test_daemon.py:552-557
+  - tests/test_daemon.py:584-589
+  - tests/test_daemon.py:616-621
+  - tests/test_daemon.py:648-653
+
+Content:
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[issue],
+overall_severity=Severity.WARNING,
+)
+mock_state_manager.should_alert.return_value = False
+
+Duplicate #115 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:521-526
+  - tests/test_daemon.py:553-558
+  - tests/test_daemon.py:585-590
+  - tests/test_daemon.py:617-622
+  - tests/test_daemon.py:649-654
+
+Content:
+pools=[pool],
+issues=[issue],
+overall_severity=Severity.WARNING,
+)
+mock_state_manager.should_alert.return_value = False
+daemon._run_check_cycle()
+
+Duplicate #116 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:529-534
+  - tests/test_daemon.py:560-565
+  - tests/test_daemon.py:592-597
+  - tests/test_daemon.py:624-629
+  - tests/test_daemon.py:656-661
+
+Content:
+mock_monitor.check_all_pools.return_value = CheckResult(
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[],
+overall_severity=Severity.OK,
+)
+
+Duplicate #117 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:530-535
+  - tests/test_daemon.py:561-566
+  - tests/test_daemon.py:593-598
+  - tests/test_daemon.py:625-630
+  - tests/test_daemon.py:657-662
+
+Content:
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[],
+overall_severity=Severity.OK,
+)
+daemon._run_check_cycle()
+
+Duplicate #118 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_daemon.py:541-546
+  - tests/test_daemon.py:573-578
+  - tests/test_daemon.py:605-610
+
+Content:
+daemon: ZPoolDaemon,
+mock_alerter: Mock,
+mock_state_manager: Mock,
+mock_monitor: Mock,
+) -> None:
+"""When sending recovery notification,
+
+Duplicate #119 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_formatters.py:265-270
+  - tests/test_formatters.py:844-849
+  - tests/test_formatters.py:867-872
+
+Content:
+result = CheckResult(
+timestamp=datetime.now(UTC),
+pools=[pool1, pool2],
+issues=[],
+overall_severity=Severity.OK,
+)
+
+Duplicate #120 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_formatters.py:473-478
+  - tests/test_formatters.py:491-496
+
+Content:
+result = CheckResult(
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[issue],
+overall_severity=Severity.INFO,
+)
+
+Duplicate #121 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_formatters.py:514-519
+  - tests/test_formatters.py:534-539
+  - tests/test_formatters.py:724-729
+
+Content:
+result = CheckResult(
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[issue1, issue2],
+overall_severity=Severity.CRITICAL,
+)
+
+Duplicate #122 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_formatters.py:778-783
+  - tests/test_formatters.py:818-823
+
+Content:
+result = CheckResult(
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[],
+overall_severity=Severity.OK,
+)
+
+Duplicate #123 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_formatters.py:779-784
+  - tests/test_formatters.py:819-824
+
+Content:
+timestamp=datetime.now(UTC),
+pools=[pool],
+issues=[],
+overall_severity=Severity.OK,
+)
+buffer = StringIO()
+
+Duplicate #124 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_formatters.py:780-785
+  - tests/test_formatters.py:820-825
+
+Content:
+pools=[pool],
+issues=[],
+overall_severity=Severity.OK,
+)
+buffer = StringIO()
+console = Console(file=buffer, legacy_windows=False)
+
+Duplicate #125 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_mail.py:204-209
+  - tests/test_mail.py:298-303
+
+Content:
+result = send_email(
+config=config,
+recipients="recipient@test.com",
+subject="Test Subject",
+body="Test body",
+)
+
+Duplicate #126 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_mail.py:362-367
+  - tests/test_mail.py:385-390
+
+Content:
+with pytest.raises(RuntimeError, match="failed.*on all of following hosts"):
+send_email(
+config=config,
+recipients="recipient@test.com",
+subject="Test",
+body="Hello",
+
+Duplicate #127 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_mail.py:363-368
+  - tests/test_mail.py:386-391
+  - tests/test_mail.py:406-411
+  - tests/test_mail.py:444-449
+
+Content:
+send_email(
+config=config,
+recipients="recipient@test.com",
+subject="Test",
+body="Hello",
+)
+
+Duplicate #128 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_mail.py:405-410
+  - tests/test_mail.py:443-448
+
+Content:
+with pytest.raises(RuntimeError, match="following recipients failed"):
+send_email(
+config=config,
+recipients="recipient@test.com",
+subject="Test",
+body="Hello",
+
+Duplicate #129 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_models.py:343-348
+  - tests/test_models.py:360-365
+  - tests/test_models.py:556-561
+
+Content:
+result = CheckResult(
+timestamp=datetime.now(timezone.utc),
+pools=[],
+issues=[],
+overall_severity=Severity.OK,
+)
+
+Duplicate #130 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_models.py:393-398
+  - tests/test_models.py:413-418
+
+Content:
+result = CheckResult(
+timestamp=datetime.now(timezone.utc),
+pools=[],
+issues=[issue1, issue2, issue3],
+overall_severity=Severity.CRITICAL,
+)
+
+Duplicate #131 (6 lines):
+--------------------------------------------------------------------------------
+Occurrences:
+  - tests/test_scripts.py:54-59
+  - tests/test_scripts.py:80-85
+
+Content:
+cmd: RunCommand,
+*,
+check: bool = True,
+capture: bool = True,
+cwd: str | None = None,
+env: Mapping[str, str] | None = None,

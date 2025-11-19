@@ -1,0 +1,20 @@
+python3 -m scripts test
+[1/8] Ruff format (apply)
+[ruff-format-apply] $ ruff format .
+68 files left unchanged
+[2/8] Ruff format check
+[ruff-format-check] $ ruff format --check .
+68 files already formatted
+[3/8] Ruff lint
+[ruff-check] $ ruff check .
+E402 Module level import not at top of file
+  --> LLM-CONTEXT/review-anal/cache/profile_caching.py:23:1
+   |
+21 | sys.path.insert(0, str(project_root / "src"))
+22 |
+23 | import pytest
+   | ^^^^^^^^^^^^^
+   |
+
+Found 1 error.
+make: *** [Makefile:18: test] Fehler 1

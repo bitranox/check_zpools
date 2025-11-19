@@ -1,0 +1,26 @@
+EXISTING CACHE PERFORMANCE BENCHMARKS
+================================================================================
+
+parse_size_to_bytes:
+  first_4_calls: 0.00x
+  400_calls_cached: 0.00x
+  speedup: 151.22x
+  cache_hit_ratio: 0.99x
+
+parse_health_state:
+  first_3_calls: 0.00x
+  300_calls_cached: 0.00x
+  speedup: 28.34x
+  cache_hit_ratio: 0.99x
+
+get_config:
+  first_call: 0.00x
+  100_calls_cached: 0.00x
+  speedup: 46299.80x
+  cache_hit_ratio: 0.99x
+
+health_enum_methods:
+  first_calls: 0.00x
+  cached_calls: 0.00x
+  speedup: 15.59x
+

@@ -1,0 +1,35 @@
+POTENTIAL CACHING CANDIDATES
+================================================================================
+
+_get_property_value:
+  location: zfs_parser.py:336
+  current_status: No caching
+  call_pattern: Called repeatedly for "health", "capacity", "size", "allocated", "free"
+  recommendation: Could cache with @lru_cache(maxsize=16) on a per-parser basis
+  expected_benefit: Low - function is very simple (dict lookups)
+  priority: LOW
+
+_extract_capacity_metrics:
+  location: zfs_parser.py:622
+  current_status: No caching
+  call_pattern: Called once per pool per check
+  recommendation: No caching - results vary per pool and check
+  expected_benefit: None - not a pure function (results change)
+  priority: N/A
+
+_build_monitor_config:
+  location: behaviors.py:354
+  current_status: No caching
+  call_pattern: Called 1-2 times per application run
+  recommendation: No caching - called infrequently
+  expected_benefit: None - infrequent calls
+  priority: N/A
+
+json_loads_in_zfs_client:
+  location: zfs_client.py:412
+  current_status: No caching
+  call_pattern: Called every time pool data is fetched
+  recommendation: No caching - data changes on every call
+  expected_benefit: None - not repeatable data
+  priority: N/A
+

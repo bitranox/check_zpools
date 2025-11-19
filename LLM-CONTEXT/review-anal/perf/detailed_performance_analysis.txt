@@ -1,0 +1,212 @@
+======================================================================
+DETAILED PERFORMANCE ANALYSIS - CHECK_ZPOOLS
+======================================================================
+
+ZFS COMMAND EXECUTION & PARSING
+----------------------------------------------------------------------
+Subprocess Calls (ZFS command execution):
+
+JSON Parsing:
+  /opt/Python-3.14.0/lib/python3.14/json/__init__.py:183 dumps
+    Calls: 3967, Total: 0.0036s, Cumulative: 0.0139s
+  /opt/Python-3.14.0/lib/python3.14/json/__init__.py:120 dump
+    Calls: 31, Total: 0.0003s, Cumulative: 0.0018s
+  /opt/Python-3.14.0/lib/python3.14/json/__init__.py:274 load
+    Calls: 16, Total: 0.0000s, Cumulative: 0.0010s
+  /opt/Python-3.14.0/lib/python3.14/json/__init__.py:299 loads
+    Calls: 28, Total: 0.0000s, Cumulative: 0.0004s
+
+ZFS Client & Parser Operations:
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:86 parse_pool_list
+    Calls: 39, Total: 0.0001s, Cumulative: 0.0138s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:142 parse_pool_status
+    Calls: 39, Total: 0.0001s, Cumulative: 0.0074s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:555 _parse_scrub_time
+    Calls: 43, Total: 0.0000s, Cumulative: 0.0062s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_zfs_parser.py:506 test_parse_scrub_time_with_human_readable_datetime
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0059s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:191 merge_pool_data
+    Calls: 34, Total: 0.0001s, Cumulative: 0.0059s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:510 _try_parse_datetime_string
+    Calls: 3, Total: 0.0000s, Cumulative: 0.0058s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:360 _parse_size_to_bytes
+    Calls: 93, Total: 0.0002s, Cumulative: 0.0016s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_zfs_parser.py:601 test_parse_size_with_suffix
+    Calls: 30, Total: 0.0000s, Cumulative: 0.0015s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:255 _parse_pool_from_list
+    Calls: 43, Total: 0.0002s, Cumulative: 0.0009s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:295 _parse_pool_from_status
+    Calls: 40, Total: 0.0001s, Cumulative: 0.0008s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_zfs_parser.py:300 test_parse_pool_list_with_malformed_individual_pool
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0006s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_zfs_parser.py:344 test_parse_pool_status_with_malformed_individual_pool
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0006s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_zfs_parser.py:35 zpool_list_ok
+    Calls: 2, Total: 0.0000s, Cumulative: 0.0006s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/zfs_parser.py:622 _extract_capacity_metrics
+    Calls: 43, Total: 0.0002s, Cumulative: 0.0005s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_zfs_parser.py:42 zpool_status_degraded
+    Calls: 2, Total: 0.0000s, Cumulative: 0.0005s
+
+======================================================================
+POOL MONITORING LOGIC
+----------------------------------------------------------------------
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/monitor.py:127 check_pool
+    Calls: 36, Total: 0.0001s, Cumulative: 0.0033s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/monitor.py:188 check_all_pools
+    Calls: 4, Total: 0.0000s, Cumulative: 0.0008s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_monitor.py:521 test_scrub_age_checking_can_be_disabled
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0002s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_monitor.py:425 test_a_pool_with_checksum_errors_triggers_warning
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0002s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/monitor.py:392 _check_scrub
+    Calls: 36, Total: 0.0000s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/monitor.py:282 _check_capacity
+    Calls: 36, Total: 0.0001s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/monitor.py:249 _check_health
+    Calls: 36, Total: 0.0000s, Cumulative: 0.0000s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/monitor.py:327 _check_errors
+    Calls: 36, Total: 0.0000s, Cumulative: 0.0000s
+
+======================================================================
+ALERTING OPERATIONS
+----------------------------------------------------------------------
+Email Formatting:
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alerting.py:260 _format_body
+    Calls: 12, Total: 0.0001s, Cumulative: 0.0007s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alerting.py:456 _format_complete_pool_status
+    Calls: 12, Total: 0.0001s, Cumulative: 0.0003s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alerting.py:345 _format_pool_details_section
+    Calls: 12, Total: 0.0001s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alerting.py:131 test_format_body_includes_pool_details
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alerting.py:102 TestEmailSubjectFormatting
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alerting.py:558 _format_scrub_status_section
+    Calls: 12, Total: 0.0000s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alerting.py:303 _format_alert_header
+    Calls: 12, Total: 0.0001s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alerting.py:142 test_format_body_includes_issue_details
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alerting.py:149 test_format_body_includes_recommended_actions_for_capacity
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0001s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alerting.py:193 test_format_body_includes_recommended_actions_for_health
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0001s
+
+SMTP Operations:
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py:169 send_email
+    Calls: 26, Total: 0.0001s, Cumulative: 0.2055s
+  /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/btx_lib_mail/lib_mail.py:143 send
+    Calls: 26, Total: 0.0001s, Cumulative: 0.1964s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/mail.py:290 send_notification
+    Calls: 7, Total: 0.0000s, Cumulative: 0.0571s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_mail.py:532 test_send_real_email
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0407s
+  /opt/Python-3.14.0/lib/python3.14/smtplib.py:387 getreply
+    Calls: 27, Total: 0.0002s, Cumulative: 0.0398s
+  /opt/Python-3.14.0/lib/python3.14/smtplib.py:809 sendmail
+    Calls: 3, Total: 0.0000s, Cumulative: 0.0282s
+  /opt/Python-3.14.0/lib/python3.14/smtplib.py:236 __init__
+    Calls: 3, Total: 0.0000s, Cumulative: 0.0178s
+  /opt/Python-3.14.0/lib/python3.14/smtplib.py:322 connect
+    Calls: 3, Total: 0.0000s, Cumulative: 0.0172s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_mail.py:561 test_send_real_notification
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0154s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_mail.py:546 test_send_real_email_with_html
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0129s
+
+Alert State Management:
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alert_state.py:326 save_state
+    Calls: 28, Total: 0.0002s, Cumulative: 0.0028s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alert_state.py:1 <module>
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0028s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alert_state.py:174 record_alert
+    Calls: 23, Total: 0.0001s, Cumulative: 0.0026s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alert_state.py:86 __init__
+    Calls: 30, Total: 0.0000s, Cumulative: 0.0013s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alert_state.py:81 a_state_manager
+    Calls: 22, Total: 0.0000s, Cumulative: 0.0008s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alert_state.py:93 _ensure_state_dir
+    Calls: 30, Total: 0.0000s, Cumulative: 0.0007s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/alert_state.py:259 load_state
+    Calls: 30, Total: 0.0001s, Cumulative: 0.0005s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alert_state.py:1 <module>
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0005s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alert_state.py:354 test_clearing_removes_state_entry
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0004s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_alert_state.py:618 test_three_different_issues_all_tracked
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0004s
+
+======================================================================
+DAEMON OPERATIONS
+----------------------------------------------------------------------
+Check Cycles:
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_daemon.py:729 test_loop_executes_at_least_one_check_cycle
+    Calls: 1, Total: 0.0000s, Cumulative: 0.4896s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py:311 _run_check_cycle
+    Calls: 32, Total: 0.0003s, Cumulative: 0.0702s
+  /media/srv-main-softdev/projects/tools/check_zpools/src/check_zpools/daemon.py:353 _handle_check_result
+    Calls: 30, Total: 0.0000s, Cumulative: 0.0027s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_daemon.py:298 test_check_cycle_fetches_pool_list_from_zfs
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0021s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_daemon.py:312 test_check_cycle_passes_parsed_pools_to_monitor
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0016s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_daemon.py:338 test_check_cycle_recovers_from_parse_errors
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0014s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_daemon.py:305 test_check_cycle_fetches_pool_status_from_zfs
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0014s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_daemon.py:322 test_check_cycle_monitors_specific_pool_by_name
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0013s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_daemon.py:330 test_check_cycle_recovers_from_zfs_fetch_errors
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0009s
+  /media/srv-main-softdev/projects/tools/check_zpools/tests/test_daemon.py:705 test_stop_sets_running_flag_to_false
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0004s
+
+Sleep/Wait Operations:
+  /opt/Python-3.14.0/lib/python3.14/threading.py:651 wait
+    Calls: 27, Total: 0.0001s, Cumulative: 2.9978s
+  ~:0 <built-in method time.sleep>
+    Calls: 1, Total: 0.4936s, Cumulative: 0.4936s
+  /opt/Python-3.14.0/lib/python3.14/threading.py:337 wait
+    Calls: 102, Total: 0.0005s, Cumulative: 0.0008s
+  /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/lib_log_rich/adapters/_queue_worker.py:107 _wait_for_drain
+    Calls: 8, Total: 0.0000s, Cumulative: 0.0008s
+  /opt/Python-3.14.0/lib/python3.14/inspect.py:365 isawaitable
+    Calls: 80, Total: 0.0001s, Cumulative: 0.0002s
+  /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/lib_log_rich/runtime/_api.py:380 _await_shutdown_result
+    Calls: 8, Total: 0.0000s, Cumulative: 0.0000s
+  /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/textual/await_complete.py:16 AwaitComplete
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0000s
+  /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/textual/await_remove.py:18 AwaitRemove
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0000s
+  /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/textual/widget.py:126 AwaitMount
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0000s
+  /opt/Python-3.14.0/lib/python3.14/concurrent/futures/_base.py:68 _AsCompletedWaiter
+    Calls: 1, Total: 0.0000s, Cumulative: 0.0000s
+
+======================================================================
+PERFORMANCE SUMMARY
+======================================================================
+
+ZFS Command Execution (subprocess): 0.0000s
+JSON Parsing: 0.0171s
+Pool Monitoring Logic: 0.0047s
+Email Formatting: 0.0019s
+SMTP Operations: 0.7546s
+Sleep/Wait (daemon intervals): 3.4932s
+
+KEY FINDINGS:
+----------------------------------------------------------------------
+1. Sleep/wait operations dominate timing (expected for daemon mode)
+3. JSON parsing overhead: 0.0171s
+   - Acceptable for current workload
+5. Email formatting: 0.0019s
+   - String formatting is fast
+
+OVERALL ASSESSMENT:
+----------------------------------------------------------------------
+The codebase shows good performance characteristics:
+- No significant bottlenecks in hot paths
+- ZFS command execution is unavoidable overhead
+- Monitoring and alerting logic is efficient
+- Test suite execution is fast (<10s for 500+ tests)

@@ -1,0 +1,111 @@
+PROFILING REPORT - SORTED BY NCALLS
+================================================================================
+
+         6381143 function calls (6254737 primitive calls) in 7.742 seconds
+
+   Ordered by: call count
+   List reduced from 7095 to 100 due to restriction <100>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+  2237093    0.278    0.000    0.278    0.000 {method 'match' of 're.Pattern' objects}
+270509/263807    0.026    0.000    0.035    0.000 {built-in method builtins.isinstance}
+232538/227622    0.018    0.000    0.019    0.000 {built-in method builtins.len}
+   216258    0.018    0.000    0.018    0.000 {method 'append' of 'list' objects}
+126107/126010    0.016    0.000    0.021    0.000 {built-in method builtins.getattr}
+   102844    0.021    0.000    0.021    0.000 {method 'translate' of 'str' objects}
+   102115    0.015    0.000    0.037    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/control.py:181(strip_control_codes)
+97456/90575    0.020    0.000    0.745    0.000 {built-in method builtins.next}
+    77835    0.007    0.000    0.007    0.000 {method 'endswith' of 'str' objects}
+    76538    0.012    0.000    0.017    0.000 {method 'get' of 'dict' objects}
+    75708    0.008    0.000    0.008    0.000 {method 'partition' of 'str' objects}
+    74632    0.008    0.000    0.008    0.000 {method 'group' of 're.Match' objects}
+    72764    0.021    0.000    0.623    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/syntax.py:514(tokens_to_spans)
+    72748    0.022    0.000    0.536    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/syntax.py:505(line_tokenize)
+    68938    0.206    0.000    0.493    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pygments/lexer.py:700(get_tokens_unprocessed)
+    68934    0.012    0.000    0.505    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pygments/lexer.py:269(streamer)
+    67292    0.006    0.000    0.006    0.000 {method 'end' of 're.Match' objects}
+    50309    0.004    0.000    0.004    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/nodes.py:294(iter_parents)
+38811/11898    0.007    0.000    0.007    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/mark/structures.py:650(__iter__)
+    33225    0.005    0.000    0.008    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/text.py:402(plain)
+32233/32095    0.009    0.000    0.010    0.000 {built-in method __new__ of type object at 0x7b3e712be6e0}
+31332/31207    0.006    0.000    0.013    0.000 {built-in method builtins.hasattr}
+    29800    0.002    0.000    0.002    0.000 /opt/Python-3.14.0/lib/python3.14/typing.py:2286(cast)
+    28814    0.018    0.000    0.031    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/text.py:144(__init__)
+28730/28700    0.007    0.000    0.007    0.000 {built-in method builtins.setattr}
+    25796    0.014    0.000    0.041    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/text.py:1130(<genexpr>)
+    25041    0.003    0.000    0.005    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/text.py:1092(flatten_spans)
+    22846    0.003    0.000    0.003    0.000 {method 'startswith' of 'str' objects}
+    22157    0.002    0.000    0.002    0.000 /opt/Python-3.14.0/lib/python3.14/re/_parser.py:240(__next)
+21142/21139    0.003    0.000    0.004    0.000 {method 'encode' of 'str' objects}
+20453/20189    0.002    0.000    0.003    0.000 {built-in method posix.fspath}
+19398/18759    0.005    0.000    0.010    0.000 {method 'join' of 'str' objects}
+    17807    0.003    0.000    0.004    0.000 /opt/Python-3.14.0/lib/python3.14/re/_parser.py:168(__getitem__)
+    17629    0.003    0.000    0.004    0.000 /opt/Python-3.14.0/lib/python3.14/re/_parser.py:261(get)
+    17171    0.001    0.000    0.001    0.000 /opt/Python-3.14.0/lib/python3.14/unittest/mock.py:2252(__init__)
+    16964    0.001    0.000    0.001    0.000 {method 'span' of 're.Match' objects}
+    16737    0.001    0.000    0.001    0.000 {method 'start' of 're.Match' objects}
+16569/4072    0.005    0.000    0.853    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/console.py:1300(render)
+    15737    0.005    0.000    0.007    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/cells.py:51(cell_len)
+    15538    0.002    0.000    0.009    0.000 /opt/Python-3.14.0/lib/python3.14/pathlib/__init__.py:198(_str_normcase)
+15452/15447    0.001    0.000    0.001    0.000 {built-in method builtins.hash}
+15219/12159    0.007    0.000    0.224    0.000 {method 'send' of 'generator' objects}
+14164/6193    0.004    0.000    1.092    0.000 {method 'extend' of 'list' objects}
+    13881    0.002    0.000    0.002    0.000 {method 'upper' of 'str' objects}
+    13788    0.001    0.000    0.001    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/nodes.py:280(nodeid)
+    13355    0.001    0.000    0.001    0.000 {method 'lower' of 'str' objects}
+    13152    0.002    0.000    0.002    0.000 {method '__enter__' of '_thread.RLock' objects}
+    12976    0.002    0.000    0.002    0.000 {method '__exit__' of '_thread.RLock' objects}
+    12861    0.001    0.000    0.001    0.000 {built-in method builtins.ord}
+    12720    0.003    0.000    0.007    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/text.py:1098(<genexpr>)
+    12626    0.002    0.000    0.005    0.000 /opt/Python-3.14.0/lib/python3.14/pathlib/__init__.py:210(__hash__)
+    11990    0.002    0.000    0.002    0.000 {method 'copy' of 'list' objects}
+    11723    0.002    0.000    0.004    0.000 {built-in method builtins.max}
+    11399    0.002    0.000    0.002    0.000 /opt/Python-3.14.0/lib/python3.14/inspect.py:188(ismethod)
+    11389    0.001    0.000    0.001    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pluggy/_hooks.py:436(is_historic)
+    11244    0.001    0.000    0.001    0.000 {built-in method builtins.min}
+ 11179/70    0.038    0.000    6.679    0.095 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pluggy/_callers.py:76(_multicall)
+ 11179/70    0.005    0.000    6.679    0.095 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pluggy/_manager.py:111(_hookexec)
+    11054    0.002    0.000    0.002    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pluggy/_hooks.py:478(_verify_all_args_are_provided)
+    10988    0.001    0.000    0.001    0.000 {method 'rstrip' of 'str' objects}
+    10738    0.002    0.000    0.002    0.000 /opt/Python-3.14.0/lib/python3.14/inspect.py:267(isfunction)
+  10596/2    0.012    0.000    6.676    3.338 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pluggy/_hooks.py:497(__call__)
+    10397    0.001    0.000    0.002    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/nodes.py:285(__hash__)
+     9789    0.002    0.000    0.002    0.000 /opt/Python-3.14.0/lib/python3.14/functools.py:500(_unwrap_partial)
+     9734    0.001    0.000    0.001    0.000 {built-in method builtins.id}
+     9469    0.002    0.000    0.003    0.000 {built-in method builtins.issubclass}
+     9419    0.001    0.000    0.005    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/segment.py:344(<genexpr>)
+9034/8338    0.002    0.000    0.085    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/python.py:284(obj)
+     9000    0.001    0.000    0.002    0.000 /opt/Python-3.14.0/lib/python3.14/re/_parser.py:176(append)
+     8794    0.003    0.000    0.003    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/stash.py:79(__getitem__)
+     8734    0.003    0.000    0.003    0.000 {method 'split' of 'str' objects}
+     8446    0.001    0.000    0.001    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/capture.py:512(_assert_state)
+     8087    0.002    0.000    0.004    0.000 <frozen abc>:117(__instancecheck__)
+     8087    0.002    0.000    0.002    0.000 {built-in method _abc._abc_instancecheck}
+     7748    0.002    0.000    0.003    0.000 {method 'update' of 'dict' objects}
+7581/7092    0.001    0.000    0.001    0.000 {built-in method builtins.iter}
+     7426    0.004    0.000    0.010    0.000 /opt/Python-3.14.0/lib/python3.14/pathlib/__init__.py:217(__eq__)
+     7405    0.002    0.000    0.004    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/segment.py:81(cell_length)
+     7252    0.002    0.000    0.004    0.000 <frozen os>:786(encode)
+     7198    0.001    0.000    0.001    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/style.py:437(__hash__)
+     7022    0.001    0.000    0.001    0.000 /opt/Python-3.14.0/lib/python3.14/re/_parser.py:256(match)
+     7000    0.003    0.000    0.004    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pygments/lexer.py:389(callback)
+     6839    0.002    0.000    0.006    0.000 /opt/Python-3.14.0/lib/python3.14/pathlib/__init__.py:364(_tail)
+     6784    0.002    0.000    0.003    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/compat.py:235(safe_getattr)
+     6323    0.000    0.000    0.000    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/rich/style.py:336(__bool__)
+     6307    0.005    0.000    0.008    0.000 /opt/Python-3.14.0/lib/python3.14/pathlib/__init__.py:135(__init__)
+     6257    0.007    0.000    0.011    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/nodes.py:346(iter_markers_with_node)
+     6256    0.001    0.000    0.001    0.000 {method 'items' of 'dict' objects}
+     6116    0.006    0.000    0.022    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/pluggy/_callers.py:25(run_old_style_hookwrapper)
+     6013    0.004    0.000    0.012    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/config/__init__.py:686(_getconftestmodules)
+     5904    0.002    0.000    0.002    0.000 {method 'difference' of 'set' objects}
+     5898    0.004    0.000    0.018    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/main.py:719(gethookproxy)
+     5884    0.000    0.000    0.000    0.000 <frozen codecs>:279(reset)
+     5884    0.002    0.000    0.002    0.000 <frozen codecs>:330(reset)
+     5883    0.002    0.000    0.020    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/nodes.py:235(ihook)
+     5852    0.001    0.000    0.001    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/capture.py:395(_assert_state)
+     5844    0.001    0.000    0.001    0.000 /opt/Python-3.14.0/lib/python3.14/inspect.py:184(isclass)
+     5835    0.001    0.000    0.012    0.000 /home/srvadmin/venvs/pycharm314/lib/python3.14/site-packages/_pytest/nodes.py:344(<genexpr>)
+     5749    0.001    0.000    0.001    0.000 {method 'remove' of 'list' objects}
+     5716    0.000    0.000    0.000    0.000 <frozen codecs>:206(reset)
+
+

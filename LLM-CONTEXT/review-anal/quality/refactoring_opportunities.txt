@@ -1,0 +1,345 @@
+================================================================================
+REFACTORING OPPORTUNITIES
+================================================================================
+
+Found 62 refactoring opportunities
+
+
+scripts/_utils.py
+--------------------------------------------------------------------------------
+
+  Function: run (line 144)
+  Issues:
+    - Too many parameters (6)
+
+  Function: get_project_metadata (line 507)
+  Issues:
+    - Long function (67 lines)
+
+  Function: _render_metadata_module (line 580)
+  Issues:
+    - Long function (78 lines)
+
+  Function: bootstrap_dev (line 737)
+  Issues:
+    - High cyclomatic complexity (14)
+    - High cognitive complexity (17)
+
+scripts/menu.py
+--------------------------------------------------------------------------------
+
+  Function: _gather_values (line 337)
+  Issues:
+    - High cyclomatic complexity (11)
+
+scripts/push.py
+--------------------------------------------------------------------------------
+
+  Function: _resolve_commit_message (line 45)
+  Issues:
+    - High cyclomatic complexity (11)
+    - Too many return statements (5)
+
+scripts/run_cli.py
+--------------------------------------------------------------------------------
+
+  Function: exit_code_from (line 47)
+  Issues:
+    - Too many return statements (4)
+
+scripts/target_metadata.py
+--------------------------------------------------------------------------------
+
+  Function: _build_targets (line 65)
+  Issues:
+    - Long function (96 lines)
+
+scripts/test.py
+--------------------------------------------------------------------------------
+
+  Function: run_tests (line 112)
+  Issues:
+    - High cyclomatic complexity (12)
+    - High cognitive complexity (16)
+    - Long function (238 lines)
+
+  Function: _run (line 119)
+  Issues:
+    - High cyclomatic complexity (17)
+    - High cognitive complexity (20)
+
+  Function: _pip_audit_guarded (line 163)
+  Issues:
+    - High cyclomatic complexity (12)
+    - High cognitive complexity (17)
+    - Long function (51 lines)
+
+  Function: _upload_coverage_report (line 372)
+  Issues:
+    - High cyclomatic complexity (13)
+    - Long function (60 lines)
+    - Too many return statements (6)
+
+  Function: _resolve_git_branch (line 450)
+  Issues:
+    - Too many return statements (4)
+
+src/check_zpools/alert_state.py
+--------------------------------------------------------------------------------
+
+  Function: should_alert (line 105)
+  Issues:
+    - Long function (68 lines)
+
+  Function: load_state (line 259)
+  Issues:
+    - Long function (66 lines)
+
+src/check_zpools/alerting.py
+--------------------------------------------------------------------------------
+
+  Function: __init__ (line 76)
+  Issues:
+    - Too many parameters (7)
+
+  Function: send_alert (line 95)
+  Issues:
+    - Long function (60 lines)
+
+  Function: send_recovery (line 156)
+  Issues:
+    - Long function (65 lines)
+    - Too many return statements (4)
+
+  Function: _format_recommended_actions_section (line 384)
+  Issues:
+    - Long function (51 lines)
+
+  Function: _format_recovery_body (line 735)
+  Issues:
+    - Long function (53 lines)
+
+src/check_zpools/behaviors.py
+--------------------------------------------------------------------------------
+
+  Function: check_pools_once (line 163)
+  Issues:
+    - Long function (79 lines)
+
+  Function: run_daemon (line 244)
+  Issues:
+    - Long function (108 lines)
+
+  Function: _build_monitor_config (line 354)
+  Issues:
+    - Long function (59 lines)
+
+src/check_zpools/cli.py
+--------------------------------------------------------------------------------
+
+  Function: cli_send_email (line 661)
+  Issues:
+    - Long function (103 lines)
+    - Too many parameters (6)
+
+  Function: cli_send_notification (line 784)
+  Issues:
+    - Long function (72 lines)
+
+  Function: cli_install_service (line 877)
+  Issues:
+    - Long function (58 lines)
+
+src/check_zpools/config.py
+--------------------------------------------------------------------------------
+
+  Function: get_config (line 67)
+  Issues:
+    - Long function (56 lines)
+
+src/check_zpools/config_deploy.py
+--------------------------------------------------------------------------------
+
+  Function: deploy_configuration (line 31)
+  Issues:
+    - Long function (77 lines)
+
+src/check_zpools/config_show.py
+--------------------------------------------------------------------------------
+
+  Function: display_config (line 218)
+  Issues:
+    - Long function (56 lines)
+
+src/check_zpools/daemon.py
+--------------------------------------------------------------------------------
+
+  Function: __init__ (line 71)
+  Issues:
+    - Too many parameters (6)
+
+  Function: start (line 102)
+  Issues:
+    - Long function (58 lines)
+
+  Function: _handle_check_result (line 353)
+  Issues:
+    - Long function (55 lines)
+
+  Function: _detect_recoveries (line 556)
+  Issues:
+    - Long function (52 lines)
+
+src/check_zpools/formatters.py
+--------------------------------------------------------------------------------
+
+  Function: _format_last_scrub (line 226)
+  Issues:
+    - High cognitive complexity (17)
+    - Long function (52 lines)
+    - Deep nesting (5 levels)
+
+src/check_zpools/mail.py
+--------------------------------------------------------------------------------
+
+  Function: __post_init__ (line 88)
+  Issues:
+    - High cognitive complexity (17)
+
+  Function: send_email (line 169)
+  Issues:
+    - Long function (119 lines)
+    - Too many parameters (7)
+
+  Function: send_notification (line 290)
+  Issues:
+    - Long function (62 lines)
+
+  Function: load_email_config_from_dict (line 436)
+  Issues:
+    - Long function (52 lines)
+
+src/check_zpools/monitor.py
+--------------------------------------------------------------------------------
+
+  Function: check_pool (line 127)
+  Issues:
+    - Long function (60 lines)
+
+  Function: check_all_pools (line 188)
+  Issues:
+    - Long function (60 lines)
+
+  Function: _check_errors (line 327)
+  Issues:
+    - Long function (64 lines)
+
+  Function: _check_scrub (line 392)
+  Issues:
+    - Long function (56 lines)
+    - Too many return statements (4)
+
+src/check_zpools/service_install.py
+--------------------------------------------------------------------------------
+
+  Function: _detect_uvx_from_process_tree (line 131)
+  Issues:
+    - Long function (65 lines)
+
+  Function: _find_executable (line 198)
+  Issues:
+    - Too many return statements (4)
+
+  Function: _generate_service_file_content (line 266)
+  Issues:
+    - Long function (82 lines)
+
+  Function: install_service (line 401)
+  Issues:
+    - Long function (103 lines)
+
+  Function: uninstall_service (line 506)
+  Issues:
+    - Long function (76 lines)
+
+src/check_zpools/zfs_client.py
+--------------------------------------------------------------------------------
+
+  Function: get_pool_list (line 157)
+  Issues:
+    - Long function (52 lines)
+
+  Function: _execute_command (line 302)
+  Issues:
+    - Long function (76 lines)
+
+src/check_zpools/zfs_parser.py
+--------------------------------------------------------------------------------
+
+  Function: parse_pool_list (line 86)
+  Issues:
+    - Long function (55 lines)
+
+  Function: merge_pool_data (line 191)
+  Issues:
+    - Long function (63 lines)
+
+  Function: _parse_size_to_bytes (line 361)
+  Issues:
+    - Long function (71 lines)
+
+  Function: _parse_scrub_time (line 555)
+  Issues:
+    - Too many return statements (4)
+
+tests/test_behaviors.py
+--------------------------------------------------------------------------------
+
+  Function: test_check_pools_once_success (line 247)
+  Issues:
+    - Long function (56 lines)
+
+tests/test_cli.py
+--------------------------------------------------------------------------------
+
+  Function: test_when_config_is_invoked_with_mocked_data_it_displays_sections (line 295)
+  Issues:
+    - Long function (57 lines)
+    - Too many return statements (5)
+
+  Function: test_when_config_is_invoked_with_section_showing_complex_values (line 446)
+  Issues:
+    - Long function (53 lines)
+
+  Function: test_when_config_shows_all_sections_with_complex_values (line 502)
+  Issues:
+    - Long function (52 lines)
+
+tests/test_daemon.py
+--------------------------------------------------------------------------------
+
+  Function: test_daemon_remembers_all_provided_components (line 231)
+  Issues:
+    - Too many parameters (6)
+
+  Function: test_daemon_applies_configured_check_interval (line 254)
+  Issues:
+    - Too many parameters (6)
+
+tests/test_scripts.py
+--------------------------------------------------------------------------------
+
+  Function: __call__ (line 52)
+  Issues:
+    - Too many parameters (7)
+
+  Function: _run (line 79)
+  Issues:
+    - Too many parameters (6)
+
+tests/test_zfs_parser.py
+--------------------------------------------------------------------------------
+
+  Function: test_merge_combines_capacity_and_errors (line 190)
+  Issues:
+    - Long function (55 lines)

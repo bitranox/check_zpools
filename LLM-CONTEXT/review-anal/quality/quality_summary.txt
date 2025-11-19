@@ -1,0 +1,86 @@
+================================================================================
+QUALITY ANALYSIS SUMMARY
+================================================================================
+
+Files Analyzed: 57
+Total Functions: 885
+Total Classes: 144
+Total Lines of Code: 14939
+
+COMPLEXITY METRICS:
+--------------------------------------------------------------------------------
+Average Cyclomatic Complexity: 1.86
+Maximum Cyclomatic Complexity: 17
+Functions with Complexity > 10: 7
+Functions with Complexity > 15: 1
+
+DUPLICATION:
+--------------------------------------------------------------------------------
+Duplicate Code Blocks Found: 131
+Estimated Duplicate Lines: 1350
+
+REFACTORING:
+--------------------------------------------------------------------------------
+Functions Needing Refactoring: 62
+
+Issue Breakdown:
+  Long function: 46
+  Too many parameters: 9
+  Too many return statements: 9
+  High cyclomatic complexity: 7
+  High cognitive complexity: 6
+  Deep nesting: 1
+
+
+TOP FILES NEEDING ATTENTION:
+--------------------------------------------------------------------------------
+
+  scripts/test.py
+    Attention Score: 52
+    Max Complexity: 17
+    Refactoring Opportunities: 5
+
+  scripts/_utils.py
+    Attention Score: 43
+    Max Complexity: 14
+    Refactoring Opportunities: 4
+
+  src/check_zpools/service_install.py
+    Attention Score: 37
+    Max Complexity: 9
+    Refactoring Opportunities: 5
+
+  src/check_zpools/alerting.py
+    Attention Score: 36
+    Max Complexity: 8
+    Refactoring Opportunities: 5
+
+  src/check_zpools/mail.py
+    Attention Score: 34
+    Max Complexity: 9
+    Refactoring Opportunities: 4
+
+  src/check_zpools/daemon.py
+    Attention Score: 30
+    Max Complexity: 7
+    Refactoring Opportunities: 4
+
+  src/check_zpools/monitor.py
+    Attention Score: 30
+    Max Complexity: 7
+    Refactoring Opportunities: 4
+
+  src/check_zpools/zfs_parser.py
+    Attention Score: 29
+    Max Complexity: 7
+    Refactoring Opportunities: 4
+
+  src/check_zpools/behaviors.py
+    Attention Score: 28
+    Max Complexity: 8
+    Refactoring Opportunities: 3
+
+  src/check_zpools/cli.py
+    Attention Score: 27
+    Max Complexity: 7
+    Refactoring Opportunities: 3

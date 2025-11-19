@@ -1,0 +1,12 @@
+=== SQL Injection Vulnerability Scan ===
+Generated: Wed Nov 19 20:23:16 CET 2025
+
+--- Potential string formatting in SQL queries ---
+No matches found
+
+--- SQL queries with f-strings ---
+No matches found
+
+--- SQL queries with .format() ---
+No matches found
+

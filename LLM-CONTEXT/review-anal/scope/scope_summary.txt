@@ -1,0 +1,68 @@
+# Codebase Review Scope Analysis
+Generated: 2025-11-19 19:15:37 UTC
+Repository: check_zpools
+Scope Type: FULL CODEBASE REVIEW
+
+## Overview
+Total Files to Review: 78
+
+## File Type Breakdown
+- Python files: 57 (73.1%)
+- Markdown files: 11 (14.1%)
+- YAML files: 5 (6.4%)
+- TOML files: 3 (3.8%)
+- Shell scripts: 1 (1.3%)
+- Makefiles: 1 (1.3%)
+
+## Directory Breakdown
+- Source Code (./src/): 21 files (26.9%)
+- Build Scripts (./scripts/): 21 files (26.9%)
+- Tests (./tests/): 18 files (23.1%)
+- Root/Config: 13 files (16.7%)
+- CI/CD (./.github/): 4 files (5.1%)
+- Documentation (./docs/): 1 file (1.3%)
+
+## Key Areas for Review
+
+### 1. Source Code (21 files)
+Primary application code under src/check_zpools/
+- Core functionality
+- Business logic
+- CLI implementation
+- Configuration management
+
+### 2. Build Scripts (21 files)
+Automation and build tooling under scripts/
+- Build automation
+- Version management
+- Testing infrastructure
+- Release tooling
+
+### 3. Tests (18 files)
+Test suite under tests/
+- Unit tests
+- Integration tests
+- Test fixtures and configuration
+
+### 4. Configuration & Documentation (19 files)
+Project metadata, CI/CD, and docs
+- pyproject.toml and related configs
+- GitHub Actions workflows
+- Documentation files
+- Development guides
+
+## Files List Location
+Complete file list saved to: LLM-CONTEXT/review-anal/files_to_review.txt
+
+## Review Strategy
+Given the full codebase scope (78 files), recommended approach:
+1. Start with core source code quality
+2. Review test coverage and quality
+3. Examine build/automation scripts
+4. Validate configuration files
+5. Check documentation completeness
+
+## Git Repository Status
+Repository: Yes (Git-tracked)
+Current Branch: master
+Uncommitted Changes: Yes (multiple modified/deleted files in LLM-CONTEXT/)

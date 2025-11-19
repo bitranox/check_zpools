@@ -1,0 +1,42 @@
+{
+  "execution_date": "2025-11-19",
+  "project": {
+    "name": "check_zpools",
+    "version": "2.1.8",
+    "type": "Python",
+    "dependency_manager": "pip/pyproject.toml"
+  },
+  "direct_dependencies": {
+    "runtime": 7,
+    "dev": 11,
+    "outdated": 0
+  },
+  "transitive_dependencies": {
+    "total_outdated": 23,
+    "successfully_updated": 18,
+    "downgraded_for_compatibility": 5,
+    "remaining_outdated": 5
+  },
+  "conflicts": {
+    "detected": 3,
+    "resolved": 3,
+    "resolution_method": "downgrade_to_compatible_versions"
+  },
+  "test_results": {
+    "status": "PASSED",
+    "total_tests": 516,
+    "passed": 505,
+    "skipped": 11,
+    "failed": 0,
+    "coverage_percent": 76.72,
+    "coverage_required": 60.0,
+    "duration_seconds": 7.31
+  },
+  "security": {
+    "vulnerabilities_found": 0,
+    "pip_audit_status": "PASSED",
+    "bandit_status": "PASSED"
+  },
+  "breaking_changes": [],
+  "logs_directory": "/media/srv-main-softdev/projects/tools/check_zpools/LLM-CONTEXT/review-anal/deps/"
+}

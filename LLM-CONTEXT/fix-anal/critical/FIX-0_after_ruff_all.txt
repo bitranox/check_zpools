@@ -1,0 +1,33 @@
+E402 Module level import not at top of file
+  --> LLM-CONTEXT/review-anal/cache/profile_caching.py:23:1
+   |
+21 | sys.path.insert(0, str(project_root / "src"))
+22 |
+23 | import pytest
+   | ^^^^^^^^^^^^^
+   |
+
+F841 Local variable `config1` is assigned to but never used
+   --> LLM-CONTEXT/review-anal/cache/profile_caching.py:206:5
+    |
+204 |     # Test 3: get_config (already cached)
+205 |     start = time.perf_counter()
+206 |     config1 = get_config()
+    |     ^^^^^^^
+207 |     first_call_time = time.perf_counter() - start
+    |
+help: Remove assignment to unused variable `config1`
+
+F841 Local variable `config` is assigned to but never used
+   --> LLM-CONTEXT/review-anal/cache/profile_caching.py:211:9
+    |
+209 |     start = time.perf_counter()
+210 |     for _ in range(100):
+211 |         config = get_config()
+    |         ^^^^^^
+212 |     cached_time = time.perf_counter() - start
+    |
+help: Remove assignment to unused variable `config`
+
+Found 3 errors.
+No fixes available (2 hidden fixes can be enabled with the `--unsafe-fixes` option).

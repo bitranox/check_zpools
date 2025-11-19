@@ -1,0 +1,36 @@
+DEPENDENCY CONFLICTS DETECTED
+=============================
+
+After updating transitive dependencies, the following conflicts were identified:
+
+1. codecov-cli 11.2.5 conflicts:
+   - Requires: click<8.3.0,>=8.0.0
+   - Installed: click 8.3.1
+   - Impact: codecov-cli may not work correctly with click 8.3.1
+
+   - Requires: responses==0.21.*
+   - Installed: responses 0.25.8
+   - Impact: codecov-cli expects specific responses version
+
+   - Requires: test-results-parser==0.6.0
+   - Installed: test-results-parser 0.6.1
+   - Impact: Minor version mismatch
+
+2. pip-audit 2.9.0 conflicts:
+   - Requires: cyclonedx-python-lib<10,>=5
+   - Installed: cyclonedx-python-lib 11.5.0
+   - Impact: Major version mismatch - pip-audit may fail
+
+3. radon 6.0.1 conflicts:
+   - Requires: mando<0.8,>=0.6
+   - Installed: mando 0.8.2
+   - Impact: Minor version incompatibility
+
+RESOLUTION STRATEGY
+===================
+
+Option 1: Downgrade conflicting transitive dependencies to maintain dev tool compatibility
+Option 2: Upgrade dev tools (codecov-cli, pip-audit, radon) if newer versions exist
+Option 3: Pin specific versions in pyproject.toml to prevent conflicts
+
+Let's check for updates to the dev tools first...

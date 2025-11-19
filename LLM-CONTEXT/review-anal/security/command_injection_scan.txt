@@ -1,0 +1,15 @@
+=== Command Injection Vulnerability Scan ===
+Generated: Wed Nov 19 20:23:17 CET 2025
+
+--- subprocess calls with shell=True ---
+No matches found
+
+--- os.system() calls ---
+No matches found
+
+--- eval() calls ---
+No matches found
+
+--- exec() calls ---
+No matches found
+
