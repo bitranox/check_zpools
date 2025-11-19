@@ -203,13 +203,22 @@ class TestEmailSubjectFormatting:
     """When formatting email subjects, content is descriptive and clear."""
 
     def test_format_subject_includes_severity_and_pool(self, alerter: EmailAlerter) -> None:
-        """Subject should include severity, pool name, and message."""
-        subject = alerter._format_subject(Severity.WARNING, "rpool", "High capacity")
+        """Subject should include hostname, severity, pool name, and message."""
+        import socket
 
-        assert "[ZFS Test]" in subject
+        subject = alerter._format_subject(Severity.WARNING, "rpool", "High capacity")
+        hostname = socket.gethostname()
+
+        # Verify exact format: [Prefix] [hostname] SEVERITY - pool: message
+        assert subject.startswith(f"[ZFS Test] [{hostname}]"), f"Subject should start with '[ZFS Test] [{hostname}]', got: {subject}"
+
         assert "WARNING" in subject
         assert "rpool" in subject
         assert "High capacity" in subject
+
+        # Verify bracket structure
+        assert subject.count("[") >= 2, "Subject should have at least 2 opening brackets"
+        assert subject.count("]") >= 2, "Subject should have at least 2 closing brackets"
 
     def test_format_subject_for_critical_issue(self, alerter: EmailAlerter) -> None:
         """Critical issues should be marked in subject."""
@@ -342,13 +351,22 @@ class TestEmailSubjectFormatting:
         assert result is False
 
     def test_format_recovery_subject(self, alerter: EmailAlerter) -> None:
-        """Recovery subject should indicate issue resolved."""
-        subject = alerter._format_recovery_subject("rpool", "capacity")
+        """Recovery subject should include hostname and indicate issue resolved."""
+        import socket
 
-        assert "[ZFS Test]" in subject
+        subject = alerter._format_recovery_subject("rpool", "capacity")
+        hostname = socket.gethostname()
+
+        # Verify exact format: [Prefix] [hostname] RECOVERY - pool: message
+        assert subject.startswith(f"[ZFS Test] [{hostname}]"), f"Subject should start with '[ZFS Test] [{hostname}]', got: {subject}"
+
         assert "RECOVERY" in subject
         assert "rpool" in subject
         assert "capacity" in subject
+
+        # Verify bracket structure
+        assert subject.count("[") >= 2, "Subject should have at least 2 opening brackets"
+        assert subject.count("]") >= 2, "Subject should have at least 2 closing brackets"
 
     def test_format_recovery_body(self, alerter: EmailAlerter) -> None:
         """Recovery body should indicate issue resolved."""

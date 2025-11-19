@@ -138,18 +138,97 @@ def _display_value_with_source(
         click.echo(f"{indent}{key} = {value}{source_str}")
 
 
+def _display_json_section(config: Any, section: str | None) -> None:
+    """Display configuration section(s) in JSON format.
+
+    Parameters
+    ----------
+    config:
+        Configuration object with get() and to_json() methods
+    section:
+        Optional section name to display. If None, displays all configuration.
+
+    Raises
+    ------
+    SystemExit:
+        Exit code 1 if requested section doesn't exist.
+    """
+    if section:
+        section_data = config.get(section, default={})
+        if section_data:
+            click.echo(json.dumps({section: section_data}, indent=2))
+        else:
+            click.echo(f"Section '{section}' not found or empty", err=True)
+            raise SystemExit(1)
+    else:
+        click.echo(config.to_json(indent=2))
+
+
+def _display_human_section_data(section_name: str, section_data: Any, config: Any) -> None:
+    """Display a single section's data in human-readable format.
+
+    Parameters
+    ----------
+    section_name:
+        Name of the section being displayed
+    section_data:
+        Section data (dict or scalar value)
+    config:
+        Configuration object for source lookup
+    """
+    click.echo(f"\n[{section_name}]")
+    if isinstance(section_data, dict):
+        dict_data = cast(dict[str, Any], section_data)
+        for key, value in dict_data.items():
+            dotted_key = f"{section_name}.{key}"
+            _display_value_with_source(key, value, dotted_key, config, indent="  ")
+    else:
+        click.echo(f"  {section_data}")
+
+
+def _display_human_section(config: Any, section: str | None) -> None:
+    """Display configuration section(s) in human-readable format.
+
+    Parameters
+    ----------
+    config:
+        Configuration object with get() and as_dict() methods
+    section:
+        Optional section name to display. If None, displays all configuration.
+
+    Raises
+    ------
+    SystemExit:
+        Exit code 1 if requested section doesn't exist.
+    """
+    if section:
+        section_data = config.get(section, default={})
+        if section_data:
+            _display_human_section_data(section, section_data, config)
+        else:
+            click.echo(f"Section '{section}' not found or empty", err=True)
+            raise SystemExit(1)
+    else:
+        data: dict[str, Any] = config.as_dict()
+        for section_name in data:
+            section_data: Any = data[section_name]
+            _display_human_section_data(section_name, section_data, config)
+
+
 def display_config(*, format: str = "human", section: str | None = None) -> None:
     """Display the current merged configuration from all sources.
 
     Why
-        Users need visibility into the effective configuration loaded from
-        defaults, app configs, host configs, user configs, .env files, and
-        environment variables.
+    ---
+    Users need visibility into the effective configuration loaded from
+    defaults, app configs, host configs, user configs, .env files, and
+    environment variables.
 
     What
-        Loads configuration via get_config() and outputs it in the requested
-        format. Supports filtering to a specific section and both human-readable
-        and JSON output formats.
+    ----
+    Loads configuration via get_config() and outputs it in the requested
+    format. Supports filtering to a specific section and both human-readable
+    and JSON output formats.
 
     Parameters
     ----------
@@ -161,8 +240,9 @@ def display_config(*, format: str = "human", section: str | None = None) -> None
         all configuration.
 
     Side Effects
-        Writes formatted configuration to stdout via click.echo().
-        Raises SystemExit(1) if requested section doesn't exist.
+    ------------
+    Writes formatted configuration to stdout via click.echo().
+    Raises SystemExit(1) if requested section doesn't exist.
 
     Notes
     -----
@@ -185,51 +265,12 @@ def display_config(*, format: str = "human", section: str | None = None) -> None
       }
     }
     """
-
     config = get_config()
 
-    # Output in requested format
     if format.lower() == "json":
-        if section:
-            # Show specific section as JSON
-            section_data = config.get(section, default={})
-            if section_data:
-                click.echo(json.dumps({section: section_data}, indent=2))
-            else:
-                click.echo(f"Section '{section}' not found or empty", err=True)
-                raise SystemExit(1)
-        else:
-            # Use lib_layered_config's built-in to_json method
-            click.echo(config.to_json(indent=2))
+        _display_json_section(config, section)
     else:
-        # Human-readable format using lib_layered_config's as_dict
-        if section:
-            # Show specific section
-            section_data = config.get(section, default={})
-            if section_data:
-                click.echo(f"\n[{section}]")
-                if isinstance(section_data, dict):
-                    for key, value in section_data.items():
-                        dotted_key = f"{section}.{key}"
-                        _display_value_with_source(key, value, dotted_key, config, indent="  ")
-                else:
-                    click.echo(f"  {section_data}")
-            else:
-                click.echo(f"Section '{section}' not found or empty", err=True)
-                raise SystemExit(1)
-        else:
-            # Show all configuration
-            data: dict[str, Any] = config.as_dict()
-            for section_name in data:
-                section_data: Any = data[section_name]
-                click.echo(f"\n[{section_name}]")
-                if isinstance(section_data, dict):
-                    dict_data = cast(dict[str, Any], section_data)
-                    for key, value in dict_data.items():
-                        dotted_key = f"{section_name}.{key}"
-                        _display_value_with_source(key, value, dotted_key, config, indent="  ")
-                else:
-                    click.echo(f"  {section_data}")
+        _display_human_section(config, section)
 
 
 __all__ = [

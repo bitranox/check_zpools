@@ -351,12 +351,95 @@ def send_notification(
     )
 
 
+def _get_string_value(section: Mapping[str, Any], key: str, default: str) -> str:
+    """Extract string value from config section with type validation.
+
+    Parameters
+    ----------
+    section:
+        Configuration section to extract from
+    key:
+        Key to look up
+    default:
+        Default value if key missing or wrong type
+
+    Returns
+    -------
+    str:
+        String value or default
+    """
+    value = section.get(key, default)
+    return value if isinstance(value, str) else default
+
+
+def _get_optional_string(section: Mapping[str, Any], key: str) -> str | None:
+    """Extract optional string value from config section.
+
+    Parameters
+    ----------
+    section:
+        Configuration section to extract from
+    key:
+        Key to look up
+
+    Returns
+    -------
+    str | None:
+        String value or None if missing/wrong type
+    """
+    value = section.get(key)
+    return value if isinstance(value, str) else None
+
+
+def _get_bool_value(section: Mapping[str, Any], key: str, default: bool) -> bool:
+    """Extract boolean value from config section with type validation.
+
+    Parameters
+    ----------
+    section:
+        Configuration section to extract from
+    key:
+        Key to look up
+    default:
+        Default value if key missing or wrong type
+
+    Returns
+    -------
+    bool:
+        Boolean value or default
+    """
+    value = section.get(key, default)
+    return value if isinstance(value, bool) else default
+
+
+def _get_float_value(section: Mapping[str, Any], key: str, default: float) -> float:
+    """Extract float value from config section with type validation.
+
+    Parameters
+    ----------
+    section:
+        Configuration section to extract from
+    key:
+        Key to look up
+    default:
+        Default value if key missing or wrong type
+
+    Returns
+    -------
+    float:
+        Float value or default
+    """
+    value = section.get(key, default)
+    return float(value) if isinstance(value, (int, float)) else default
+
+
 def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
     """Load EmailConfig from a configuration dictionary.
 
     Why
-        Bridges lib_layered_config's dictionary output with the typed
-        EmailConfig dataclass, handling optional values and type conversions.
+    ---
+    Bridges lib_layered_config's dictionary output with the typed
+    EmailConfig dataclass, handling optional values and type conversions.
 
     Parameters
     ----------
@@ -383,42 +466,24 @@ def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
     >>> email_config.use_starttls
     True
     """
+    # Extract email section
     email_section_raw = config_dict.get("email", {})
     email_section: Mapping[str, Any] = cast(Mapping[str, Any], email_section_raw if isinstance(email_section_raw, dict) else {})
 
+    # Extract smtp_hosts (list type)
     smtp_hosts_raw = email_section.get("smtp_hosts", [])
     smtp_hosts = cast(list[str], smtp_hosts_raw if isinstance(smtp_hosts_raw, list) else [])
 
-    from_address_raw = email_section.get("from_address", "noreply@localhost")
-    from_address: str = from_address_raw if isinstance(from_address_raw, str) else "noreply@localhost"
-
-    smtp_username_raw = email_section.get("smtp_username")
-    smtp_username: str | None = smtp_username_raw if isinstance(smtp_username_raw, str) else None
-
-    smtp_password_raw = email_section.get("smtp_password")
-    smtp_password: str | None = smtp_password_raw if isinstance(smtp_password_raw, str) else None
-
-    use_starttls_raw = email_section.get("use_starttls", True)
-    use_starttls: bool = use_starttls_raw if isinstance(use_starttls_raw, bool) else True
-
-    timeout_raw = email_section.get("timeout", 30.0)
-    timeout: float = float(timeout_raw) if isinstance(timeout_raw, (int, float)) else 30.0
-
-    raise_on_missing_raw = email_section.get("raise_on_missing_attachments", True)
-    raise_on_missing: bool = raise_on_missing_raw if isinstance(raise_on_missing_raw, bool) else True
-
-    raise_on_invalid_raw = email_section.get("raise_on_invalid_recipient", True)
-    raise_on_invalid: bool = raise_on_invalid_raw if isinstance(raise_on_invalid_raw, bool) else True
-
+    # Extract all other fields using helper functions
     return EmailConfig(
         smtp_hosts=smtp_hosts,
-        from_address=from_address,
-        smtp_username=smtp_username,
-        smtp_password=smtp_password,
-        use_starttls=use_starttls,
-        timeout=timeout,
-        raise_on_missing_attachments=raise_on_missing,
-        raise_on_invalid_recipient=raise_on_invalid,
+        from_address=_get_string_value(email_section, "from_address", "noreply@localhost"),
+        smtp_username=_get_optional_string(email_section, "smtp_username"),
+        smtp_password=_get_optional_string(email_section, "smtp_password"),
+        use_starttls=_get_bool_value(email_section, "use_starttls", True),
+        timeout=_get_float_value(email_section, "timeout", 30.0),
+        raise_on_missing_attachments=_get_bool_value(email_section, "raise_on_missing_attachments", True),
+        raise_on_invalid_recipient=_get_bool_value(email_section, "raise_on_invalid_recipient", True),
     )
 
 

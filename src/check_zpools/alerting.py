@@ -23,12 +23,17 @@ from __future__ import annotations
 
 import logging
 import socket
+import subprocess  # nosec B404 - subprocess used only for exception handling (TimeoutExpired)
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import __init__conf__
 from .mail import EmailConfig, send_email
 from .models import PoolIssue, PoolStatus, Severity
+from .zfs_client import ZFSCommandError
+
+if TYPE_CHECKING:
+    from .zfs_client import ZFSClient
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +80,7 @@ class EmailAlerter:
         capacity_warning_percent: int = 80,
         capacity_critical_percent: int = 90,
         scrub_max_age_days: int = 30,
+        zfs_client: ZFSClient | None = None,
     ):
         self.email_config = email_config
         self.subject_prefix = alert_config.get("subject_prefix", "[ZFS Alert]")
@@ -84,6 +90,7 @@ class EmailAlerter:
         self.capacity_warning_percent = capacity_warning_percent
         self.capacity_critical_percent = capacity_critical_percent
         self.scrub_max_age_days = scrub_max_age_days
+        self.zfs_client = zfs_client
 
     def send_alert(self, issue: PoolIssue, pool: PoolStatus) -> bool:
         """Send email alert for a specific pool issue.
@@ -229,7 +236,8 @@ class EmailAlerter:
         str
             Formatted subject line.
         """
-        return f"{self.subject_prefix} {severity.value.upper()} - {pool_name}: {message}"
+        hostname = socket.gethostname()
+        return f"{self.subject_prefix} [{hostname}] {severity.value.upper()} - {pool_name}: {message}"
 
     def _format_recovery_subject(self, pool_name: str, category: str) -> str:
         """Format recovery email subject line.
@@ -246,7 +254,8 @@ class EmailAlerter:
         str
             Formatted subject line.
         """
-        return f"{self.subject_prefix} RECOVERY - {pool_name}: {category} issue resolved"
+        hostname = socket.gethostname()
+        return f"{self.subject_prefix} [{hostname}] RECOVERY - {pool_name}: {category} issue resolved"
 
     def _format_body(self, issue: PoolIssue, pool: PoolStatus) -> str:
         """Format plain-text email body with issue details and pool stats.
@@ -285,6 +294,9 @@ class EmailAlerter:
             ]
         )
         lines.append(self._format_complete_pool_status(pool))
+
+        # Add zpool status output if ZFS client is available
+        self._append_zpool_status(lines, pool.name, "email")
 
         return "\n".join(lines)
 
@@ -674,6 +686,52 @@ class EmailAlerter:
             return None
         return (datetime.now() - pool.last_scrub.replace(tzinfo=None)).days
 
+    def _append_zpool_status(
+        self,
+        lines: list[str],
+        pool_name: str,
+        email_type: str = "email",
+    ) -> None:
+        """Append zpool status output to email lines.
+
+        Why
+            Eliminates code duplication between alert and recovery email formatting.
+            Centralizes zpool status fetching and error handling in one place.
+
+        Parameters
+        ----------
+        lines:
+            List to append status output to (modified in place).
+        pool_name:
+            Name of the pool to get status for.
+        email_type:
+            Type of email for logging ("email" or "recovery email").
+        """
+        if self.zfs_client is None:
+            return
+
+        try:
+            zpool_status_output = self.zfs_client.get_pool_status_text(pool_name=pool_name)
+            lines.extend(
+                [
+                    "",
+                    "=" * 70,
+                    "ZPOOL STATUS OUTPUT",
+                    "=" * 70,
+                    zpool_status_output.rstrip(),
+                ]
+            )
+        except (ZFSCommandError, subprocess.TimeoutExpired, RuntimeError) as exc:
+            logger.warning(
+                f"Failed to fetch zpool status output for {email_type}",
+                extra={
+                    "pool": pool_name,
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                },
+            )
+            # Continue without zpool status - don't fail the entire email
+
     def _format_recovery_body(self, pool_name: str, category: str, pool: PoolStatus | None = None) -> str:
         """Format recovery email body.
 
@@ -722,5 +780,8 @@ class EmailAlerter:
                 ]
             )
             lines.append(self._format_complete_pool_status(pool))
+
+            # Add zpool status output if ZFS client is available
+            self._append_zpool_status(lines, pool.name, "recovery email")
 
         return "\n".join(lines)

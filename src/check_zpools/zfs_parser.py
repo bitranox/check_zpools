@@ -480,6 +480,78 @@ class ZFSParser:
 
         return errors
 
+    def _try_parse_unix_timestamp(self, scan_info: dict[str, Any], field_names: list[str]) -> datetime | None:
+        """Try parsing Unix timestamp from specified fields.
+
+        Parameters
+        ----------
+        scan_info:
+            Scan/scrub information from zpool status
+        field_names:
+            List of field names to try
+
+        Returns
+        -------
+        datetime | None:
+            Parsed timestamp in UTC, or None if parsing fails
+        """
+        for field in field_names:
+            time_value = scan_info.get(field)
+            if time_value is not None:
+                try:
+                    # Handle both int and string timestamps
+                    timestamp = int(time_value) if isinstance(time_value, (int, str)) else time_value
+                    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+                except (ValueError, TypeError, OSError) as exc:
+                    logger.debug(f"Failed to parse timestamp field '{field}' with value {time_value}: {exc}")
+                    continue
+        return None
+
+    def _try_parse_datetime_string(self, scan_info: dict[str, Any], field_names: list[str]) -> datetime | None:
+        """Try parsing human-readable datetime strings from specified fields.
+
+        Parameters
+        ----------
+        scan_info:
+            Scan/scrub information from zpool status
+        field_names:
+            List of field names to try
+
+        Returns
+        -------
+        datetime | None:
+            Parsed datetime in UTC, or None if parsing fails
+        """
+        for field in field_names:
+            time_str = scan_info.get(field)
+            if time_str and isinstance(time_str, str):
+                try:
+                    from dateutil import parser as dateutil_parser  # noqa: E402
+
+                    parsed_dt = dateutil_parser.parse(time_str)
+                    return self._normalize_timezone(parsed_dt)
+                except (ValueError, ImportError) as exc:
+                    logger.debug(f"Failed to parse datetime string '{field}' with value {time_str}: {exc}")
+                    continue
+        return None
+
+    def _normalize_timezone(self, dt: datetime) -> datetime:
+        """Normalize datetime to UTC timezone.
+
+        Parameters
+        ----------
+        dt:
+            Datetime to normalize
+
+        Returns
+        -------
+        datetime:
+            Datetime in UTC timezone
+        """
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc)
+
     def _parse_scrub_time(self, scan_info: dict[str, Any]) -> datetime | None:
         """Parse scrub completion time from scan info.
 
@@ -492,52 +564,30 @@ class ZFSParser:
         -------
         datetime | None:
             Timestamp of last completed scrub, or None if never scrubbed
+
+        Notes
+        -----
+        Different ZFS versions use different field names and formats.
+        This function tries multiple strategies to extract the timestamp.
         """
         if not scan_info:
             return None
 
-        # Try multiple possible field names and formats
-        # Different ZFS versions use different field names and formats
-
-        # 1. Try Unix timestamp fields (as integers or strings)
+        # Strategy 1: Try Unix timestamp fields (as integers or strings)
         timestamp_fields = ["pass_start", "end_time", "scrub_end", "func_e", "finish_time"]
-        for field in timestamp_fields:
-            time_value = scan_info.get(field)
-            if time_value is not None:
-                try:
-                    # Handle both int and string timestamps
-                    timestamp = int(time_value) if isinstance(time_value, (int, str)) else time_value
-                    return datetime.fromtimestamp(timestamp, tz=timezone.utc)
-                except (ValueError, TypeError, OSError) as exc:
-                    logger.debug(f"Failed to parse timestamp field '{field}' with value {time_value}: {exc}")
-                    continue
+        result = self._try_parse_unix_timestamp(scan_info, timestamp_fields)
+        if result:
+            return result
 
-        # 2. Try parsing human-readable datetime strings
+        # Strategy 2: Try parsing human-readable datetime strings
         # Format example: "Sun Nov 16 08:00:21 CET 2025"
         datetime_string_fields = ["end_time", "start_time"]
-        for field in datetime_string_fields:
-            time_str = scan_info.get(field)
-            if time_str and isinstance(time_str, str):
-                try:
-                    # Try parsing with various formats
-                    # Format: "Sun Nov 16 08:00:21 CET 2025"
-                    from dateutil import parser as dateutil_parser  # noqa: E402
-
-                    parsed_dt = dateutil_parser.parse(time_str)
-                    # Convert to UTC if needed
-                    if parsed_dt.tzinfo is None:
-                        parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
-                    else:
-                        parsed_dt = parsed_dt.astimezone(timezone.utc)
-                    return parsed_dt
-                except (ValueError, ImportError) as exc:
-                    logger.debug(f"Failed to parse datetime string '{field}' with value {time_str}: {exc}")
-                    continue
+        result = self._try_parse_datetime_string(scan_info, datetime_string_fields)
+        if result:
+            return result
 
         # If we reach here, log what fields we actually found for debugging
-        if scan_info:
-            logger.debug(f"No valid scrub timestamp found in scan_info. Available fields: {list(scan_info.keys())}")
-
+        logger.debug(f"No valid scrub timestamp found in scan_info. Available fields: {list(scan_info.keys())}")
         return None
 
     def _parse_health_state(self, health_value: str, pool_name: str) -> PoolHealth:

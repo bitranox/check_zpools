@@ -1,0 +1,27 @@
+=== MODIFIED FILES (Production Code) ===
+src/check_zpools/zfs_client.py
+src/check_zpools/alerting.py
+src/check_zpools/behaviors.py
+
+=== MODIFIED FILES (Test Code) ===
+tests/test_alerting.py
+
+=== MODIFIED FILES (Configuration) ===
+pyproject.toml
+
+=== UNTRACKED FILES (Review Artifacts - Not for Review) ===
+LLM-CONTEXT/IMPLEMENTATION_SUMMARY.md
+LLM-CONTEXT/analyze_changes.py
+LLM-CONTEXT/changed_files_list.txt
+LLM-CONTEXT/check_duplication.py
+LLM-CONTEXT/complexity_zfs_client.txt
+LLM-CONTEXT/duplication_analysis.txt
+LLM-CONTEXT/findings_alerting.md
+LLM-CONTEXT/findings_behaviors.md
+LLM-CONTEXT/findings_test_alerting.md
+LLM-CONTEXT/findings_zfs_client.md
+LLM-CONTEXT/function_analysis.txt
+LLM-CONTEXT/functions_zfs_client.txt
+LLM-CONTEXT/line_counts.txt
+LLM-CONTEXT/review_plan.md
+LLM-CONTEXT/review_report_changes.md

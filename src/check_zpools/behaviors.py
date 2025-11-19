@@ -318,6 +318,7 @@ def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -
         capacity_warning_percent=monitor_config.capacity_warning_percent,
         capacity_critical_percent=monitor_config.capacity_critical_percent,
         scrub_max_age_days=monitor_config.scrub_max_age_days,
+        zfs_client=client,
     )
 
     # Initialize state management

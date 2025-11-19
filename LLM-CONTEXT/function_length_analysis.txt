@@ -1,0 +1,24 @@
+=== HIGH-COMPLEXITY FUNCTIONS - LINE COUNT ANALYSIS ===
+
+File                                          Function                       Start   Lines   Complexity
+========================================================================================================================
+src/check_zpools/zfs_parser.py                _parse_scrub_time              483     60      C (12-15) ⚠️  TOO LONG!
+src/check_zpools/config_show.py               display_config                 141     94      C (12-15) ⚠️  TOO LONG!
+src/check_zpools/service_install.py           _detect_uvx_from_process_tree  69      81      C (12-15) ⚠️  TOO LONG!
+src/check_zpools/formatters.py                display_check_result_text      109     77      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/formatters.py                _format_last_scrub             186     54      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/monitor.py                   _check_errors                  327     65      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/monitor.py                   _check_scrub                   392     58      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/cli.py                       cli_send_email                 661     7       B (6-10)
+src/check_zpools/alerting.py                  _format_notes_section          628     44      B (6-10)
+src/check_zpools/zfs_parser.py                _extract_error_counts          433     50      B (6-10)
+src/check_zpools/alert_state.py               load_state                     259     67      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/config_show.py               _display_value_with_source     91      6       B (6-10)
+src/check_zpools/service_install.py           install_service                353     105     B (6-10) ⚠️  TOO LONG!
+src/check_zpools/service_install.py           uninstall_service              458     78      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/daemon.py                    start                          102     59      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/daemon.py                    _detect_recoveries             526     52      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/daemon.py                    _run_check_cycle               232     91      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/mail.py                      load_email_config_from_dict    354     71      B (6-10) ⚠️  TOO LONG!
+src/check_zpools/mail.py                      __post_init__                  88      45      B (6-10)
+src/check_zpools/mail.py                      send_email                     169     9       B (6-10)

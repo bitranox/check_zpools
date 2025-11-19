@@ -32,7 +32,7 @@ from typing import Any
 from . import __init__conf__
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
-from .models import CheckResult, PoolIssue, Severity
+from .models import CheckResult, PoolIssue, PoolStatus, Severity
 from .monitor import PoolMonitor
 from .zfs_client import ZFSClient
 from .zfs_parser import ZFSParser
@@ -229,6 +229,85 @@ class ZPoolDaemon:
             # Sleep with interruptible wait so shutdown is responsive
             self.shutdown_event.wait(timeout=self.check_interval)
 
+    def _fetch_and_parse_pools(self) -> dict[str, PoolStatus] | None:
+        """Fetch and parse ZFS pool data.
+
+        Returns
+        -------
+        dict[str, PoolStatus] | None:
+            Parsed pool data, or None if fetch/parse failed
+        """
+        # Fetch ZFS data
+        try:
+            list_data = self.zfs_client.get_pool_list()
+            status_data = self.zfs_client.get_pool_status()
+        except Exception as exc:
+            logger.error(
+                "Failed to fetch ZFS data",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            return None
+
+        # Parse into PoolStatus objects
+        try:
+            pools_from_list = self.parser.parse_pool_list(list_data)
+            pools_from_status = self.parser.parse_pool_status(status_data)
+            return self.parser.merge_pool_data(pools_from_list, pools_from_status)
+        except Exception as exc:
+            logger.error(
+                "Failed to parse ZFS data",
+                extra={"error": str(exc), "error_type": type(exc).__name__},
+                exc_info=True,
+            )
+            return None
+
+    def _filter_monitored_pools(self, pools: dict[str, PoolStatus]) -> dict[str, PoolStatus]:
+        """Filter pools to only those being monitored.
+
+        Parameters
+        ----------
+        pools:
+            All available pools
+
+        Returns
+        -------
+        dict[str, PoolStatus]:
+            Filtered pool dictionary
+        """
+        if not self.pools_to_monitor:
+            return pools
+
+        filtered = {name: status for name, status in pools.items() if name in self.pools_to_monitor}
+        logger.debug("Filtered to monitored pools", extra={"monitored": list(filtered.keys())})
+        return filtered
+
+    def _log_cycle_completion(self, check_start_time: datetime, pools: dict[str, PoolStatus], result: CheckResult) -> None:
+        """Log check cycle completion statistics.
+
+        Parameters
+        ----------
+        check_start_time:
+            When this check cycle started
+        pools:
+            Pools that were checked
+        result:
+            Check results
+        """
+        uptime = check_start_time - self.start_time
+        uptime_str = self._format_uptime(uptime.total_seconds())
+
+        logger.info(
+            "Check cycle completed",
+            extra={
+                "check_number": self.check_count,
+                "uptime": uptime_str,
+                "pools_checked": len(pools),
+                "issues_found": len(result.issues),
+                "severity": result.overall_severity.value,
+            },
+        )
+
     def _run_check_cycle(self) -> None:
         """Execute one complete pool check cycle.
 
@@ -246,78 +325,29 @@ class ZPoolDaemon:
         4. Send alerts for new/resendable issues
         5. Detect and notify recoveries
         """
-        # Increment check counter
         self.check_count += 1
         check_start_time = datetime.now(timezone.utc)
-
         logger.debug("Starting check cycle")
 
-        # Fetch ZFS data
-        try:
-            list_data = self.zfs_client.get_pool_list()
-            status_data = self.zfs_client.get_pool_status()
-        except Exception as exc:
-            logger.error(
-                "Failed to fetch ZFS data",
-                extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
-            )
+        # Fetch and parse pool data
+        pools = self._fetch_and_parse_pools()
+        if pools is None:
             return
 
-        # Parse into PoolStatus objects
-        try:
-            pools_from_list = self.parser.parse_pool_list(list_data)
-            pools_from_status = self.parser.parse_pool_status(status_data)
-            pools = self.parser.merge_pool_data(pools_from_list, pools_from_status)
-        except Exception as exc:
-            logger.error(
-                "Failed to parse ZFS data",
-                extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
-            )
-            return
-
-        # Filter to monitored pools if configured
-        if self.pools_to_monitor:
-            pools = {name: status for name, status in pools.items() if name in self.pools_to_monitor}
-            logger.debug(
-                "Filtered to monitored pools",
-                extra={"monitored": list(pools.keys())},
-            )
-
+        # Filter to monitored pools
+        pools = self._filter_monitored_pools(pools)
         if not pools:
             logger.warning("No pools found to monitor")
             return
 
-        # Check pools against thresholds
+        # Check pools and process results
         result = self.monitor.check_all_pools(pools)
-
-        # Calculate daemon uptime and cycle duration
-        uptime = check_start_time - self.start_time
-        uptime_str = self._format_uptime(uptime.total_seconds())
-
-        # Log overall check cycle statistics
-        logger.info(
-            "Check cycle completed",
-            extra={
-                "check_number": self.check_count,
-                "uptime": uptime_str,
-                "pools_checked": len(pools),
-                "issues_found": len(result.issues),
-                "severity": result.overall_severity.value,
-            },
-        )
-
-        # Log detailed information for each pool
+        self._log_cycle_completion(check_start_time, pools, result)
         self._log_pool_details(pools)
 
-        # Detect and notify recoveries BEFORE updating previous_issues
+        # Handle recoveries and alerts
         self._detect_recoveries(result)
-
-        # Process results and send alerts
         current_issues = self._handle_check_result(result, pools)
-
-        # Update previous issues for next cycle (after recovery detection)
         self.previous_issues = current_issues
 
     def _handle_check_result(self, result: CheckResult, pools: dict[str, Any]) -> dict[str, set[str]]:

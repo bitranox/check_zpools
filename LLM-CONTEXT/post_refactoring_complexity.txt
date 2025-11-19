@@ -1,0 +1,46 @@
+=== COMPLEXITY VERIFICATION AFTER REFACTORING ===
+
+1. service_install.py - _detect_uvx_from_process_tree (was C:15)
+    F 131:0 _detect_uvx_from_process_tree - B (9)
+    F 401:0 install_service - B (8)
+    F 506:0 uninstall_service - B (6)
+--
+    F 69:0 _is_uvx_process - A (4)
+    F 107:0 _extract_version_from_cmdline - A (4)
+    F 629:0 show_service_status - A (4)
+    F 247:0 _create_service_directories - A (3)
+--
+    F 87:0 _find_uvx_executable - A (2)
+    F 584:0 get_service_status - A (2)
+    F 350:0 _install_service_file - A (1)
+
+2. zfs_parser.py - _parse_scrub_time (was C:12)
+    M 483:4 ZFSParser._try_parse_unix_timestamp - A (5)
+    M 510:4 ZFSParser._try_parse_datetime_string - A (5)
+    C 55:0 ZFSParser - A (4)
+    M 361:4 ZFSParser._parse_size_to_bytes - A (4)
+    M 555:4 ZFSParser._parse_scrub_time - A (4)
+    M 336:4 ZFSParser._get_property_value - A (2)
+    M 538:4 ZFSParser._normalize_timezone - A (2)
+    M 593:4 ZFSParser._parse_health_state - A (2)
+    M 614:4 ZFSParser._extract_capacity_metrics - A (2)
+
+3. config_show.py - display_config (was C:11)
+    F 189:0 _display_human_section - A (4)
+    F 62:0 _format_source_info - A (3)
+    F 141:0 _display_json_section - A (3)
+    F 167:0 _display_human_section_data - A (3)
+    F 218:0 display_config - A (2)
+
+4. formatters.py - display_check_result_text (was B:10)
+    F 127:0 _format_pool_row - B (6)
+    F 27:0 format_check_result_json - A (3)
+    F 65:0 format_check_result_text - A (3)
+    F 169:0 _display_issues - A (3)
+    F 188:0 display_check_result_text - A (3)
+    F 279:0 _get_severity_color - A (3)
+    F 300:0 get_exit_code_for_severity - A (3)
+    F 109:0 _build_pool_status_table - A (1)
+
+=== OVERALL AVERAGE COMPLEXITY ===
+Average complexity: A (2.9424083769633507)

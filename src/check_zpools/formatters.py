@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from rich.console import Console
 from rich.table import Table
 
-from .models import CheckResult, Severity
+from .models import CheckResult, PoolIssue, PoolStatus, Severity
 
 
 def format_check_result_json(result: CheckResult) -> str:
@@ -106,6 +106,85 @@ def format_check_result_text(result: CheckResult) -> str:
     return "\n".join(lines)
 
 
+def _build_pool_status_table() -> Table:
+    """Create a Rich table for pool status display.
+
+    Returns
+    -------
+    Table:
+        Configured table with columns for pool status information.
+    """
+    table = Table(title="Pool Status", show_header=True, header_style="bold cyan")
+    table.add_column("Pool", style="bold", no_wrap=True)
+    table.add_column("Health", justify="center")
+    table.add_column("Capacity", justify="right")
+    table.add_column("Size", justify="right")
+    table.add_column("Errors (R/W/C)", justify="right")
+    table.add_column("Last Scrub", justify="right")
+    return table
+
+
+def _format_pool_row(pool: PoolStatus) -> tuple[str, str, str, str, str, str]:
+    """Format a pool status into table row data with Rich markup.
+
+    Parameters
+    ----------
+    pool:
+        Pool status to format.
+
+    Returns
+    -------
+    tuple[str, str, str, str, str, str]:
+        Formatted values for: name, health, capacity, size, errors, scrub
+    """
+    # Determine colors
+    health_color = "green" if pool.health.is_healthy() else "red"
+    capacity_color = "green" if pool.capacity_percent < 80 else ("yellow" if pool.capacity_percent < 90 else "red")
+    error_color = "green" if not pool.has_errors() else "red"
+
+    # Format size in human-readable format
+    size_gb = pool.size_bytes / (1024**3)
+    if size_gb >= 1024:
+        size_tb = size_gb / 1024
+        size_str = f"{size_tb:.2f} TB"
+    else:
+        size_str = f"{size_gb:.2f} GB"
+
+    # Format errors as R/W/C
+    errors_str = f"{pool.read_errors}/{pool.write_errors}/{pool.checksum_errors}"
+
+    # Format last scrub time
+    scrub_text, scrub_color = _format_last_scrub(pool.last_scrub)
+
+    return (
+        pool.name,
+        f"[{health_color}]{pool.health.value}[/{health_color}]",
+        f"[{capacity_color}]{pool.capacity_percent:.1f}%[/{capacity_color}]",
+        size_str,
+        f"[{error_color}]{errors_str}[/{error_color}]",
+        f"[{scrub_color}]{scrub_text}[/{scrub_color}]",
+    )
+
+
+def _display_issues(issues: list[PoolIssue], console: Console) -> None:
+    """Display issues list to console.
+
+    Parameters
+    ----------
+    issues:
+        List of pool issues to display.
+    console:
+        Rich Console instance for output.
+    """
+    if issues:
+        console.print("\nIssues Found:")
+        for issue in issues:
+            severity_color = _get_severity_color(issue.severity)
+            console.print(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
+    else:
+        console.print("\n[green]No issues detected[/green]")
+
+
 def display_check_result_text(result: CheckResult, console: Console | None = None) -> None:
     """Display check result as formatted text output directly to console.
 
@@ -130,54 +209,14 @@ def display_check_result_text(result: CheckResult, console: Console | None = Non
     console.print(f"\nZFS Pool Check - {timestamp_str}")
     console.print(f"Overall Status: {result.overall_severity.value.upper()}\n")
 
-    # Pool Status Summary as Table
-    table = Table(title="Pool Status", show_header=True, header_style="bold cyan")
-    table.add_column("Pool", style="bold", no_wrap=True)
-    table.add_column("Health", justify="center")
-    table.add_column("Capacity", justify="right")
-    table.add_column("Size", justify="right")
-    table.add_column("Errors (R/W/C)", justify="right")
-    table.add_column("Last Scrub", justify="right")
-
+    # Build and populate pool status table
+    table = _build_pool_status_table()
     for pool in result.pools:
-        # Determine colors
-        health_color = "green" if pool.health.is_healthy() else "red"
-        capacity_color = "green" if pool.capacity_percent < 80 else ("yellow" if pool.capacity_percent < 90 else "red")
-        error_color = "green" if not pool.has_errors() else "red"
-
-        # Format size in human-readable format
-        size_gb = pool.size_bytes / (1024**3)
-        if size_gb >= 1024:
-            size_tb = size_gb / 1024
-            size_str = f"{size_tb:.2f} TB"
-        else:
-            size_str = f"{size_gb:.2f} GB"
-
-        # Format errors as R/W/C
-        errors_str = f"{pool.read_errors}/{pool.write_errors}/{pool.checksum_errors}"
-
-        # Format last scrub time
-        scrub_text, scrub_color = _format_last_scrub(pool.last_scrub)
-
-        table.add_row(
-            pool.name,
-            f"[{health_color}]{pool.health.value}[/{health_color}]",
-            f"[{capacity_color}]{pool.capacity_percent:.1f}%[/{capacity_color}]",
-            size_str,
-            f"[{error_color}]{errors_str}[/{error_color}]",
-            f"[{scrub_color}]{scrub_text}[/{scrub_color}]",
-        )
-
+        table.add_row(*_format_pool_row(pool))
     console.print(table)
 
-    # Issues
-    if result.issues:
-        console.print("\nIssues Found:")
-        for issue in result.issues:
-            severity_color = _get_severity_color(issue.severity)
-            console.print(f"  [{severity_color}]{issue.severity.value}[/{severity_color}] {issue.pool_name}: {issue.message}")
-    else:
-        console.print("\n[green]No issues detected[/green]")
+    # Display issues
+    _display_issues(result.issues, console)
 
     # Summary
     console.print(f"\nPools Checked: {len(result.pools)}")

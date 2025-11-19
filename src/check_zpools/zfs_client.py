@@ -254,13 +254,62 @@ class ZFSClient:
         logger.debug(f"Executing: {' '.join(command)}")
         return self._execute_json_command(command, timeout=timeout)
 
-    def _execute_json_command(
+    def get_pool_status_text(
+        self,
+        *,
+        pool_name: str | None = None,
+        timeout: int | None = None,
+    ) -> str:
+        """Execute `zpool status` and return plain text output.
+
+        Why
+            Gets human-readable pool status for inclusion in emails and reports.
+            This is the same output administrators see when running zpool status
+            manually.
+
+        Parameters
+        ----------
+        pool_name:
+            Optional specific pool to query. If None, gets all pools.
+        timeout:
+            Command timeout in seconds. Uses default_timeout if None.
+
+        Returns
+        -------
+        str:
+            Plain text output from zpool status command.
+
+        Raises
+        ------
+        ZFSCommandError:
+            When command fails or returns non-zero exit code.
+
+        Examples
+        --------
+        >>> client = ZFSClient()  # doctest: +SKIP
+        >>> text = client.get_pool_status_text(pool_name="rpool")  # doctest: +SKIP
+        >>> "pool: rpool" in text  # doctest: +SKIP
+        True
+        """
+        command = [str(self.zpool_path), "status"]
+
+        if pool_name:
+            command.append(pool_name)
+
+        logger.debug(f"Executing: {' '.join(command)}")
+        return self._execute_text_command(command, timeout=timeout)
+
+    def _execute_command(
         self,
         command: list[str],
         *,
         timeout: int | None = None,
-    ) -> dict[str, Any]:
-        """Execute command and parse JSON output.
+    ) -> subprocess.CompletedProcess[str]:
+        """Execute command and return result.
+
+        Why
+            Common implementation for both JSON and text commands, eliminating
+            code duplication for subprocess execution, logging, and error handling.
 
         Parameters
         ----------
@@ -271,15 +320,13 @@ class ZFSClient:
 
         Returns
         -------
-        dict:
-            Parsed JSON from command stdout.
+        subprocess.CompletedProcess:
+            Completed process with stdout, stderr, and return code.
 
         Raises
         ------
         ZFSCommandError:
-            When command fails.
-        json.JSONDecodeError:
-            When output is not valid JSON.
+            When command fails (non-zero exit code).
         subprocess.TimeoutExpired:
             When command exceeds timeout.
         """
@@ -317,21 +364,7 @@ class ZFSClient:
                 )
                 raise ZFSCommandError(command, result.returncode, result.stderr)
 
-            # Parse JSON output
-            try:
-                data = json.loads(result.stdout)
-                logger.debug(f"Parsed JSON successfully, top-level keys: {list(data.keys())}")
-                return data
-            except json.JSONDecodeError as exc:
-                logger.error(
-                    "Failed to parse JSON output",
-                    extra={
-                        "command": " ".join(command),
-                        "stdout_preview": result.stdout[:500],
-                        "error": str(exc),
-                    },
-                )
-                raise
+            return result
 
         except subprocess.TimeoutExpired:
             logger.error(
@@ -342,6 +375,83 @@ class ZFSClient:
                 },
             )
             raise
+
+    def _execute_json_command(
+        self,
+        command: list[str],
+        *,
+        timeout: int | None = None,
+    ) -> dict[str, Any]:
+        """Execute command and parse JSON output.
+
+        Parameters
+        ----------
+        command:
+            Full command to execute as list of strings.
+        timeout:
+            Timeout in seconds. Uses default_timeout if None.
+
+        Returns
+        -------
+        dict:
+            Parsed JSON from command stdout.
+
+        Raises
+        ------
+        ZFSCommandError:
+            When command fails.
+        json.JSONDecodeError:
+            When output is not valid JSON.
+        subprocess.TimeoutExpired:
+            When command exceeds timeout.
+        """
+        result = self._execute_command(command, timeout=timeout)
+
+        # Parse JSON output
+        try:
+            data = json.loads(result.stdout)
+            logger.debug(f"Parsed JSON successfully, top-level keys: {list(data.keys())}")
+            return data
+        except json.JSONDecodeError as exc:
+            logger.error(
+                "Failed to parse JSON output",
+                extra={
+                    "command": " ".join(command),
+                    "stdout_preview": result.stdout[:500],
+                    "error": str(exc),
+                },
+            )
+            raise
+
+    def _execute_text_command(
+        self,
+        command: list[str],
+        *,
+        timeout: int | None = None,
+    ) -> str:
+        """Execute command and return text output.
+
+        Parameters
+        ----------
+        command:
+            Full command to execute as list of strings.
+        timeout:
+            Timeout in seconds. Uses default_timeout if None.
+
+        Returns
+        -------
+        str:
+            Text output from command stdout.
+
+        Raises
+        ------
+        ZFSCommandError:
+            When command fails.
+        subprocess.TimeoutExpired:
+            When command exceeds timeout.
+        """
+        result = self._execute_command(command, timeout=timeout)
+        return result.stdout
 
 
 __all__ = [

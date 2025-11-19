@@ -66,6 +66,68 @@ def _check_root_privileges() -> None:
         raise PermissionError("This command must be run as root (use sudo).\nExample: sudo check_zpools install-service")
 
 
+def _is_uvx_process(cmdline: list[str]) -> bool:
+    """Check if command line matches uvx process pattern.
+
+    Parameters
+    ----------
+    cmdline:
+        Process command line arguments.
+
+    Returns
+    -------
+    bool:
+        True if command line is "uv tool uvx" pattern.
+    """
+    if not cmdline or len(cmdline) < 3:
+        return False
+    return Path(cmdline[0]).name in ("uv", "uv.exe") and cmdline[1:3] == ["tool", "uvx"]
+
+
+def _find_uvx_executable(uv_path: Path) -> Path | None:
+    """Find uvx executable as sibling of uv.
+
+    Parameters
+    ----------
+    uv_path:
+        Path to the uv executable.
+
+    Returns
+    -------
+    Path | None:
+        Path to uvx executable if it exists, None otherwise.
+    """
+    uvx_path = uv_path.parent / "uvx"
+    if uvx_path.exists():
+        return uvx_path
+    logger.debug(f"uvx not found at expected location: {uvx_path}")
+    return None
+
+
+def _extract_version_from_cmdline(cmdline: list[str]) -> str | None:
+    """Extract version specifier from command line arguments.
+
+    Parameters
+    ----------
+    cmdline:
+        Process command line arguments.
+
+    Returns
+    -------
+    str | None:
+        Version specifier like '@latest' or '@1.0.0', or None if not found.
+    """
+    import re
+
+    version_pattern = re.compile(r"check_zpools(@[a-zA-Z0-9._-]+)")
+    for arg in cmdline:
+        if "check_zpools" in arg:
+            match = version_pattern.search(arg)
+            if match:
+                return match.group(1)
+    return None
+
+
 def _detect_uvx_from_process_tree() -> tuple[Path | None, str | None]:
     """Detect uvx installation and extract version from process tree.
 
@@ -74,27 +136,29 @@ def _detect_uvx_from_process_tree() -> tuple[Path | None, str | None]:
     extracts both the uvx path and version specifier in a single pass.
 
     Returns
+    -------
+    tuple[Path | None, str | None]:
         Tuple of (uvx_path, version_spec):
         - uvx_path: Path to uvx executable, or None if not running under uvx
         - version_spec: Version like '@latest', '@1.0.0', or None if no version
 
     Root Cause
-        uvx execs to "uv tool uvx", so the process tree contains:
-        ['/path/to/uv', 'tool', 'uvx', 'check_zpools@version', ...]
-        We detect this pattern, find uvx as a sibling of uv, and extract
-        the version in the same pass.
+    ----------
+    uvx execs to "uv tool uvx", so the process tree contains:
+    ['/path/to/uv', 'tool', 'uvx', 'check_zpools@version', ...]
+    We detect this pattern, find uvx as a sibling of uv, and extract
+    the version in the same pass.
 
     Examples
-        >>> # When invoked as: uvx check_zpools@latest service-install
-        >>> uvx_path, version = _detect_uvx_from_process_tree()  # doctest: +SKIP
-        >>> print(uvx_path, version)  # doctest: +SKIP
-        Path('/usr/local/bin/uvx') '@latest'
+    --------
+    >>> # When invoked as: uvx check_zpools@latest service-install
+    >>> uvx_path, version = _detect_uvx_from_process_tree()  # doctest: +SKIP
+    >>> print(uvx_path, version)  # doctest: +SKIP
+    Path('/usr/local/bin/uvx') '@latest'
     """
     try:
         import psutil
-        import re
 
-        version_pattern = re.compile(r"check_zpools(@[a-zA-Z0-9._-]+)")
         current_process = psutil.Process()
         ancestor = current_process.parent()
 
@@ -105,32 +169,16 @@ def _detect_uvx_from_process_tree() -> tuple[Path | None, str | None]:
 
             try:
                 cmdline = ancestor.cmdline()
-                if not cmdline or len(cmdline) < 3:
-                    ancestor = ancestor.parent()
-                    continue
 
-                # Look for "uv tool uvx" pattern
-                if Path(cmdline[0]).name in ("uv", "uv.exe") and cmdline[1:3] == ["tool", "uvx"]:
-                    # Found uvx! Now find the uvx executable and extract version
+                # Check if this process is uvx
+                if _is_uvx_process(cmdline):
                     uv_path = Path(cmdline[0]).resolve()
-                    uvx_path = uv_path.parent / "uvx"
+                    uvx_path = _find_uvx_executable(uv_path)
 
-                    if not uvx_path.exists():
-                        logger.debug(f"Found 'uv tool uvx' but uvx not found at: {uvx_path}")
-                        ancestor = ancestor.parent()
-                        continue
-
-                    # Extract version from any argument containing check_zpools@version
-                    version_spec = None
-                    for arg in cmdline:
-                        if "check_zpools" in arg:
-                            match = version_pattern.search(arg)
-                            if match:
-                                version_spec = match.group(1)
-                                break
-
-                    logger.info(f"Detected uvx: {uvx_path}, version: {version_spec or 'unspecified'}")
-                    return (uvx_path, version_spec)
+                    if uvx_path:
+                        version_spec = _extract_version_from_cmdline(cmdline)
+                        logger.info(f"Detected uvx: {uvx_path}, version: {version_spec or 'unspecified'}")
+                        return (uvx_path, version_spec)
 
                 ancestor = ancestor.parent()
 

@@ -1,0 +1,17 @@
+======================================================================
+ALERTING.PY REFACTORING VERIFICATION
+======================================================================
+✓ _append_zpool_status() method exists
+✓ Exception handling is specific (not broad)
+✓ _format_body() calls _append_zpool_status()
+  ✓ No duplication - delegates to helper
+✓ _format_recovery_body() calls _append_zpool_status()
+  ✓ No duplication - delegates to helper
+
+✓ PASS: zpool status fetching appears only ONCE (in helper)
+✓ subprocess import added
+
+======================================================================
+SUMMARY
+======================================================================
+✅ Refactoring appears correct!
