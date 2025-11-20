@@ -1,7 +1,0 @@
-27:The original scaffold concentrated the greeting, failure trigger, and CLI
-32:separation that would be overkill for this minimal template.
-71:### behaviors.emit_greeting
-73:* **Purpose:** Write the canonical greeting used in smoke tests and
-188:2. ``check_zpools hello`` → prints greeting.
-199:* ``tests/test_behaviors.py`` verifies greeting/failure helpers against custom
-20

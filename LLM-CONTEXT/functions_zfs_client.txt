@@ -1,3 +1,0 @@
-41:class ZFSCommandError(RuntimeError):
-76:class ZFSNotAvailableError(RuntimeError):
-87:class ZFSClient:

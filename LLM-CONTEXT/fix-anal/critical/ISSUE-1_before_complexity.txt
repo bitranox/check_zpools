@@ -1,5 +1,0 @@
-Function: _run
-Lines: 37
-Cyclomatic Complexity: 17
-Start Line: 119
-End Line: 155

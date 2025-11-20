@@ -1,5 +1,0 @@
-  469 src/check_zpools/zfs_client.py
-  781 src/check_zpools/alerting.py
-  452 src/check_zpools/behaviors.py
-  464 tests/test_alerting.py
- 2166 total

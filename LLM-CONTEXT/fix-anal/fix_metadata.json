@@ -1,8 +1,0 @@
-{
-  "fix_started": "2025-11-19T20:55:26+01:00",
-  "review_report": "LLM-CONTEXT/review-anal/report/REVIEW_REPORT.md",
-  "baseline_metrics_captured": true,
-  "evidence_based_verification": true,
-  "test_runs_per_verification": 3,
-  "subagents_used": []
-}

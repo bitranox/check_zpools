@@ -1,7 +1,0 @@
-Function Complexity Analysis:
-============================================================
-_display_command          | Lines:  12 | CC:  6
-_display_result           | Lines:   4 | CC:  3
-_echo_output              | Lines:   5 | CC:  2
-_display_captured_output  | Lines:   7 | CC:  6
-_run                      | Lines:  17 | CC:  3
