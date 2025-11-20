@@ -179,3 +179,9 @@ poetry.lock
 pdm.lock
 uv.lock
 /.github.bak/
+
+# LLM related
+.claude/
+.gemini/
+.codex/
+LLM-CONTEXT/

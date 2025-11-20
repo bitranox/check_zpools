@@ -3,6 +3,61 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.2.0] - 2025-11-20
+
+### Added
+- **Pre-commit Hooks**: Automated code quality checks with Ruff, Pyright, and Bandit
+  - Runs formatting, linting, type checking, and security scanning on every commit
+  - Ensures consistent code quality before changes reach version control
+  - Configuration in `.pre-commit-config.yaml`
+  - **Why this matters**: Catches quality issues immediately during development, preventing broken builds
+- **Security Policy**: Comprehensive security guidelines and vulnerability reporting process
+  - Added `SECURITY.md` with responsible disclosure policy (231 lines)
+  - Documents supported versions and security update procedures
+  - Provides clear vulnerability reporting channels
+  - **Why this matters**: Establishes professional security practices for production deployments
+- **Architecture Documentation**: Complete system design documentation
+  - Added `CODE_ARCHITECTURE.md` with comprehensive Data Models section (217 lines)
+  - Documents all domain models, enumerations, and their relationships
+  - Includes module organization and Clean Architecture principles
+  - **Why this matters**: Enables new contributors to understand system design quickly
+
+### Changed
+- **Documentation Enhancements**: Significantly expanded development and user documentation
+  - **DEVELOPMENT.md**: Added comprehensive Testing section (171 new lines)
+    - Documents test organization, running tests, coverage requirements
+    - Explains test categorization and platform-specific testing
+    - Provides debugging and contribution guidelines
+  - **README.md**: Documented additional CLI commands (112 new lines)
+    - `hello` - Installation verification command
+    - `fail` - Error handling test command
+    - `send-email` - Advanced email testing with HTML and attachments
+  - **codecov.yml**: Clarified coverage target differences
+    - Local: 60% for rapid development iteration
+    - CI: 70% for production quality before merge
+  - **Why this matters**: Improved developer onboarding and user experience
+
+### Fixed
+- **Code Complexity Reduction**: Eliminated all C-grade (high complexity) functions
+  - Extracted helper functions for better testability and maintainability
+  - **Why this matters**: Simpler code is easier to maintain, test, and debug
+
+### Refactored
+- **CLI Module**: Extracted error handler from `cli_send_email` (103 lines → 48 lines, 53% reduction)
+  - Created reusable `_handle_send_email_error()` helper
+  - Applied DRY principle to eliminate code duplication
+  - Improved error handling consistency
+- **Behaviors Module**: Extracted daemon helpers from `run_daemon` (108 lines → 25 lines, 77% reduction)
+  - Created focused helper functions for daemon initialization and monitoring
+  - Improved code readability and testability
+  - **Why this matters**: Smaller, focused functions are easier to understand and maintain
+
+### Documentation
+- **Signal Handler**: Added comprehensive docstring to daemon signal handler
+  - Documents shutdown behavior, signal handling, and graceful termination
+  - Explains why handlers are registered and their purpose
+  - **Why this matters**: Critical daemon behavior is now fully documented
+
 ## [2.1.8] - 2025-11-18
 
 ### Fixed

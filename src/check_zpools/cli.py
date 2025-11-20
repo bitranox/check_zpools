@@ -635,9 +635,7 @@ def _handle_send_email_error(exc: Exception, error_type: str) -> None:
         "RuntimeError": ("SMTP delivery failed", f"Failed to send email - {exc}"),
     }
 
-    log_msg, cli_msg = error_messages.get(
-        error_type, ("Unexpected error sending email", f"Unexpected error - {exc}")
-    )
+    log_msg, cli_msg = error_messages.get(error_type, ("Unexpected error sending email", f"Unexpected error - {exc}"))
 
     logger.error(log_msg, extra={"error": str(exc)}, exc_info=(error_type not in error_messages))
     click.echo(f"\nError: {cli_msg}", err=True)
