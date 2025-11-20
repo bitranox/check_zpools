@@ -41,6 +41,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - **Code Complexity Reduction**: Eliminated all C-grade (high complexity) functions
   - Extracted helper functions for better testability and maintainability
   - **Why this matters**: Simpler code is easier to maintain, test, and debug
+- **Windows CI Build**: Fixed pytest collection error on Windows
+  - Added `norecursedirs` to exclude LLM-CONTEXT from pytest collection
+  - **Root cause**: LLM-CONTEXT scripts contain UTF-8 characters that fail with Windows cp1252 encoding
+  - **Impact**: Windows builds were failing with UnicodeDecodeError during test collection
+  - **Why this matters**: Ensures multi-platform CI compatibility (Linux/macOS/Windows)
 
 ### Refactored
 - **CLI Module**: Extracted error handler from `cli_send_email` (103 lines → 48 lines, 53% reduction)

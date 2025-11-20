@@ -86,6 +86,7 @@ reportMissingTypeArgument = "none"
 addopts = ["--doctest-modules"]
 doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]
 pythonpath = ["src"]
+norecursedirs = ["LLM-CONTEXT", ".git", ".github", "dist", "build", "*.egg"]
 markers = [
   "os_agnostic: test runs on every supported operating system",
   "os_windows: test exercises Windows-only behavior",
