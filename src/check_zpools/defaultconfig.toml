@@ -73,11 +73,14 @@ check_interval_seconds = 300
 # Example: check_interval_seconds = 60  # Check every minute
 
 alert_resend_interval_hours = 2
-# Purpose: Hours before re-sending alerts for persistent issues
+# Purpose: Hours before re-sending alerts for persistent issues with unchanged severity
 # Type: integer
 # Default: 24 (re-alert daily)
 # Environment: CHECK_ZPOOLS_DAEMON_ALERT_RESEND_INTERVAL_HOURS
-# Note: Prevents alert fatigue while keeping admins informed
+# Note: Prevents alert fatigue while keeping admins informed. This interval only
+#       applies when the issue severity remains unchanged. If the severity changes
+#       (e.g., WARNING → CRITICAL or DEGRADED → ONLINE), an alert is sent immediately
+#       regardless of this interval.
 # Example: alert_resend_interval_hours = 6  # Re-alert every 6 hours
 
 pools_to_monitor = []
@@ -94,6 +97,20 @@ state_file = ""
 # Environment: CHECK_ZPOOLS_DAEMON_STATE_FILE
 # Note: Default is ~/.cache/check_zpools/alert_state.json on Linux
 # Example: state_file = "/var/lib/check_zpools/alert_state.json"
+
+send_ok_emails = false
+# Purpose: Send email when all pools are healthy (OK status)
+# Type: boolean
+# Default: false
+# Environment: CHECK_ZPOOLS_DAEMON_SEND_OK_EMAILS
+# Example: send_ok_emails = true
+
+send_recovery_emails = true
+# Purpose: Send email when issues are resolved
+# Type: boolean
+# Default: true
+# Environment: CHECK_ZPOOLS_DAEMON_SEND_RECOVERY_EMAILS
+# Example: send_recovery_emails = false
 
 [alerts]
 # Alert configuration
@@ -112,19 +129,16 @@ subject_prefix = "[ZFS Alert]"
 # Example: subject_prefix = "[PROD-ZFS]"
 
 alert_on_severities = ["CRITICAL", "WARNING"]
-# Purpose: Which severities should trigger email alerts
+# Purpose: Which severities should trigger email alerts for NEW issues
 # Type: array of strings
 # Default: ["CRITICAL", "WARNING"]
 # Values: "CRITICAL", "WARNING", "INFO"
 # Environment: CHECK_ZPOOLS_ALERTS_ALERT_ON_SEVERITIES (comma-separated)
 # Example: alert_on_severities = ["CRITICAL"]  # Only critical alerts
-
-send_recovery_emails = true
-# Purpose: Send email when issues are resolved
-# Type: boolean
-# Default: true
-# Environment: CHECK_ZPOOLS_ALERTS_SEND_RECOVERY_EMAILS
-# Example: send_recovery_emails = false
+# Note: This setting filters alerts when issues are first detected or severity changes.
+#       Recovery emails (when issues resolve to ONLINE) are controlled separately by
+#       daemon.send_recovery_emails and are NOT affected by this filter. If you want
+#       recovery notifications, keep send_recovery_emails=true regardless of this setting.
 
 # ==============================================================================
 # Email Configuration - SMTP settings for sending notifications

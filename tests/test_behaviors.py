@@ -83,10 +83,8 @@ class TestBuildMonitorConfig:
         """Should use custom capacity thresholds."""
         config = {
             "zfs": {
-                "capacity": {
-                    "warning_percent": 70,
-                    "critical_percent": 85,
-                }
+                "capacity_warning_percent": 70,
+                "capacity_critical_percent": 85,
             }
         }
 
@@ -97,7 +95,7 @@ class TestBuildMonitorConfig:
 
     def test_build_with_custom_scrub(self) -> None:
         """Should use custom scrub age threshold."""
-        config = {"zfs": {"scrub": {"max_age_days": 60}}}
+        config = {"zfs": {"scrub_max_age_days": 60}}
 
         result = behaviors._build_monitor_config(config)
 
@@ -107,11 +105,9 @@ class TestBuildMonitorConfig:
         """Should use custom error thresholds."""
         config = {
             "zfs": {
-                "errors": {
-                    "read_errors_warning": 5,
-                    "write_errors_warning": 3,
-                    "checksum_errors_warning": 1,
-                }
+                "read_errors_warning": 5,
+                "write_errors_warning": 3,
+                "checksum_errors_warning": 1,
             }
         }
 
@@ -123,98 +119,94 @@ class TestBuildMonitorConfig:
 
     def test_validate_warning_below_zero(self) -> None:
         """Should reject warning percent below 0."""
-        config = {"zfs": {"capacity": {"warning_percent": -1}}}
+        config = {"zfs": {"capacity_warning_percent": -1}}
 
-        with pytest.raises(ValueError, match="warning_percent must be between 0 and 100"):
+        with pytest.raises(ValueError, match="capacity_warning_percent must be between 0 and 100"):
             behaviors._build_monitor_config(config)
 
     def test_validate_warning_zero(self) -> None:
         """Should reject warning percent of 0."""
-        config = {"zfs": {"capacity": {"warning_percent": 0}}}
+        config = {"zfs": {"capacity_warning_percent": 0}}
 
-        with pytest.raises(ValueError, match="warning_percent must be between 0 and 100"):
+        with pytest.raises(ValueError, match="capacity_warning_percent must be between 0 and 100"):
             behaviors._build_monitor_config(config)
 
     def test_validate_warning_above_100(self) -> None:
         """Should reject warning percent above 100."""
-        config = {"zfs": {"capacity": {"warning_percent": 101}}}
+        config = {"zfs": {"capacity_warning_percent": 101}}
 
-        with pytest.raises(ValueError, match="warning_percent must be between 0 and 100"):
+        with pytest.raises(ValueError, match="capacity_warning_percent must be between 0 and 100"):
             behaviors._build_monitor_config(config)
 
     def test_validate_critical_zero(self) -> None:
         """Should reject critical percent of 0."""
-        config = {"zfs": {"capacity": {"critical_percent": 0}}}
+        config = {"zfs": {"capacity_critical_percent": 0}}
 
-        with pytest.raises(ValueError, match="critical_percent must be between 0 and 100"):
+        with pytest.raises(ValueError, match="capacity_critical_percent must be between 0 and 100"):
             behaviors._build_monitor_config(config)
 
     def test_validate_critical_above_100(self) -> None:
         """Should reject critical percent above 100."""
-        config = {"zfs": {"capacity": {"critical_percent": 101}}}
+        config = {"zfs": {"capacity_critical_percent": 101}}
 
-        with pytest.raises(ValueError, match="critical_percent must be between 0 and 100"):
+        with pytest.raises(ValueError, match="capacity_critical_percent must be between 0 and 100"):
             behaviors._build_monitor_config(config)
 
     def test_validate_warning_greater_than_critical(self) -> None:
         """Should reject warning greater than critical."""
         config = {
             "zfs": {
-                "capacity": {
-                    "warning_percent": 90,
-                    "critical_percent": 80,
-                }
+                "capacity_warning_percent": 90,
+                "capacity_critical_percent": 80,
             }
         }
 
-        with pytest.raises(ValueError, match="warning_percent.*must be less than critical_percent"):
+        with pytest.raises(ValueError, match="capacity_warning_percent.*must be less than capacity_critical_percent"):
             behaviors._build_monitor_config(config)
 
     def test_validate_warning_equal_to_critical(self) -> None:
         """Should reject warning equal to critical."""
         config = {
             "zfs": {
-                "capacity": {
-                    "warning_percent": 85,
-                    "critical_percent": 85,
-                }
+                "capacity_warning_percent": 85,
+                "capacity_critical_percent": 85,
             }
         }
 
-        with pytest.raises(ValueError, match="warning_percent.*must be less than critical_percent"):
+        with pytest.raises(ValueError, match="capacity_warning_percent.*must be less than capacity_critical_percent"):
             behaviors._build_monitor_config(config)
 
     def test_validate_scrub_age_negative(self) -> None:
         """Should reject negative scrub age."""
-        config = {"zfs": {"scrub": {"max_age_days": -1}}}
+        config = {"zfs": {"scrub_max_age_days": -1}}
 
-        with pytest.raises(ValueError, match="scrub.max_age_days must be non-negative"):
+        with pytest.raises(ValueError, match="scrub_max_age_days must be non-negative"):
             behaviors._build_monitor_config(config)
 
     def test_validate_read_errors_negative(self) -> None:
         """Should reject negative read error threshold."""
-        config = {"zfs": {"errors": {"read_errors_warning": -1}}}
+        config = {"zfs": {"read_errors_warning": -1}}
 
         with pytest.raises(ValueError, match="read_errors_warning must be non-negative"):
             behaviors._build_monitor_config(config)
 
     def test_validate_write_errors_negative(self) -> None:
         """Should reject negative write error threshold."""
-        config = {"zfs": {"errors": {"write_errors_warning": -1}}}
+        config = {"zfs": {"write_errors_warning": -1}}
 
         with pytest.raises(ValueError, match="write_errors_warning must be non-negative"):
             behaviors._build_monitor_config(config)
 
     def test_validate_checksum_errors_negative(self) -> None:
         """Should reject negative checksum error threshold."""
-        config = {"zfs": {"errors": {"checksum_errors_warning": -1}}}
+        config = {"zfs": {"checksum_errors_warning": -1}}
 
         with pytest.raises(ValueError, match="checksum_errors_warning must be non-negative"):
             behaviors._build_monitor_config(config)
 
     def test_allow_scrub_age_zero(self) -> None:
         """Should allow scrub age of 0 (no scrub age checking)."""
-        config = {"zfs": {"scrub": {"max_age_days": 0}}}
+        config = {"zfs": {"scrub_max_age_days": 0}}
 
         result = behaviors._build_monitor_config(config)
 
@@ -224,10 +216,8 @@ class TestBuildMonitorConfig:
         """Should allow critical at 100%."""
         config = {
             "zfs": {
-                "capacity": {
-                    "warning_percent": 95,
-                    "critical_percent": 100,
-                }
+                "capacity_warning_percent": 95,
+                "capacity_critical_percent": 100,
             }
         }
 

@@ -3,6 +3,61 @@
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.3.0] - 2025-11-23
+
+### Added
+- **Alert State Change Detection**: Alerts now send immediately when severity changes, bypassing resend interval
+  - Added `last_severity` field to `AlertState` dataclass to track previous severity
+  - State transitions (e.g., DEGRADED → ONLINE, WARNING → CRITICAL) trigger immediate alerts
+  - `alert_resend_interval_hours` now only applies when severity remains unchanged
+  - **Why this matters**: Critical state changes are reported immediately, while spam from unchanged states is prevented
+- **Alert Severity Filtering**: Implemented `alert_on_severities` configuration setting
+  - Filter which severity levels trigger email alerts (CRITICAL, WARNING, INFO)
+  - Default: ["CRITICAL", "WARNING"] - only alert on critical and warning issues
+  - Recovery emails controlled independently via `daemon.send_recovery_emails`
+  - **Why this matters**: Administrators can tune alert noise by filtering severities while ensuring recovery notifications still work
+- **Test Coverage**: Added comprehensive test coverage for new features
+  - 5 new tests for state change detection (severity changes, recovery, same severity)
+  - 6 new tests for severity filtering (filtering behavior, recovery emails independent)
+  - All 450 tests passing
+
+### Fixed
+- **Configuration Loading (Critical Bug)**: Fixed all ZFS monitoring thresholds being ignored
+  - **Root cause**: Code expected nested keys like `zfs.capacity.warning_percent` but config had flat keys like `zfs.capacity_warning_percent`
+  - **Impact**: ALL [zfs] section settings were using hardcoded defaults instead of configured values
+  - **Symptom**: Custom capacity thresholds, error thresholds, and scrub age limits were ignored
+  - **Solution**: Updated `_build_monitor_config()` in `behaviors.py` to read flat keys matching TOML structure
+  - **Why this matters**: Users can now actually configure monitoring thresholds via config files
+- **Configuration Structure**: Fixed misplaced daemon settings
+  - Moved `send_ok_emails` and `send_recovery_emails` from `[alerts]` to `[daemon]` section
+  - Code reads from `[daemon]` section, so settings must be defined there
+  - **Why this matters**: Recovery email settings now work correctly when configured
+- **Test Suite**: Updated 17 tests to match corrected configuration structure
+  - Changed nested configuration keys to flat keys in test fixtures
+  - Tests now validate actual configuration behavior
+
+### Changed
+- **Security**: Suppressed known vulnerability `PYSEC-2022-42969` in `py` package
+  - Added to `_DEFAULT_PIP_AUDIT_IGNORES` in `scripts/test.py`
+  - Known issue in transitive dependency, not exploitable in this context
+  - **Why this matters**: `make test` now passes without false positive security failures
+
+### Documentation
+- **Configuration File**: Enhanced `defaultconfig.toml` documentation
+  - Updated `alert_resend_interval_hours` documentation to clarify it only applies when severity is unchanged
+  - Documented that state changes trigger immediate alerts regardless of interval
+  - Added comprehensive documentation for `alert_on_severities` setting
+  - Clarified that recovery emails are independent of severity filtering
+  - Moved `send_ok_emails` and `send_recovery_emails` to correct `[daemon]` section
+- **README**: Updated daemon configuration examples and notes to reflect severity filtering behavior
+
+### Refactored
+- **Code Cleanup**: Removed all backwards compatibility code
+  - Removed default value from `AlertState.last_severity` field
+  - Removed `.get()` fallback in state loading
+  - Removed backwards compatibility test
+  - **Why this matters**: Cleaner, more maintainable code without unnecessary bloat
+
 ## [2.2.0] - 2025-11-20
 
 ### Added

@@ -66,8 +66,9 @@ def an_alert_state(
     category: str,
     hours_ago: int = 0,
     alert_count: int = 1,
+    last_severity: str | None = None,
 ) -> AlertState:
-    """Create an alert state with configurable age."""
+    """Create an alert state with configurable age and severity."""
     timestamp = datetime.now(UTC) - timedelta(hours=hours_ago)
     return AlertState(
         pool_name=pool_name,
@@ -75,6 +76,7 @@ def an_alert_state(
         first_seen=timestamp,
         last_alerted=timestamp,
         alert_count=alert_count,
+        last_severity=last_severity,
     )
 
 
@@ -119,6 +121,7 @@ class TestAlertStateCreation:
             first_seen=now,
             last_alerted=now,
             alert_count=1,
+            last_severity="WARNING",
         )
 
         assert state.first_seen == now
@@ -460,6 +463,7 @@ class TestLoadingValidState:
                     "first_seen": now.isoformat(),
                     "last_alerted": now.isoformat(),
                     "alert_count": 3,
+                    "last_severity": "WARNING",
                 }
             },
         }
@@ -534,6 +538,7 @@ class TestLoadingWithCorruptData:
                     "first_seen": now.isoformat(),
                     "last_alerted": now.isoformat(),
                     "alert_count": 1,
+                    "last_severity": "WARNING",
                 },
                 "bad:entry": {
                     # Missing required fields
@@ -629,3 +634,140 @@ class TestTrackingMultipleIssues:
         assert "rpool:capacity" in manager.states
         assert "rpool:errors" in manager.states
         assert "data:health" in manager.states
+
+
+# ============================================================================
+# Tests: State Change Detection
+# ============================================================================
+
+
+class TestStateChangeDetection:
+    """State changes trigger immediate alerts regardless of resend interval."""
+
+    @pytest.mark.os_agnostic
+    def test_severity_change_triggers_immediate_alert(self, tmp_path: Path) -> None:
+        """When an issue's severity changes from WARNING to CRITICAL,
+        should_alert returns True even if resend interval hasn't passed."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+
+        # Record initial WARNING alert
+        warning_issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.WARNING,
+            category="health",
+            message="Pool degraded",
+            details={},
+        )
+        manager.record_alert(warning_issue)
+
+        # Immediately check with CRITICAL severity (no time has passed)
+        critical_issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.CRITICAL,
+            category="health",
+            message="Pool faulted",
+            details={},
+        )
+
+        result = manager.should_alert(critical_issue)
+
+        assert result is True
+
+    @pytest.mark.os_agnostic
+    def test_severity_downgrade_triggers_immediate_alert(self, tmp_path: Path) -> None:
+        """When an issue's severity improves from CRITICAL to WARNING,
+        should_alert returns True even if resend interval hasn't passed."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+
+        # Record initial CRITICAL alert
+        critical_issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.CRITICAL,
+            category="health",
+            message="Pool faulted",
+            details={},
+        )
+        manager.record_alert(critical_issue)
+
+        # Immediately check with WARNING severity (state improved)
+        warning_issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.WARNING,
+            category="health",
+            message="Pool degraded",
+            details={},
+        )
+
+        result = manager.should_alert(warning_issue)
+
+        assert result is True
+
+    @pytest.mark.os_agnostic
+    def test_unchanged_severity_respects_resend_interval(self, tmp_path: Path) -> None:
+        """When an issue's severity remains unchanged,
+        should_alert respects the resend interval."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+
+        # Record initial WARNING alert
+        warning_issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.WARNING,
+            category="capacity",
+            message="Pool at 85%",
+            details={},
+        )
+        manager.record_alert(warning_issue)
+
+        # Immediately check with same severity
+        same_issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.WARNING,
+            category="capacity",
+            message="Pool at 86%",  # Message changed but severity same
+            details={},
+        )
+
+        result = manager.should_alert(same_issue)
+
+        assert result is False
+
+    @pytest.mark.os_agnostic
+    def test_record_alert_stores_severity(self, tmp_path: Path) -> None:
+        """When recording an alert,
+        the severity is stored in the state."""
+        manager = a_state_manager(tmp_path)
+
+        issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.CRITICAL,
+            category="health",
+            message="Pool faulted",
+            details={},
+        )
+
+        manager.record_alert(issue)
+        state = manager.states["rpool:health"]
+
+        assert state.last_severity == "CRITICAL"
+
+    @pytest.mark.os_agnostic
+    def test_state_change_after_24_hours_still_alerts(self, tmp_path: Path) -> None:
+        """When severity changes after the resend interval,
+        should_alert returns True (state change takes precedence)."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+
+        # Simulate alert 25 hours ago with WARNING
+        manager.states["rpool:health"] = an_alert_state("rpool", "health", hours_ago=25, last_severity="WARNING")
+
+        # Check with CRITICAL severity
+        critical_issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.CRITICAL,
+            category="health",
+            message="Pool faulted",
+            details={},
+        )
+
+        result = manager.should_alert(critical_issue)
+
+        assert result is True

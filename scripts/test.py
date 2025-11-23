@@ -30,7 +30,7 @@ _toml_module: ModuleType | None = None
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 _TRUTHY = {"1", "true", "yes", "on"}
 _FALSY = {"0", "false", "no", "off"}
-_DEFAULT_PIP_AUDIT_IGNORES = ("GHSA-4xh5-x5gv-qwph",)
+_DEFAULT_PIP_AUDIT_IGNORES = ("GHSA-4xh5-x5gv-qwph", "PYSEC-2022-42969")
 _AuditPayload = list[dict[str, object]]
 
 

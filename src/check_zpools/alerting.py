@@ -87,6 +87,7 @@ class EmailAlerter:
         self.recipients = alert_config.get("alert_recipients", [])
         self.include_ok_alerts = alert_config.get("send_ok_emails", False)
         self.include_recovery_alerts = alert_config.get("send_recovery_emails", True)
+        self.alert_on_severities = set(severity.upper() for severity in alert_config.get("alert_on_severities", ["CRITICAL", "WARNING"]))
         self.capacity_warning_percent = capacity_warning_percent
         self.capacity_critical_percent = capacity_critical_percent
         self.scrub_max_age_days = scrub_max_age_days
@@ -103,7 +104,8 @@ class EmailAlerter:
         What
         ---
         Formats issue and pool data into a clear email message and sends
-        via SMTP. Returns success/failure status.
+        via SMTP. Returns success/failure status. Respects severity
+        filtering based on alert_on_severities configuration.
 
         Parameters
         ----------
@@ -119,6 +121,18 @@ class EmailAlerter:
         """
         if not self.recipients:
             logger.warning("No alert recipients configured, skipping email")
+            return False
+
+        # Check if this severity should trigger an alert
+        if issue.severity.value not in self.alert_on_severities:
+            logger.debug(
+                "Skipping alert - severity not in alert_on_severities",
+                extra={
+                    "pool": pool.name,
+                    "severity": issue.severity.value,
+                    "alert_on_severities": list(self.alert_on_severities),
+                },
+            )
             return False
 
         subject = self._format_subject(issue.severity, pool.name, issue.message)

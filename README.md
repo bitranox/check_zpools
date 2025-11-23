@@ -659,7 +659,7 @@ max_age_days = 30  # Warn if scrub not run in 30 days
 # Daemon Settings
 [daemon]
 check_interval_seconds = 300  # Check every 5 minutes
-alert_resend_hours = 24       # Resend alerts after 24 hours
+alert_resend_hours = 24       # Resend alerts with unchanged severity after 24 hours
 pools_to_monitor = []         # Empty = monitor all pools
 send_ok_emails = false        # Don't send emails for OK status
 send_recovery_emails = true   # Notify when issues resolve
@@ -721,14 +721,14 @@ timeout = 30.0
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `check_interval_seconds` | int | 300 | Seconds between pool checks (300 = 5 minutes) |
-| `alert_resend_hours` | int | 24 | Hours before resending duplicate alerts |
+| `alert_resend_hours` | int | 24 | Hours before resending alerts when severity unchanged |
 | `pools_to_monitor` | list | `[]` | Specific pools to monitor (empty = all pools) |
 | `send_ok_emails` | bool | `false` | Send email when pools are OK |
 | `send_recovery_emails` | bool | `true` | Send email when issues resolve |
 
 **Notes:**
 - `check_interval_seconds`: Lower values increase system load
-- `alert_resend_hours`: Prevents alert fatigue from persistent issues
+- `alert_resend_hours`: Prevents alert fatigue from persistent unchanged issues. State changes (e.g., WARNING → CRITICAL) trigger immediate alerts regardless of this interval
 - `pools_to_monitor`: Example: `["rpool", "tank"]`
 
 ---

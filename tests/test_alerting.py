@@ -476,3 +476,149 @@ class TestEmailSubjectFormatting:
         body = alerter._format_body(sample_issue, pool)
 
         assert "Never" in body
+
+
+# ============================================================================
+# Tests: Severity Filtering
+# ============================================================================
+
+
+def an_alerter_with_severity_config(alert_on_severities: list[str]) -> EmailAlerter:
+    """Create an alerter with specific severity filtering."""
+    email_config = EmailConfig(
+        smtp_hosts=["localhost:587"],
+        from_address="test@example.com",
+        smtp_username="test",
+        smtp_password="pass",
+        use_starttls=True,
+    )
+    alert_config = {
+        "alert_recipients": ["admin@example.com"],
+        "alert_on_severities": alert_on_severities,
+    }
+    return EmailAlerter(email_config, alert_config)
+
+
+@pytest.mark.os_agnostic
+class TestSeverityFiltering:
+    """Severity filtering controls which alerts are sent."""
+
+    @patch("check_zpools.alerting.send_email")
+    def test_critical_alert_sent_when_in_filter(self, mock_send: MagicMock) -> None:
+        """When CRITICAL is in alert_on_severities, CRITICAL alerts are sent."""
+        mock_send.return_value = True
+        alerter = an_alerter_with_severity_config(["CRITICAL", "WARNING"])
+
+        issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.CRITICAL,
+            category="health",
+            message="Pool faulted",
+            details={},
+        )
+        pool = a_pool_for_alerting("rpool")
+
+        result = alerter.send_alert(issue, pool)
+
+        assert result is True
+        assert mock_send.called
+
+    @patch("check_zpools.alerting.send_email")
+    def test_warning_alert_sent_when_in_filter(self, mock_send: MagicMock) -> None:
+        """When WARNING is in alert_on_severities, WARNING alerts are sent."""
+        mock_send.return_value = True
+        alerter = an_alerter_with_severity_config(["CRITICAL", "WARNING"])
+
+        issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.WARNING,
+            category="capacity",
+            message="Pool at 85%",
+            details={},
+        )
+        pool = a_pool_for_alerting("rpool", capacity=85.0)
+
+        result = alerter.send_alert(issue, pool)
+
+        assert result is True
+        assert mock_send.called
+
+    @patch("check_zpools.alerting.send_email")
+    def test_warning_alert_skipped_when_not_in_filter(self, mock_send: MagicMock) -> None:
+        """When WARNING not in alert_on_severities, WARNING alerts are skipped."""
+        mock_send.return_value = True
+        alerter = an_alerter_with_severity_config(["CRITICAL"])  # Only CRITICAL
+
+        issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.WARNING,
+            category="capacity",
+            message="Pool at 85%",
+            details={},
+        )
+        pool = a_pool_for_alerting("rpool", capacity=85.0)
+
+        result = alerter.send_alert(issue, pool)
+
+        assert result is False
+        assert not mock_send.called
+
+    @patch("check_zpools.alerting.send_email")
+    def test_info_alert_skipped_by_default(self, mock_send: MagicMock) -> None:
+        """When INFO not in alert_on_severities (default), INFO alerts are skipped."""
+        mock_send.return_value = True
+        alerter = an_alerter_with_severity_config(["CRITICAL", "WARNING"])  # Default
+
+        issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.INFO,
+            category="scrub",
+            message="Scrub completed",
+            details={},
+        )
+        pool = a_pool_for_alerting("rpool")
+
+        result = alerter.send_alert(issue, pool)
+
+        assert result is False
+        assert not mock_send.called
+
+    @patch("check_zpools.alerting.send_email")
+    def test_info_alert_sent_when_explicitly_added(self, mock_send: MagicMock) -> None:
+        """When INFO explicitly added to alert_on_severities, INFO alerts are sent."""
+        mock_send.return_value = True
+        alerter = an_alerter_with_severity_config(["CRITICAL", "WARNING", "INFO"])
+
+        issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.INFO,
+            category="scrub",
+            message="Scrub completed",
+            details={},
+        )
+        pool = a_pool_for_alerting("rpool")
+
+        result = alerter.send_alert(issue, pool)
+
+        assert result is True
+        assert mock_send.called
+
+    @patch("check_zpools.alerting.send_email")
+    def test_severity_filter_case_insensitive(self, mock_send: MagicMock) -> None:
+        """Severity filter works with lowercase values in config."""
+        mock_send.return_value = True
+        alerter = an_alerter_with_severity_config(["critical", "warning"])  # lowercase
+
+        issue = PoolIssue(
+            pool_name="rpool",
+            severity=Severity.CRITICAL,
+            category="health",
+            message="Pool faulted",
+            details={},
+        )
+        pool = a_pool_for_alerting("rpool")
+
+        result = alerter.send_alert(issue, pool)
+
+        assert result is True
+        assert mock_send.called

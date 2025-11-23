@@ -52,6 +52,9 @@ class AlertState:
         When we last sent an alert for this issue. None if never sent.
     alert_count:
         How many times we've sent alerts for this issue.
+    last_severity:
+        The severity level of the last alert sent. None if never sent.
+        Used to detect state changes (e.g., DEGRADED → ONLINE).
     """
 
     pool_name: str
@@ -59,6 +62,7 @@ class AlertState:
     first_seen: datetime
     last_alerted: datetime | None
     alert_count: int
+    last_severity: str | None
 
 
 class AlertStateManager:
@@ -108,13 +112,15 @@ class AlertStateManager:
         Why
         ---
         Prevents alert fatigue by suppressing duplicate alerts and
-        respecting the resend interval.
+        respecting the resend interval. However, state changes always
+        trigger immediate alerts regardless of the resend interval.
 
         What
         ---
         Returns True if:
         1. This is a new issue (never seen before), OR
-        2. Enough time has passed since the last alert
+        2. The severity has changed from the last alert (state change), OR
+        3. Enough time has passed since the last alert (resend interval)
 
         Parameters
         ----------
@@ -145,7 +151,21 @@ class AlertStateManager:
             )
             return True
 
-        # Check if resend interval has passed
+        # Check if severity/state has changed - always alert on state changes
+        current_severity = issue.severity.value
+        if state.last_severity is not None and current_severity != state.last_severity:
+            logger.info(
+                "State change detected - sending immediate alert",
+                extra={
+                    "pool": issue.pool_name,
+                    "category": issue.category,
+                    "old_severity": state.last_severity,
+                    "new_severity": current_severity,
+                },
+            )
+            return True
+
+        # Check if resend interval has passed for unchanged state
         now = datetime.now(UTC)
         elapsed = now - state.last_alerted
         should_resend = elapsed >= timedelta(hours=self.resend_interval_hours)
@@ -177,11 +197,12 @@ class AlertStateManager:
         Why
         ---
         Updates state so future checks can determine whether to suppress
-        duplicate alerts.
+        duplicate alerts or detect state changes.
 
         What
         ---
-        Creates or updates the AlertState for this issue and persists
+        Creates or updates the AlertState for this issue, storing the
+        current severity level for state change detection, and persists
         to disk.
 
         Parameters
@@ -191,17 +212,20 @@ class AlertStateManager:
         """
         key = self._make_key(issue.pool_name, issue.category)
         now = datetime.now(UTC)
+        current_severity = issue.severity.value
 
         if key in self.states:
-            # Existing issue - update last alerted time and increment count
+            # Existing issue - update last alerted time, severity, and increment count
             state = self.states[key]
             state.last_alerted = now
+            state.last_severity = current_severity
             state.alert_count += 1
             logger.debug(
                 "Updated alert state",
                 extra={
                     "pool": issue.pool_name,
                     "category": issue.category,
+                    "severity": current_severity,
                     "count": state.alert_count,
                 },
             )
@@ -213,10 +237,15 @@ class AlertStateManager:
                 first_seen=now,
                 last_alerted=now,
                 alert_count=1,
+                last_severity=current_severity,
             )
             logger.debug(
                 "Created alert state",
-                extra={"pool": issue.pool_name, "category": issue.category},
+                extra={
+                    "pool": issue.pool_name,
+                    "category": issue.category,
+                    "severity": current_severity,
+                },
             )
 
         self.save_state()
@@ -300,6 +329,7 @@ class AlertStateManager:
                         first_seen=first_seen,
                         last_alerted=last_alerted,
                         alert_count=state_dict["alert_count"],
+                        last_severity=state_dict["last_severity"],
                     )
                 except (KeyError, ValueError) as exc:
                     logger.warning(
@@ -345,6 +375,7 @@ class AlertStateManager:
                     "first_seen": state.first_seen.isoformat(),
                     "last_alerted": state.last_alerted.isoformat() if state.last_alerted else None,
                     "alert_count": state.alert_count,
+                    "last_severity": state.last_severity,
                 }
 
             data = {"version": 1, "alerts": alerts}

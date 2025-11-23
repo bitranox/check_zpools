@@ -396,37 +396,34 @@ def _build_monitor_config(config: dict[str, Any]) -> MonitorConfig:
         If configuration values are invalid or inconsistent.
     """
     zfs_config = config.get("zfs", {})
-    capacity = zfs_config.get("capacity", {})
-    errors = zfs_config.get("errors", {})
-    scrub = zfs_config.get("scrub", {})
 
-    # Extract values with defaults
-    warning = capacity.get("warning_percent", 80)
-    critical = capacity.get("critical_percent", 90)
-    scrub_age = scrub.get("max_age_days", 30)
-    read_errors = errors.get("read_errors_warning", 0)
-    write_errors = errors.get("write_errors_warning", 0)
-    checksum_errors = errors.get("checksum_errors_warning", 0)
+    # Extract values with defaults (keys are at zfs root level)
+    warning = zfs_config.get("capacity_warning_percent", 80)
+    critical = zfs_config.get("capacity_critical_percent", 90)
+    scrub_age = zfs_config.get("scrub_max_age_days", 30)
+    read_errors = zfs_config.get("read_errors_warning", 1)
+    write_errors = zfs_config.get("write_errors_warning", 1)
+    checksum_errors = zfs_config.get("checksum_errors_warning", 1)
 
     # Validate capacity thresholds
     if not (0 < warning < 100):
-        raise ValueError(f"capacity.warning_percent must be between 0 and 100, got {warning}")
+        raise ValueError(f"zfs.capacity_warning_percent must be between 0 and 100, got {warning}")
     if not (0 < critical <= 100):
-        raise ValueError(f"capacity.critical_percent must be between 0 and 100, got {critical}")
+        raise ValueError(f"zfs.capacity_critical_percent must be between 0 and 100, got {critical}")
     if warning >= critical:
-        raise ValueError(f"capacity.warning_percent ({warning}%) must be less than critical_percent ({critical}%)")
+        raise ValueError(f"zfs.capacity_warning_percent ({warning}%) must be less than capacity_critical_percent ({critical}%)")
 
     # Validate scrub age
     if scrub_age < 0:
-        raise ValueError(f"scrub.max_age_days must be non-negative, got {scrub_age}")
+        raise ValueError(f"zfs.scrub_max_age_days must be non-negative, got {scrub_age}")
 
     # Validate error thresholds
     if read_errors < 0:
-        raise ValueError(f"errors.read_errors_warning must be non-negative, got {read_errors}")
+        raise ValueError(f"zfs.read_errors_warning must be non-negative, got {read_errors}")
     if write_errors < 0:
-        raise ValueError(f"errors.write_errors_warning must be non-negative, got {write_errors}")
+        raise ValueError(f"zfs.write_errors_warning must be non-negative, got {write_errors}")
     if checksum_errors < 0:
-        raise ValueError(f"errors.checksum_errors_warning must be non-negative, got {checksum_errors}")
+        raise ValueError(f"zfs.checksum_errors_warning must be non-negative, got {checksum_errors}")
 
     return MonitorConfig(
         capacity_warning_percent=warning,
