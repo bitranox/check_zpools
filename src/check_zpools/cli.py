@@ -39,7 +39,7 @@ behaviour remains consistent regardless of entry point.
 
 from __future__ import annotations
 import logging
-from typing import Final, Optional, Sequence, Tuple
+from typing import Optional, Sequence
 
 import rich_click as click
 
@@ -55,7 +55,17 @@ from .behaviors import (
     raise_intentional_failure,
     run_daemon,
 )
+from .cli_email_handlers import handle_send_email_error
 from .cli_errors import handle_generic_error, handle_zfs_not_available
+from .cli_traceback import (
+    TRACEBACK_SUMMARY_LIMIT,
+    TRACEBACK_VERBOSE_LIMIT,
+    TracebackState,
+    apply_traceback_preferences,
+    get_traceback_limit,
+    restore_traceback_state,
+    snapshot_traceback_state,
+)
 from .config import get_config
 from .config_deploy import deploy_configuration
 from .config_show import display_config
@@ -67,83 +77,8 @@ from .zfs_client import ZFSNotAvailableError
 
 #: Shared Click context flags so help output stays consistent across commands.
 CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}  # noqa: C408
-#: Character budget used when printing truncated tracebacks.
-TRACEBACK_SUMMARY_LIMIT: Final[int] = 500
-#: Character budget used when verbose tracebacks are enabled.
-TRACEBACK_VERBOSE_LIMIT: Final[int] = 10_000
-TracebackState = Tuple[bool, bool]
 
 logger = logging.getLogger(__name__)
-
-
-def apply_traceback_preferences(enabled: bool) -> None:
-    """Synchronise shared traceback flags with the requested preference.
-
-    Why
-        ``lib_cli_exit_tools`` inspects global flags to decide whether tracebacks
-        should be truncated and whether colour should be forced. Updating both
-        attributes together ensures the ``--traceback`` flag behaves the same for
-        console scripts and ``python -m`` execution.
-
-    Parameters
-    ----------
-    enabled:
-        ``True`` enables full tracebacks with colour. ``False`` restores the
-        compact summary mode.
-
-    Examples
-    --------
-    >>> apply_traceback_preferences(True)
-    >>> bool(lib_cli_exit_tools.config.traceback)
-    True
-    >>> bool(lib_cli_exit_tools.config.traceback_force_color)
-    True
-    """
-
-    lib_cli_exit_tools.config.traceback = bool(enabled)
-    lib_cli_exit_tools.config.traceback_force_color = bool(enabled)
-
-
-def snapshot_traceback_state() -> TracebackState:
-    """Capture the current traceback configuration for later restoration.
-
-    Returns
-    -------
-    TracebackState
-        Tuple of ``(traceback_enabled, force_color)``.
-
-    Examples
-    --------
-    >>> snapshot = snapshot_traceback_state()
-    >>> isinstance(snapshot, tuple)
-    True
-    """
-
-    return (
-        bool(getattr(lib_cli_exit_tools.config, "traceback", False)),
-        bool(getattr(lib_cli_exit_tools.config, "traceback_force_color", False)),
-    )
-
-
-def restore_traceback_state(state: TracebackState) -> None:
-    """Reapply a previously captured traceback configuration.
-
-    Parameters
-    ----------
-    state:
-        Tuple returned by :func:`snapshot_traceback_state`.
-
-    Examples
-    --------
-    >>> prev = snapshot_traceback_state()
-    >>> apply_traceback_preferences(True)
-    >>> restore_traceback_state(prev)
-    >>> snapshot_traceback_state() == prev
-    True
-    """
-
-    lib_cli_exit_tools.config.traceback = bool(state[0])
-    lib_cli_exit_tools.config.traceback_force_color = bool(state[1])
 
 
 def _record_traceback_choice(ctx: click.Context, *, enabled: bool) -> None:
@@ -622,26 +557,6 @@ def main(
         lib_log_rich.runtime.shutdown()
 
 
-def _handle_send_email_error(exc: Exception, error_type: str) -> None:
-    """Handle and log email sending errors.
-
-    Why
-    ---
-    Eliminates duplicated error handling across CLI email commands.
-    """
-    error_messages = {
-        "ValueError": ("Invalid email parameters", f"Invalid email parameters - {exc}"),
-        "FileNotFoundError": ("Attachment file not found", f"Attachment file not found - {exc}"),
-        "RuntimeError": ("SMTP delivery failed", f"Failed to send email - {exc}"),
-    }
-
-    log_msg, cli_msg = error_messages.get(error_type, ("Unexpected error sending email", f"Unexpected error - {exc}"))
-
-    logger.error(log_msg, extra={"error": str(exc)}, exc_info=(error_type not in error_messages))
-    click.echo(f"\nError: {cli_msg}", err=True)
-    raise SystemExit(1)
-
-
 @cli.command("send-email", context_settings=CLICK_CONTEXT_SETTINGS)
 @click.option(
     "--to",
@@ -758,9 +673,9 @@ def cli_send_email(
                 raise SystemExit(1)
 
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
-            _handle_send_email_error(exc, type(exc).__name__)
+            handle_send_email_error(exc, type(exc).__name__)
         except Exception as exc:
-            _handle_send_email_error(exc, "Exception")
+            handle_send_email_error(exc, "Exception")
 
 
 @cli.command("send-notification", context_settings=CLICK_CONTEXT_SETTINGS)
