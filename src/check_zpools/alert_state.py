@@ -358,19 +358,19 @@ class AlertStateManager:
             alerts = data.get("alerts", {})
             for key, state_dict in alerts.items():
                 try:
-                    # Convert ISO format timestamps back to datetime
-                    first_seen = datetime.fromisoformat(state_dict["first_seen"])
-                    last_alerted = datetime.fromisoformat(state_dict["last_alerted"]) if state_dict["last_alerted"] else None
+                    # Use Pydantic for validation and parsing
+                    model = AlertStateModel.model_validate(state_dict)
 
+                    # Convert Pydantic model to dataclass for internal storage
                     self.states[key] = AlertState(
-                        pool_name=state_dict["pool_name"],
-                        issue_category=state_dict["issue_category"],
-                        first_seen=first_seen,
-                        last_alerted=last_alerted,
-                        alert_count=state_dict["alert_count"],
-                        last_severity=state_dict["last_severity"],
+                        pool_name=model.pool_name,
+                        issue_category=model.issue_category,
+                        first_seen=model.first_seen,
+                        last_alerted=model.last_alerted,
+                        alert_count=model.alert_count,
+                        last_severity=model.last_severity,
                     )
-                except (KeyError, ValueError) as exc:
+                except Exception as exc:  # Catches ValidationError + KeyError + ValueError
                     logger.warning(
                         "Skipping corrupt state entry",
                         extra={"key": key, "error": str(exc)},
