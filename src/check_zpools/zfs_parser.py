@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Protocol, cast
@@ -35,6 +36,30 @@ from typing import Any, Protocol, cast
 from .models import PoolHealth, PoolStatus
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ErrorCounts:
+    """ZFS error counts for a pool.
+
+    Why
+    ---
+    Provides type-safe container for ZFS error metrics instead of dict.
+    Enables IDE autocomplete and prevents typos in field names.
+
+    Attributes
+    ----------
+    read:
+        Number of read errors detected on pool devices.
+    write:
+        Number of write errors detected on pool devices.
+    checksum:
+        Number of checksum errors detected on pool devices.
+    """
+
+    read: int = 0
+    write: int = 0
+    checksum: int = 0
 
 
 class DictLike(Protocol):
@@ -342,9 +367,9 @@ class ZFSParser:
             size_bytes=0,
             allocated_bytes=0,
             free_bytes=0,
-            read_errors=errors["read"],
-            write_errors=errors["write"],
-            checksum_errors=errors["checksum"],
+            read_errors=errors.read,
+            write_errors=errors.write,
+            checksum_errors=errors.checksum,
             last_scrub=scrub_info["last_scrub"],
             scrub_errors=scrub_info["scrub_errors"],
             scrub_in_progress=scrub_info["scrub_in_progress"],
@@ -447,7 +472,7 @@ class ZFSParser:
 
         return result
 
-    def _extract_error_counts(self, pool_data: dict[str, Any]) -> dict[str, int]:
+    def _extract_error_counts(self, pool_data: dict[str, Any]) -> ErrorCounts:
         """Extract total error counts from vdev tree.
 
         Parameters
@@ -457,10 +482,10 @@ class ZFSParser:
 
         Returns
         -------
-        dict:
-            Dictionary with 'read', 'write', 'checksum' error counts
+        ErrorCounts:
+            Type-safe container with read, write, and checksum error counts
         """
-        errors = {"read": 0, "write": 0, "checksum": 0}
+        errors = ErrorCounts()
 
         # Error counts can be in different locations depending on ZFS version:
         # - Older format: pool_data["vdev_tree"]["stats"]
@@ -475,9 +500,9 @@ class ZFSParser:
 
             if root_vdev:
                 try:
-                    errors["read"] = int(root_vdev.get("read_errors", 0))
-                    errors["write"] = int(root_vdev.get("write_errors", 0))
-                    errors["checksum"] = int(root_vdev.get("checksum_errors", 0))
+                    errors.read = int(root_vdev.get("read_errors", 0))
+                    errors.write = int(root_vdev.get("write_errors", 0))
+                    errors.checksum = int(root_vdev.get("checksum_errors", 0))
                     return errors
                 except (ValueError, TypeError):
                     pass  # Fall through to try old format
@@ -488,9 +513,9 @@ class ZFSParser:
             stats = vdev_tree.get("stats", {})
             if stats:
                 try:
-                    errors["read"] = int(stats.get("read_errors", 0))
-                    errors["write"] = int(stats.get("write_errors", 0))
-                    errors["checksum"] = int(stats.get("checksum_errors", 0))
+                    errors.read = int(stats.get("read_errors", 0))
+                    errors.write = int(stats.get("write_errors", 0))
+                    errors.checksum = int(stats.get("checksum_errors", 0))
                     return errors
                 except (ValueError, TypeError):
                     pass

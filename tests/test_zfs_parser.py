@@ -410,18 +410,18 @@ class TestHelperMethods:
         }
 
         errors = parser._extract_error_counts(pool_data)
-        assert errors["read"] == 10
-        assert errors["write"] == 5
-        assert errors["checksum"] == 3
+        assert errors.read == 10
+        assert errors.write == 5
+        assert errors.checksum == 3
 
     def test_extract_error_counts_missing_stats(self, parser: ZFSParser) -> None:
         """Verify defaults when stats missing."""
         pool_data = {"vdev_tree": {}}
 
         errors = parser._extract_error_counts(pool_data)
-        assert errors["read"] == 0
-        assert errors["write"] == 0
-        assert errors["checksum"] == 0
+        assert errors.read == 0
+        assert errors.write == 0
+        assert errors.checksum == 0
 
     def test_parse_scrub_time_with_valid_timestamp(self, parser: ZFSParser) -> None:
         """Verify scrub time parsing from Unix timestamp."""
