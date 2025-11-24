@@ -1,7 +1,72 @@
-# Changelog
+a# Changelog
 
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
+
+## [2.4.0] - 2025-11-24
+
+### Refactored
+- **Test Suite Architecture**: Complete refactoring of test suite following clean architecture principles
+  - Created shared fixtures in `conftest.py` to eliminate duplication across test files
+    - `healthy_pool_status` - Standard healthy pool fixture
+    - `ok_check_result` - Successful check result fixture
+    - `configurable_pool_status` - Factory pattern fixture for customizable pools
+  - Reorganized major test files with focused test classes:
+    - `test_alerting.py`: Split into 11 focused classes (31 tests, 91% coverage)
+    - `test_daemon.py`: Reorganized into 15 classes (31 tests, 100% coverage)
+    - `test_behaviors.py`: Fixed pyright errors, removed duplicates (40 tests, 96% coverage)
+    - `test_cli_commands_integration.py`: Updated to use shared fixtures (24 tests)
+  - Applied Given-When-Then docstring pattern to all test methods
+  - Test names now read like plain English sentences describing exact behavior
+  - Each test validates ONE specific behavior (no multi-assert kitchen sinks)
+  - **Why this matters**: Tests are now more maintainable, discoverable, and follow clean architecture principles "to the extreme"
+- **Code Complexity Reduction**: Eliminated final moderate-complexity function
+  - Refactored `uninstall_service()` from complexity 6 to 2 (67% reduction)
+  - Created 6 new helper functions, each with complexity ≤2
+  - Applied Extract Method pattern for better testability and maintainability
+  - **Why this matters**: Service installation code is now more maintainable with smaller, focused functions
+- **Code Duplication Elimination**: Removed duplicate code across multiple files
+  - Extracted shared `_run_systemctl_with_logging()` helper to eliminate 2 duplicate error handling blocks in `service_install.py`
+  - Created shared `validate_smtp_configuration()` function in `cli_email_handlers.py` to eliminate duplicates in `send_email.py` and `send_notification.py`
+  - Removed ~66 lines of duplicated code across 3 files
+  - Single source of truth for SMTP validation and systemctl error handling
+  - **Why this matters**: Easier to maintain, update, and ensure consistency across email commands
+
+### Fixed
+- **Type Annotations**: Added proper TYPE_CHECKING imports for forward references
+  - Fixed `psutil.Process` type annotations in `service_install.py`
+  - Fixed import path for `EmailConfig` in `cli_email_handlers.py` (changed from `..mail` to `.mail`)
+  - Fixed pyright reportUnusedExpression errors in test_behaviors.py (removed comma-separated assert messages)
+  - Fixed type annotations for fixture factories in test files
+  - **Why this matters**: All type checking and linting passes without errors
+- **Command Reference**: Corrected incorrect command reference in SMTP validation error message
+  - Changed from `bitranox-template-cli-app-config-log-mail config-deploy` to `check_zpools config-deploy`
+  - **Why this matters**: Users see correct command in error messages
+- **Test Assertions**: Fixed pool name mismatches in CLI integration tests
+  - Updated assertions to use "rpool" (from shared fixtures) instead of "testpool"
+  - **Why this matters**: Tests now accurately reflect fixture data
+
+### Documentation
+- **README Enhancement**: Expanded "Future Enhancements" section with comprehensive roadmap
+  - Organized 35+ potential features into 6 categories:
+    - Monitoring Enhancements (8 features): Remote SSH monitoring, dataset-level tracking, resilver/scrub progress, device health, fragmentation, SMART integration, I/O stats, snapshot monitoring
+    - Alerting & Notification Enhancements (6 features): Multiple channels (Slack, Discord, Teams, PagerDuty), alert grouping, templates, escalation, quiet hours, acknowledgment
+    - Reporting & Visualization (7 features): TUI dashboard, historical trending, summaries, capacity prediction, metrics export, web dashboard, Grafana templates
+    - Advanced Daemon Features (5 features): Adaptive intervals, self-healing, maintenance windows, pool-specific configs, monitoring system integration
+    - CLI & Usability Enhancements (5 features): Historical query, pool comparison, threshold testing, config validation, dry-run mode
+    - Security & Compliance (4 features): Audit logging, read-only mode, encrypted state, role-based access
+  - Added Contributing subsection to encourage community participation
+  - **Why this matters**: Provides clear project roadmap while demonstrating current feature set is production-ready
+
+### Testing
+- All 519 tests passing with 77% coverage (exceeds 60% requirement)
+- Coverage improvements:
+  - `behaviors.py`: 71% → 96% (+25%)
+  - `monitor.py`: 100% coverage
+  - `mail.py`: 100% coverage
+  - `alert_state.py`: 97% coverage
+- Zero regressions introduced
+- All refactored code fully tested
 
 ## [2.3.0] - 2025-11-23
 

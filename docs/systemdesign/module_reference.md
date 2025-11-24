@@ -2,7 +2,7 @@
 
 ## Status
 
-Production Ready (v2.1.8)
+Production Ready (v2.4.0) - Last Updated: 2025-11-24
 
 ## Links & References
 
@@ -183,7 +183,7 @@ Key design decisions:
 - `check_errors()` - Vdev error threshold check
 
 **Dependencies:** models, zfs_parser, config
-**Tests:** test_monitor.py (100% coverage)
+**Tests:** test_monitor.py (100% coverage, 41 tests)
 **Design Patterns:**
 - Strategy pattern for different check types
 - Builder pattern for CheckResult creation
@@ -216,7 +216,7 @@ Key design decisions:
 - `send_email_alert()` - Low-level email sending
 
 **Dependencies:** models, mail, alert_state, config, formatters
-**Tests:** test_alerting.py (91% coverage)
+**Tests:** test_alerting.py (91% coverage, 31 tests across 11 focused test classes)
 **Design Patterns:**
 - Template method for alert formatting
 - Adapter pattern for email backends
@@ -249,7 +249,7 @@ Key design decisions:
 - `save_state()` - Persist alert state to disk
 
 **Dependencies:** behaviors, alert_state, config, logging, signal, threading, time
-**Tests:** test_daemon.py (77% coverage)
+**Tests:** test_daemon.py (100% coverage, 31 tests across 15 focused test classes)
 **Design Patterns:**
 - Event loop pattern for periodic checking
 - Observer pattern for signal handling
@@ -340,7 +340,7 @@ class CheckResult:
 - `check_alerts()` - Manual alert trigger
 
 **Dependencies:** daemon, monitor, alerting, config, formatters, time
-**Tests:** test_behaviors.py (74% coverage)
+**Tests:** test_behaviors.py (96% coverage, 40 tests across focused test classes)
 **Design Patterns:**
 - Facade pattern for CLI simplification
 - Command pattern for behavior encapsulation
@@ -367,7 +367,7 @@ class CheckResult:
 - `service` - Systemd service installation (Linux only)
 
 **Dependencies:** behaviors, config, formatters, rich_click, typer
-**Tests:** test_cli.py (69% coverage)
+**Tests:** test_cli_commands_integration.py (24 tests across 6 focused test classes following clean architecture)
 **Design Pattern:** Command pattern with rich-click decorators
 
 ---
@@ -386,11 +386,12 @@ class CheckResult:
 - Handle connection errors gracefully
 - Validate email addresses
 
-**alert_state.py** (94% coverage):
-- Track sent alerts with timestamps
-- Implement deduplication logic
-- Persist state to JSON file
-- Load state on daemon start
+**alert_state.py** (97% coverage):
+- Track sent alerts with timestamps and severity changes
+- Implement deduplication logic with resend intervals
+- Detect severity changes for immediate alerts
+- Persist state to JSON file with Pydantic validation
+- Load state on daemon start with error recovery
 
 **logging_setup.py** (100% coverage):
 - Configure rich logging with colors
@@ -500,12 +501,25 @@ from_address = "zfs@localhost"
 **Coverage Requirements:**
 - Local minimum: 60% (enforced by `make test`)
 - CI target: 70% (Codecov PR checks)
-- Current: 74.55% (exceeds both thresholds)
+- Current: 77% (exceeds both thresholds)
+- Test count: 519 passing tests
 
 **Test Data:**
-- Fixtures in conftest.py (PoolStatus, CheckResult)
+- Shared fixtures in conftest.py:
+  - `healthy_pool_status` - Standard healthy pool for happy-path tests
+  - `ok_check_result` - Successful check result fixture
+  - `configurable_pool_status` - Factory pattern fixture for customizable pools
 - JSON fixtures for zpool output
 - Sample configuration files
+
+**Test Architecture (v2.4.0):**
+All major test files have been refactored following clean architecture principles:
+- Test names read like plain English sentences
+- Each test validates ONE specific behavior
+- Given-When-Then docstrings throughout
+- Tests organized into focused classes by behavior domain
+- Real behavior testing over excessive mocking
+- Comprehensive coverage of edge cases and error paths
 
 ---
 
@@ -518,12 +532,13 @@ from_address = "zfs@localhost"
 - Email retry logic is basic
 
 **Future Enhancements:**
-- Web dashboard for pool visualization
-- Prometheus metrics export
-- Slack/Discord notification backends
-- ZFS dataset monitoring (not just pools)
-- Historical trend tracking
-- Predictive capacity alerts
+See README.md for comprehensive roadmap (35+ features across 6 categories):
+- Monitoring: Remote SSH, device-level health, SMART integration, I/O stats
+- Alerting: Multiple channels (Slack, Discord, Teams, PagerDuty), escalation, quiet hours
+- Reporting: TUI dashboard, historical trending, capacity prediction, Prometheus/Grafana
+- Daemon: Adaptive intervals, self-healing actions, pool-specific configs
+- CLI: Historical query, pool comparison, threshold testing, dry-run mode
+- Security: Audit logging, read-only mode, encrypted state, role-based access
 
 ---
 
@@ -552,11 +567,12 @@ from_address = "zfs@localhost"
 ## Documentation & Resources
 
 **Internal References:**
-- README.md - Usage examples and quick start
+- README.md - Usage examples, quick start, and comprehensive feature roadmap
 - INSTALL.md - Installation instructions
 - DEVELOPMENT.md - Developer workflow and testing
 - CONTRIBUTING.md - Contribution guidelines
-- CODE_ARCHITECTURE.md - Detailed design docs (WIP - missing models.py section)
+- CHANGELOG.md - Version history and detailed change documentation
+- docs/TEST_REFACTORING_GUIDE.md - Clean architecture test patterns and examples
 
 **External References:**
 - OpenZFS Documentation: https://openzfs.github.io/openzfs-docs/
@@ -566,7 +582,7 @@ from_address = "zfs@localhost"
 ---
 
 **Created:** 2025-11-19 by Claude Code (comprehensive update)
-**Last Updated:** 2025-11-19 by Claude Code
+**Last Updated:** 2025-11-24 by Claude Code (v2.4.0 test refactoring and coverage improvements)
 **Review Cycle:** Update when new modules added or architecture changes
 
 ---

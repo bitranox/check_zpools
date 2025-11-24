@@ -33,6 +33,14 @@ def check_command(format: str) -> None:
             # Exit with appropriate code
             exit_code = get_exit_code_for_severity(result.overall_severity)
             if exit_code != 0:
+                logger.warning(
+                    f"Check completed with {result.overall_severity.name} severity",
+                    extra={
+                        "exit_code": exit_code,
+                        "severity": result.overall_severity.name,
+                        "issue_count": len(result.issues),
+                    },
+                )
                 raise SystemExit(exit_code)
 
         except ZFSNotAvailableError as exc:

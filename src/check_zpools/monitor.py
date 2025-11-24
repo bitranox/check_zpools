@@ -324,6 +324,59 @@ class PoolMonitor:
 
         return None
 
+    def _create_error_issue(self, pool_name: str, error_type: str, count: int, threshold: int, extra_note: str = "") -> PoolIssue:
+        """Create a pool issue for an error condition.
+
+        Parameters
+        ----------
+        pool_name:
+            Name of the pool.
+        error_type:
+            Type of error (read, write, checksum).
+        count:
+            Error count.
+        threshold:
+            Warning threshold.
+        extra_note:
+            Optional extra note for message.
+
+        Returns
+        -------
+        PoolIssue:
+            Issue describing the error.
+        """
+        message = f"Pool has {count} {error_type} errors"
+        if extra_note:
+            message += f" {extra_note}"
+
+        return PoolIssue(
+            pool_name=pool_name,
+            severity=Severity.WARNING,
+            category="errors",
+            message=message,
+            details={
+                f"{error_type}_errors": count,
+                "threshold": threshold,
+            },
+        )
+
+    def _check_error_threshold(self, count: int, threshold: int) -> bool:
+        """Check if error count meets threshold.
+
+        Parameters
+        ----------
+        count:
+            Error count.
+        threshold:
+            Warning threshold.
+
+        Returns
+        -------
+        bool:
+            True if errors present and meet threshold.
+        """
+        return count > 0 and count >= threshold
+
     def _check_errors(self, pool: PoolStatus) -> list[PoolIssue]:
         """Check pool for I/O and checksum errors.
 
@@ -340,51 +393,17 @@ class PoolMonitor:
         issues: list[PoolIssue] = []
 
         # Check read errors
-        # Only trigger warning if errors are present (> 0) AND meet threshold
-        if pool.read_errors > 0 and pool.read_errors >= self.config.read_errors_warning:
-            issues.append(
-                PoolIssue(
-                    pool_name=pool.name,
-                    severity=Severity.WARNING,
-                    category="errors",
-                    message=f"Pool has {pool.read_errors} read errors",
-                    details={
-                        "read_errors": pool.read_errors,
-                        "threshold": self.config.read_errors_warning,
-                    },
-                )
-            )
+        if self._check_error_threshold(pool.read_errors, self.config.read_errors_warning):
+            issues.append(self._create_error_issue(pool.name, "read", pool.read_errors, self.config.read_errors_warning))
 
         # Check write errors
-        # Only trigger warning if errors are present (> 0) AND meet threshold
-        if pool.write_errors > 0 and pool.write_errors >= self.config.write_errors_warning:
-            issues.append(
-                PoolIssue(
-                    pool_name=pool.name,
-                    severity=Severity.WARNING,
-                    category="errors",
-                    message=f"Pool has {pool.write_errors} write errors",
-                    details={
-                        "write_errors": pool.write_errors,
-                        "threshold": self.config.write_errors_warning,
-                    },
-                )
-            )
+        if self._check_error_threshold(pool.write_errors, self.config.write_errors_warning):
+            issues.append(self._create_error_issue(pool.name, "write", pool.write_errors, self.config.write_errors_warning))
 
         # Check checksum errors (more serious)
-        # Only trigger warning if errors are present (> 0) AND meet threshold
-        if pool.checksum_errors > 0 and pool.checksum_errors >= self.config.checksum_errors_warning:
+        if self._check_error_threshold(pool.checksum_errors, self.config.checksum_errors_warning):
             issues.append(
-                PoolIssue(
-                    pool_name=pool.name,
-                    severity=Severity.WARNING,
-                    category="errors",
-                    message=f"Pool has {pool.checksum_errors} checksum errors (possible data corruption)",
-                    details={
-                        "checksum_errors": pool.checksum_errors,
-                        "threshold": self.config.checksum_errors_warning,
-                    },
-                )
+                self._create_error_issue(pool.name, "checksum", pool.checksum_errors, self.config.checksum_errors_warning, "(possible data corruption)")
             )
 
         return issues

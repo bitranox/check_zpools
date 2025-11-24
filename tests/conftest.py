@@ -12,12 +12,14 @@ import re
 import sys
 from collections.abc import Callable, Iterator
 from dataclasses import fields
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
 
 import lib_cli_exit_tools
+from check_zpools.models import CheckResult, PoolHealth, PoolStatus, Severity
 
 # ============================================================================
 # OS Detection Constants
@@ -194,3 +196,111 @@ def isolated_traceback_config(monkeypatch: pytest.MonkeyPatch) -> None:
     lib_cli_exit_tools.reset_config()
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
+
+
+# ============================================================================
+# Domain Model Fixtures - Reusable Test Data
+# ============================================================================
+
+
+@pytest.fixture
+def healthy_pool_status() -> PoolStatus:
+    """Create a healthy ZFS pool status for testing.
+
+    Why
+        Represents a real, healthy pool used across multiple tests.
+        Shared fixture eliminates duplication and ensures consistency.
+        Used as baseline for happy-path tests.
+
+    Returns
+        Pool with ONLINE health, 50% capacity, no errors.
+    """
+    return PoolStatus(
+        name="rpool",
+        health=PoolHealth.ONLINE,
+        capacity_percent=50.0,
+        size_bytes=1024**4,  # 1 TB
+        allocated_bytes=int(0.5 * 1024**4),  # 500 GB
+        free_bytes=int(0.5 * 1024**4),  # 500 GB
+        read_errors=0,
+        write_errors=0,
+        checksum_errors=0,
+        last_scrub=datetime(2025, 11, 24, 12, 0, 0, tzinfo=UTC),
+        scrub_errors=0,
+        scrub_in_progress=False,
+    )
+
+
+@pytest.fixture
+def ok_check_result(healthy_pool_status: PoolStatus) -> CheckResult:
+    """Create a check result indicating all pools are healthy.
+
+    Why
+        Represents successful monitoring outcome - all checks passed.
+        Shared fixture eliminates duplication and ensures consistency.
+        Used for testing happy paths and success scenarios.
+
+    Returns
+        CheckResult with OK severity and one healthy pool.
+    """
+    return CheckResult(
+        timestamp=datetime(2025, 11, 24, 12, 0, 0, tzinfo=UTC),
+        pools=[healthy_pool_status],
+        issues=[],
+        overall_severity=Severity.OK,
+    )
+
+
+@pytest.fixture
+def configurable_pool_status():
+    """Create a factory for building pool status with configurable parameters.
+
+    Why
+        Allows tests to easily create pool statuses with different configurations
+        (capacity, scrub status, etc.) without duplicating pool creation logic.
+        Particularly useful for alerting and monitoring tests.
+
+    Returns
+        Factory function that creates PoolStatus instances.
+
+    Example
+        pool = configurable_pool_status(name="data", capacity=85.0)
+        pool_with_scrub = configurable_pool_status(scrub_in_progress=True)
+    """
+
+    def _create_pool(
+        name: str = "rpool",
+        capacity: float = 50.0,
+        scrub_in_progress: bool = False,
+        last_scrub: datetime | None = None,
+    ) -> PoolStatus:
+        """Create a configurable pool status for testing.
+
+        Inputs
+            name: Pool name (default: "rpool")
+            capacity: Capacity percentage (default: 50.0)
+            scrub_in_progress: Whether scrub is running (default: False)
+            last_scrub: Last scrub timestamp (default: current time)
+
+        Outputs
+            PoolStatus with specified configuration
+        """
+        if last_scrub is None:
+            last_scrub = datetime.now(UTC)
+
+        return PoolStatus(
+            name=name,
+            health=PoolHealth.ONLINE,
+            capacity_percent=capacity,
+            size_bytes=1024**4,
+            allocated_bytes=int((capacity / 100.0) * 1024**4),
+            free_bytes=int(((100.0 - capacity) / 100.0) * 1024**4),
+            read_errors=0,
+            write_errors=0,
+            checksum_errors=0,
+            last_scrub=last_scrub,
+            scrub_errors=0,
+            scrub_in_progress=scrub_in_progress,
+        )
+
+    return _create_pool

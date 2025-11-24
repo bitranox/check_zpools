@@ -1188,32 +1188,117 @@ sudo journalctl -u check_zpools | grep -E '(read_errors=[1-9]|write_errors=[1-9]
 
 ## Further Documentation
 
-- [Install Guide](INSTALL.md) - Detailed installation instructions
-- [Development Handbook](DEVELOPMENT.md) - Contributing and development setup
-- [Contributor Guide](CONTRIBUTING.md) - How to contribute
-- [Changelog](CHANGELOG.md) - Version history
-- [Module Reference](docs/systemdesign/module_reference.md) - API documentation
-- [License](LICENSE) - MIT License
+### User Documentation
+- [Install Guide](INSTALL.md) - Detailed installation instructions and setup
+- [Changelog](CHANGELOG.md) - Version history and detailed release notes
+- [Security Policy](SECURITY.md) - Security reporting and vulnerability disclosure
+
+### Developer Documentation
+- [Development Handbook](DEVELOPMENT.md) - Development setup, testing, and workflow
+- [Contributing Guide](CONTRIBUTING.md) - How to contribute to the project
+- [Code Architecture](CODE_ARCHITECTURE.md) - Architectural design and patterns
+- [Module Reference](docs/systemdesign/module_reference.md) - Comprehensive module and API documentation
+- [Test Refactoring Guide](docs/TEST_REFACTORING_GUIDE.md) - Clean architecture test patterns and examples
+- [Claude Code Guidelines](CLAUDE.md) - AI-assisted development guidelines (for contributors using Claude Code)
+
+### License
+- [MIT License](LICENSE) - Open source license terms
 
 ---
 
 ## Future Enhancements
 
-We're always looking to improve `check_zpools`! Here are some planned features and enhancement requests for future versions:
+We're always looking to improve `check_zpools`! Here are planned features and enhancement requests for future versions. If you're interested in any of these features, please open an issue or discussion on GitHub to help prioritize development.
 
-- **Web dashboard** for status visualization
-- **Metrics export** in Prometheus format
-- **Remote ZFS pools** monitoring via SSH
-- **Integration** with monitoring systems (Nagios, Zabbix, etc.)
-- **Snapshot monitoring** and management capabilities
-- **Dataset-level monitoring** (in addition to pools)
+### Monitoring Enhancements
 
-Have an idea or feature request? Please open an issue on GitHub!
+- **Remote ZFS pools** monitoring via SSH - Monitor ZFS pools on remote systems without local ZFS installation
+- **Dataset-level monitoring** - Track individual dataset health, quotas, and usage in addition to pools
+- **Resilver/scrub progress tracking** - Alert when resilver operations are stuck or taking too long
+- **Device-level monitoring** - Track individual disk health within pools (vdev status)
+- **Fragmentation tracking** - Alert on high fragmentation levels that may impact performance
+- **SMART data integration** - Correlate ZFS errors with disk SMART status for predictive failure detection
+- **Pool I/O statistics** - Track read/write performance trends and detect I/O bottlenecks
+- **Snapshot monitoring** - Track snapshot age, count, and space consumption
+
+### Alerting & Notification Enhancements
+
+- **Multiple notification channels** - Slack, Discord, Microsoft Teams, PagerDuty, webhook support
+- **Alert grouping/batching** - Batch multiple issues into single notification to reduce noise
+- **Templated alert messages** - User-customizable email and notification templates
+- **Alert escalation** - Auto-escalate alerts if issues persist beyond configured timeframes
+- **Quiet hours** - Suppress non-critical alerts during specified maintenance windows
+- **Alert acknowledgment** - Track who acknowledged which alerts for audit compliance
+
+### Reporting & Visualization
+
+- **Interactive TUI dashboard** - Real-time monitoring dashboard using Textual (library already available)
+- **Historical trending** - Store metrics over time for trend analysis and capacity planning
+- **Weekly/monthly summaries** - Scheduled health reports via email
+- **Capacity prediction** - Estimate when pools will reach thresholds based on usage trends
+- **Metrics export** - Prometheus exporter, InfluxDB, Graphite integration
+- **Web dashboard** - Web-based status visualization and configuration management
+- **Grafana dashboards** - Pre-built Grafana dashboard templates
+
+### Advanced Daemon Features
+
+- **Adaptive check intervals** - Automatically increase check frequency when issues detected
+- **Self-healing actions** - Auto-trigger scrub on checksum errors, automated pool recovery
+- **Maintenance windows** - Suppress alerts during scheduled maintenance periods
+- **Pool-specific configurations** - Different thresholds and check intervals per pool
+- **Integration with monitoring systems** - Native Nagios, Zabbix, Icinga plugins
+
+### CLI & Usability Enhancements
+
+- **Historical query** - Query and display past check results from state file
+- **Pool comparison** - Compare multiple pools side-by-side with diff visualization
+- **Threshold testing** - "What-if" simulation for testing threshold changes before deployment
+- **Configuration validation** - Validate configuration files before deployment
+- **Dry-run mode** - Test monitoring logic without sending alerts
+
+### Security & Compliance
+
+- **Audit logging** - Comprehensive audit trail of all check operations and alerts
+- **Read-only mode** - Monitor pools without requiring write permissions
+- **Encrypted state files** - Encrypt alert state at rest for sensitive environments
+- **Role-based access** - Multi-user support with different permission levels
+
+### Contributing
+
+Interested in implementing any of these features? We welcome contributions! Please:
+
+1. Open a discussion to coordinate implementation approach
+2. Review the [Contributing Guide](CONTRIBUTING.md) for development workflow
+3. Check existing issues to avoid duplicate work
+
+Have an idea not listed here? **Please open an issue or discussion on GitHub!**
 
 ---
 
-## Support
+## Support & Community
 
-- **Issues:** https://github.com/bitranox/check_zpools/issues
-- **Discussions:** https://github.com/bitranox/check_zpools/discussions
-- **Documentation:** https://github.com/bitranox/check_zpools/tree/main/docs
+### Getting Help
+
+- **📚 Documentation:** Browse comprehensive guides in the [Further Documentation](#further-documentation) section above
+- **💬 Discussions:** Ask questions and share ideas on [GitHub Discussions](https://github.com/bitranox/check_zpools/discussions)
+- **🐛 Bug Reports:** Report issues on [GitHub Issues](https://github.com/bitranox/check_zpools/issues)
+- **🔒 Security:** Report vulnerabilities privately via [SECURITY.md](SECURITY.md)
+
+### Quick Links
+
+- **Repository:** https://github.com/bitranox/check_zpools
+- **PyPI Package:** https://pypi.org/project/check-zpools/
+- **Changelog:** [CHANGELOG.md](CHANGELOG.md) - See what's new
+- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md) - Join the project
+
+### Before Opening an Issue
+
+1. Check [existing issues](https://github.com/bitranox/check_zpools/issues) to avoid duplicates
+2. Review the [documentation](#further-documentation) for your question
+3. Search [discussions](https://github.com/bitranox/check_zpools/discussions) for similar topics
+4. For bugs, include:
+   - Your OS and Python version (`python --version`)
+   - ZFS version (`zpool --version` or `zfs --version`)
+   - Full error message and traceback
+   - Configuration file (sanitize sensitive data)
+   - Steps to reproduce the issue

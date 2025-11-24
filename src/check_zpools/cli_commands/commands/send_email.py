@@ -9,11 +9,75 @@ from typing import Optional
 import lib_log_rich.runtime
 import rich_click as click
 
-from ...cli_email_handlers import handle_send_email_error
+from ...cli_email_handlers import handle_send_email_error, validate_smtp_configuration
 from ...config import get_config
 from ...mail import load_email_config_from_dict, send_email
 
 logger = logging.getLogger(__name__)
+
+
+def _prepare_attachments(attachments: tuple[str, ...]) -> list[Path] | None:
+    """Convert attachment strings to Path objects.
+
+    Parameters
+    ----------
+    attachments:
+        Tuple of attachment file paths.
+
+    Returns
+    -------
+    list[Path] | None:
+        List of Path objects, or None if no attachments.
+    """
+    return [Path(p) for p in attachments] if attachments else None
+
+
+def _log_send_email_request(recipients: tuple[str, ...], subject: str, body_html: str, attachments: tuple[str, ...]) -> None:
+    """Log email send request details.
+
+    Parameters
+    ----------
+    recipients:
+        Email recipients.
+    subject:
+        Email subject.
+    body_html:
+        HTML body content.
+    attachments:
+        Attachment file paths.
+    """
+    logger.info(
+        "Sending email",
+        extra={
+            "recipients": list(recipients),
+            "subject": subject,
+            "has_html": bool(body_html),
+            "attachment_count": len(attachments) if attachments else 0,
+        },
+    )
+
+
+def _handle_send_result(result: bool, recipients: tuple[str, ...]) -> None:
+    """Handle email send result.
+
+    Parameters
+    ----------
+    result:
+        Whether email was sent successfully.
+    recipients:
+        Email recipients.
+
+    Raises
+    ------
+    SystemExit: If send failed.
+    """
+    if result:
+        click.echo("\nEmail sent successfully!")
+        logger.info("Email sent via CLI", extra={"recipients": list(recipients)})
+    else:
+        logger.error("Email sending failed via CLI", extra={"recipients": list(recipients)})
+        click.echo("\nEmail sending failed.", err=True)
+        raise SystemExit(1)
 
 
 def send_email_command(
@@ -33,33 +97,12 @@ def send_email_command(
             # Load and validate email configuration
             config = get_config()
             email_config = load_email_config_from_dict(config.as_dict())
+            validate_smtp_configuration(email_config)
 
-            if not email_config.smtp_hosts:
-                logger.error("No SMTP hosts configured")
-                click.echo(
-                    "\nError: No SMTP hosts configured. Please configure email.smtp_hosts in your config file.",
-                    err=True,
-                )
-                click.echo(
-                    "See: bitranox-template-cli-app-config-log-mail config-deploy --target user",
-                    err=True,
-                )
-                raise SystemExit(1)
+            # Prepare and send email
+            attachment_paths = _prepare_attachments(attachments)
+            _log_send_email_request(recipients, subject, body_html, attachments)
 
-            # Prepare attachments
-            attachment_paths = [Path(p) for p in attachments] if attachments else None
-
-            logger.info(
-                "Sending email",
-                extra={
-                    "recipients": list(recipients),
-                    "subject": subject,
-                    "has_html": bool(body_html),
-                    "attachment_count": len(attachments) if attachments else 0,
-                },
-            )
-
-            # Send email
             result = send_email(
                 config=email_config,
                 recipients=list(recipients),
@@ -70,12 +113,7 @@ def send_email_command(
                 attachments=attachment_paths,
             )
 
-            if result:
-                click.echo("\nEmail sent successfully!")
-                logger.info("Email sent via CLI", extra={"recipients": list(recipients)})
-            else:
-                click.echo("\nEmail sending failed.", err=True)
-                raise SystemExit(1)
+            _handle_send_result(result, recipients)
 
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             handle_send_email_error(exc, type(exc).__name__)

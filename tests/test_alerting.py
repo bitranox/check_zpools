@@ -1,14 +1,29 @@
-"""Tests for email alerting module.
+"""Integration tests for email alerting following clean architecture principles.
 
-Tests cover:
-- Email formatting (subject, body)
-- Alert sending with SMTP mocking
-- Recovery email generation
-- Error handling for failed sends
-- Configuration handling
+Design Philosophy
+-----------------
+These tests validate email alerting behavior through real formatting logic with minimal mocking:
+- Test names read like plain English sentences describing exact behavior
+- Each test validates ONE specific behavior - no multi-assert kitchen sinks
+- Real formatting logic - tests actual subject/body generation with minimal stubbing
+- OS-agnostic - email logic works the same on all platforms
+- Deterministic - no SMTP connections, uses mocks for email sending only
 
-All tests are OS-agnostic (email logic works everywhere).
-SMTP functionality is tested with mocks (no real email sending in unit tests).
+Test Structure Pattern
+----------------------
+1. Given: Setup minimal test state (fixtures, test data)
+2. When: Execute ONE alert action
+3. Then: Assert ONE specific outcome
+
+Coverage Strategy
+-----------------
+- Email configuration: Store and apply settings correctly
+- Subject formatting: Descriptive subjects with severity, pool, message
+- Body formatting: Complete pool details with recommended actions
+- Alert sending: SMTP interaction with error handling
+- Recovery emails: Separate notifications for resolved issues
+- Severity filtering: Send only alerts matching configured severities
+- Edge cases: No recipients, SMTP failures, missing scrub data
 """
 
 from __future__ import annotations
@@ -16,6 +31,7 @@ from __future__ import annotations
 import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,32 +44,9 @@ from check_zpools.models import PoolHealth, PoolIssue, PoolStatus, Severity
 # ============================================================================
 # Test Data Builders
 # ============================================================================
-
-
-def a_pool_for_alerting(
-    name: str = "rpool",
-    capacity: float = 50.0,
-    scrub_in_progress: bool = False,
-    last_scrub: datetime | None = None,
-) -> PoolStatus:
-    """Create a pool for alerting tests."""
-    if last_scrub is None:
-        last_scrub = datetime.now(UTC)
-
-    return PoolStatus(
-        name=name,
-        health=PoolHealth.ONLINE,
-        capacity_percent=capacity,
-        size_bytes=1024**4,
-        allocated_bytes=int((capacity / 100.0) * 1024**4),
-        free_bytes=int(((100.0 - capacity) / 100.0) * 1024**4),
-        read_errors=0,
-        write_errors=0,
-        checksum_errors=0,
-        last_scrub=last_scrub,
-        scrub_errors=0,
-        scrub_in_progress=scrub_in_progress,
-    )
+# Note: Pool status factory (configurable_pool_status) is defined in conftest.py
+# and automatically available to all test files.
+# ============================================================================
 
 
 def a_capacity_issue(pool_name: str = "rpool", severity: Severity = Severity.WARNING) -> PoolIssue:
@@ -102,6 +95,9 @@ def a_health_issue(pool_name: str = "rpool") -> PoolIssue:
 
 # ============================================================================
 # Test Fixtures
+# ============================================================================
+# Note: Some shared fixtures like healthy_pool_status and ok_check_result are
+# defined in conftest.py and automatically available to all test files.
 # ============================================================================
 
 
@@ -166,44 +162,65 @@ def sample_issue() -> PoolIssue:
 
 
 @pytest.mark.os_agnostic
-class TestEmailAlerterInitialization:
-    """When creating an email alerter, configuration is applied correctly."""
+class TestEmailAlerterInitializationStoresConfiguration:
+    """Email alerter initialization stores all provided configuration."""
 
-    def test_alerter_stores_email_config(self, email_config: EmailConfig, alert_config: dict) -> None:
-        """When initializing with email config,
-        the alerter stores the configuration."""
+    def test_stores_email_config_reference(self, email_config: EmailConfig, alert_config: dict) -> None:
+        """When initializing with email config, stores reference.
+
+        Given: Email configuration with SMTP settings
+        When: Creating alerter with config
+        Then: Alerter stores config reference
+        """
         alerter = EmailAlerter(email_config, alert_config)
 
         assert alerter.email_config == email_config
 
-    def test_alerter_applies_custom_subject_prefix(self, email_config: EmailConfig, alert_config: dict) -> None:
-        """When config specifies subject_prefix,
-        the alerter uses that prefix."""
+    def test_applies_custom_subject_prefix_from_config(self, email_config: EmailConfig, alert_config: dict) -> None:
+        """When config specifies subject_prefix, uses that prefix.
+
+        Given: Alert config with custom prefix "[ZFS Test]"
+        When: Creating alerter with config
+        Then: Alerter uses custom prefix
+        """
         alerter = EmailAlerter(email_config, alert_config)
 
         assert alerter.subject_prefix == "[ZFS Test]"
 
-    def test_alerter_stores_alert_recipients(self, email_config: EmailConfig, alert_config: dict) -> None:
-        """When config specifies alert_recipients,
-        the alerter stores the recipient list."""
+    def test_stores_alert_recipients_from_config(self, email_config: EmailConfig, alert_config: dict) -> None:
+        """When config specifies alert_recipients, stores recipient list.
+
+        Given: Alert config with recipient list
+        When: Creating alerter with config
+        Then: Alerter stores recipient list
+        """
         alerter = EmailAlerter(email_config, alert_config)
 
         assert alerter.recipients == ["admin@example.com"]
 
-    def test_alerter_uses_default_subject_prefix_when_not_configured(self, email_config: EmailConfig) -> None:
-        """When config omits subject_prefix,
-        the alerter uses '[ZFS Alert]' as default."""
+    def test_uses_default_subject_prefix_when_not_configured(self, email_config: EmailConfig) -> None:
+        """When config omits subject_prefix, uses default '[ZFS Alert]'.
+
+        Given: Empty alert config (no subject_prefix)
+        When: Creating alerter
+        Then: Alerter uses default prefix "[ZFS Alert]"
+        """
         alerter = EmailAlerter(email_config, {})
 
         assert alerter.subject_prefix == "[ZFS Alert]"
 
 
 @pytest.mark.os_agnostic
-class TestEmailSubjectFormatting:
-    """When formatting email subjects, content is descriptive and clear."""
+class TestAlertSubjectFormattingIncludesKeyInformation:
+    """Alert subject formatting includes all key information for quick identification."""
 
-    def test_format_subject_includes_severity_and_pool(self, alerter: EmailAlerter) -> None:
-        """Subject should include hostname, severity, pool name, and message."""
+    def test_includes_prefix_hostname_severity_pool_and_message(self, alerter: EmailAlerter) -> None:
+        """When formatting subject, includes all key identification fields.
+
+        Given: Alerter with custom prefix "[ZFS Test]"
+        When: Formatting subject for WARNING on "rpool"
+        Then: Subject contains prefix, hostname, severity, pool, message
+        """
         import socket
 
         subject = alerter._format_subject(Severity.WARNING, "rpool", "High capacity")
@@ -220,15 +237,30 @@ class TestEmailSubjectFormatting:
         assert subject.count("[") >= 2, "Subject should have at least 2 opening brackets"
         assert subject.count("]") >= 2, "Subject should have at least 2 closing brackets"
 
-    def test_format_subject_for_critical_issue(self, alerter: EmailAlerter) -> None:
-        """Critical issues should be marked in subject."""
+    def test_marks_critical_issues_in_subject(self, alerter: EmailAlerter) -> None:
+        """When formatting critical issue, subject shows CRITICAL severity.
+
+        Given: CRITICAL severity pool issue
+        When: Formatting subject
+        Then: Subject contains "CRITICAL" and pool name
+        """
         subject = alerter._format_subject(Severity.CRITICAL, "data", "Pool degraded")
 
         assert "CRITICAL" in subject
         assert "data" in subject
 
-    def test_format_body_includes_pool_details(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
-        """Email body should include complete pool information."""
+
+@pytest.mark.os_agnostic
+class TestAlertBodyFormattingIncludesCompleteDetails:
+    """Alert body formatting includes complete pool and issue information."""
+
+    def test_includes_pool_name_capacity_severity_and_category(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
+        """When formatting body, includes all pool details and issue info.
+
+        Given: Pool at 85.5% capacity with WARNING severity
+        When: Formatting alert body
+        Then: Body contains pool name, capacity, severity, category, actions
+        """
         body = alerter._format_body(sample_issue, sample_pool)
 
         # Check key information is present
@@ -238,15 +270,30 @@ class TestEmailSubjectFormatting:
         assert "capacity" in body
         assert "zpool status" in body  # Recommended action
 
-    def test_format_body_includes_issue_details(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
-        """Email body should include issue details."""
+    def test_includes_issue_detail_fields(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
+        """When issue has detail fields, includes them in body.
+
+        Given: Issue with threshold and actual values in details
+        When: Formatting alert body
+        Then: Body contains detail field names and values
+        """
         body = alerter._format_body(sample_issue, sample_pool)
 
         assert "threshold" in body
         assert "actual" in body
 
-    def test_format_body_includes_recommended_actions_for_capacity(self, alerter: EmailAlerter, sample_pool: PoolStatus) -> None:
-        """Capacity issues should have specific recommendations."""
+
+@pytest.mark.os_agnostic
+class TestAlertBodyIncludesRecommendedActionsByCategory:
+    """Alert body includes category-specific recommended actions."""
+
+    def test_capacity_issues_recommend_freeing_space(self, alerter: EmailAlerter, sample_pool: PoolStatus) -> None:
+        """When issue is capacity, recommends freeing up space.
+
+        Given: Capacity warning issue
+        When: Formatting alert body
+        Then: Body contains recommendations about removing files and storage
+        """
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
@@ -260,8 +307,13 @@ class TestEmailSubjectFormatting:
         assert "remove unnecessary files" in body.lower()
         assert "storage capacity" in body.lower()
 
-    def test_format_body_includes_recommended_actions_for_errors(self, alerter: EmailAlerter, sample_pool: PoolStatus) -> None:
-        """Error issues should have specific recommendations."""
+    def test_error_issues_recommend_hardware_check_and_scrub(self, alerter: EmailAlerter, sample_pool: PoolStatus) -> None:
+        """When issue is errors, recommends checking hardware and running scrub.
+
+        Given: Read/write error issue
+        When: Formatting alert body
+        Then: Body mentions hardware issues and scrub recommendations
+        """
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
@@ -275,8 +327,13 @@ class TestEmailSubjectFormatting:
         assert "hardware issues" in body.lower()
         assert "scrub" in body.lower()
 
-    def test_format_body_includes_recommended_actions_for_scrub(self, alerter: EmailAlerter, sample_pool: PoolStatus) -> None:
-        """Scrub issues should have specific recommendations."""
+    def test_scrub_issues_recommend_running_scrub(self, alerter: EmailAlerter, sample_pool: PoolStatus) -> None:
+        """When issue is scrub, recommends running zpool scrub command.
+
+        Given: Scrub overdue issue
+        When: Formatting alert body
+        Then: Body contains zpool scrub command recommendation
+        """
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.INFO,
@@ -289,8 +346,13 @@ class TestEmailSubjectFormatting:
 
         assert "zpool scrub" in body.lower()
 
-    def test_format_body_includes_recommended_actions_for_health(self, alerter: EmailAlerter, sample_pool: PoolStatus) -> None:
-        """Health issues should have specific recommendations."""
+    def test_health_issues_recommend_device_replacement(self, alerter: EmailAlerter, sample_pool: PoolStatus) -> None:
+        """When issue is health, recommends checking and replacing devices.
+
+        Given: Pool health degraded issue
+        When: Formatting alert body
+        Then: Body mentions failed devices and replacement recommendations
+        """
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
@@ -304,15 +366,25 @@ class TestEmailSubjectFormatting:
         assert "failed or degraded devices" in body.lower()
         assert "replace" in body.lower()
 
+
+@pytest.mark.os_agnostic
+class TestAlertSendingCallsSMTPWithFormattedContent:
+    """Alert sending calls SMTP with properly formatted subject and body."""
+
     @patch("check_zpools.alerting.send_email")
-    def test_send_alert_calls_smtp(
+    def test_calls_smtp_with_config_recipients_and_formatted_content(
         self,
         mock_send: MagicMock,
         alerter: EmailAlerter,
         sample_issue: PoolIssue,
         sample_pool: PoolStatus,
     ) -> None:
-        """Sending alert should call send_email with correct parameters."""
+        """When sending alert, calls send_email with all required parameters.
+
+        Given: Pool issue and SMTP configured
+        When: Sending alert
+        Then: Calls send_email with config, recipients, formatted subject/body
+        """
         mock_send.return_value = True
 
         result = alerter.send_alert(sample_issue, sample_pool)
@@ -328,30 +400,50 @@ class TestEmailSubjectFormatting:
         assert "rpool" in call_kwargs["body"]
 
     @patch("check_zpools.alerting.send_email")
-    def test_send_alert_handles_smtp_failure(
+    def test_returns_false_when_smtp_connection_fails(
         self,
         mock_send: MagicMock,
         alerter: EmailAlerter,
         sample_issue: PoolIssue,
         sample_pool: PoolStatus,
     ) -> None:
-        """Failed email send should return False without crashing."""
+        """When SMTP fails, returns False without crashing.
+
+        Given: SMTP connection that will fail
+        When: Attempting to send alert
+        Then: Returns False and handles exception gracefully
+        """
         mock_send.side_effect = RuntimeError("SMTP connection failed")
 
         result = alerter.send_alert(sample_issue, sample_pool)
 
         assert result is False
 
-    def test_send_alert_returns_false_with_no_recipients(self, email_config: EmailConfig, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
-        """Sending alert with no recipients should return False."""
+    def test_returns_false_when_no_recipients_configured(self, email_config: EmailConfig, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
+        """When no recipients configured, returns False without attempting send.
+
+        Given: Alerter with empty recipient list
+        When: Attempting to send alert
+        Then: Returns False immediately
+        """
         alerter = EmailAlerter(email_config, {"alert_recipients": []})
 
         result = alerter.send_alert(sample_issue, sample_pool)
 
         assert result is False
 
-    def test_format_recovery_subject(self, alerter: EmailAlerter) -> None:
-        """Recovery subject should include hostname and indicate issue resolved."""
+
+@pytest.mark.os_agnostic
+class TestRecoveryEmailFormattingIndicatesResolution:
+    """Recovery email formatting clearly indicates issue resolution."""
+
+    def test_subject_includes_recovery_marker_and_issue_details(self, alerter: EmailAlerter) -> None:
+        """When formatting recovery subject, includes RECOVERY and issue info.
+
+        Given: Resolved capacity issue on "rpool"
+        When: Formatting recovery subject
+        Then: Subject contains RECOVERY, pool name, issue category
+        """
         import socket
 
         subject = alerter._format_recovery_subject("rpool", "capacity")
@@ -368,17 +460,32 @@ class TestEmailSubjectFormatting:
         assert subject.count("[") >= 2, "Subject should have at least 2 opening brackets"
         assert subject.count("]") >= 2, "Subject should have at least 2 closing brackets"
 
-    def test_format_recovery_body(self, alerter: EmailAlerter) -> None:
-        """Recovery body should indicate issue resolved."""
+    def test_body_indicates_issue_resolved(self, alerter: EmailAlerter) -> None:
+        """When formatting recovery body, clearly states resolution.
+
+        Given: Resolved capacity issue
+        When: Formatting recovery body
+        Then: Body contains pool name, category, and "resolved" language
+        """
         body = alerter._format_recovery_body("rpool", "capacity")
 
         assert "rpool" in body
         assert "capacity" in body
         assert "resolved" in body.lower()
 
+
+@pytest.mark.os_agnostic
+class TestRecoverySendingRespectsConfiguration:
+    """Recovery email sending respects configuration flags."""
+
     @patch("check_zpools.alerting.send_email")
-    def test_send_recovery_calls_smtp(self, mock_send: MagicMock, alerter: EmailAlerter) -> None:
-        """Sending recovery should call send_email."""
+    def test_calls_smtp_when_recovery_emails_enabled(self, mock_send: MagicMock, alerter: EmailAlerter) -> None:
+        """When send_recovery_emails enabled, sends recovery notification.
+
+        Given: Alerter with send_recovery_emails=True (default in fixture)
+        When: Sending recovery for resolved issue
+        Then: Calls send_email with RECOVERY subject
+        """
         mock_send.return_value = True
 
         result = alerter.send_recovery("rpool", "capacity")
@@ -390,40 +497,73 @@ class TestEmailSubjectFormatting:
         assert "RECOVERY" in call_kwargs["subject"]
         assert "rpool" in call_kwargs["body"]
 
-    def test_send_recovery_respects_config_flag(self, email_config: EmailConfig) -> None:
-        """Recovery emails should be skipped if disabled."""
-        alerter = EmailAlerter(email_config, {"send_recovery_emails": False, "alert_recipients": ["admin@example.com"]})
+    def test_skips_sending_when_recovery_emails_disabled(self, email_config: EmailConfig) -> None:
+        """When send_recovery_emails disabled, skips sending.
+
+        Given: Alerter with send_recovery_emails=False
+        When: Attempting to send recovery
+        Then: Returns False without sending
+        """
+        alerter = EmailAlerter(
+            email_config,
+            {"send_recovery_emails": False, "alert_recipients": ["admin@example.com"]},
+        )
 
         result = alerter.send_recovery("rpool", "capacity")
 
         assert result is False
 
     @patch("check_zpools.alerting.send_email")
-    def test_send_recovery_handles_smtp_failure(self, mock_send: MagicMock, alerter: EmailAlerter) -> None:
-        """Failed recovery email should return False."""
+    def test_returns_false_when_smtp_fails(self, mock_send: MagicMock, alerter: EmailAlerter) -> None:
+        """When SMTP fails during recovery send, returns False.
+
+        Given: SMTP that will fail
+        When: Attempting to send recovery
+        Then: Returns False and handles exception gracefully
+        """
         mock_send.side_effect = RuntimeError("SMTP error")
 
         result = alerter.send_recovery("rpool", "capacity")
 
         assert result is False
 
-    def test_send_recovery_returns_false_with_no_recipients(self, email_config: EmailConfig) -> None:
-        """Recovery with no recipients should return False."""
+    def test_returns_false_when_no_recipients_configured(self, email_config: EmailConfig) -> None:
+        """When no recipients configured, returns False for recovery.
+
+        Given: Alerter with empty recipient list
+        When: Attempting to send recovery
+        Then: Returns False immediately
+        """
         alerter = EmailAlerter(email_config, {"alert_recipients": []})
 
         result = alerter.send_recovery("rpool", "capacity")
 
         assert result is False
 
-    def test_email_includes_hostname(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
-        """Email should include hostname for identification."""
+
+@pytest.mark.os_agnostic
+class TestAlertBodyIncludesSystemMetadata:
+    """Alert body includes system metadata for debugging and tracking."""
+
+    def test_includes_hostname_for_system_identification(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
+        """When formatting body, includes hostname.
+
+        Given: Pool issue on current system
+        When: Formatting alert body
+        Then: Body contains hostname field
+        """
         body = alerter._format_body(sample_issue, sample_pool)
 
         # Should contain hostname somewhere
         assert "Hostname:" in body or "Host:" in body
 
-    def test_email_includes_version(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
-        """Email should include tool version from pyproject.toml."""
+    def test_includes_tool_version_from_pyproject(self, alerter: EmailAlerter, sample_issue: PoolIssue, sample_pool: PoolStatus) -> None:
+        """When formatting body, includes tool version.
+
+        Given: Tool version defined in pyproject.toml
+        When: Formatting alert body
+        Then: Body contains version number
+        """
         body = alerter._format_body(sample_issue, sample_pool)
 
         # Read version from pyproject.toml
@@ -435,8 +575,18 @@ class TestEmailSubjectFormatting:
         # Should contain version number (e.g., "v1.0.0")
         assert f"v{expected_version}" in body or "version" in body.lower()
 
-    def test_pool_with_scrub_in_progress(self, alerter: EmailAlerter, sample_issue: PoolIssue) -> None:
-        """Pool with scrub in progress should show in email."""
+
+@pytest.mark.os_agnostic
+class TestAlertBodyHandlesScrubEdgeCases:
+    """Alert body handles edge cases in scrub status."""
+
+    def test_shows_scrub_in_progress_status(self, alerter: EmailAlerter, sample_issue: PoolIssue) -> None:
+        """When pool has scrub in progress, shows in body.
+
+        Given: Pool with active scrub
+        When: Formatting alert body
+        Then: Body indicates scrub in progress
+        """
         pool = PoolStatus(
             name="rpool",
             health=PoolHealth.ONLINE,
@@ -456,8 +606,13 @@ class TestEmailSubjectFormatting:
 
         assert "SCRUB IN PROGRESS" in body or "scrub" in body.lower()
 
-    def test_pool_never_scrubbed(self, alerter: EmailAlerter, sample_issue: PoolIssue) -> None:
-        """Pool never scrubbed should show in email."""
+    def test_shows_never_scrubbed_status(self, alerter: EmailAlerter, sample_issue: PoolIssue) -> None:
+        """When pool was never scrubbed, shows 'Never' in body.
+
+        Given: Pool with no scrub history (last_scrub=None)
+        When: Formatting alert body
+        Then: Body shows "Never" for scrub status
+        """
         pool = PoolStatus(
             name="rpool",
             health=PoolHealth.ONLINE,
@@ -479,12 +634,23 @@ class TestEmailSubjectFormatting:
 
 
 # ============================================================================
-# Tests: Severity Filtering
+# Severity Filtering Tests
 # ============================================================================
 
 
 def an_alerter_with_severity_config(alert_on_severities: list[str]) -> EmailAlerter:
-    """Create an alerter with specific severity filtering."""
+    """Create an alerter with specific severity filtering configuration.
+
+    Why
+        Simplifies test setup for severity filtering tests by encapsulating
+        the configuration details.
+
+    Inputs
+        alert_on_severities: List of severity strings to allow (e.g., ["CRITICAL", "WARNING"])
+
+    Outputs
+        EmailAlerter configured with the specified severity filters
+    """
     email_config = EmailConfig(
         smtp_hosts=["localhost:587"],
         from_address="test@example.com",
@@ -500,12 +666,17 @@ def an_alerter_with_severity_config(alert_on_severities: list[str]) -> EmailAler
 
 
 @pytest.mark.os_agnostic
-class TestSeverityFiltering:
-    """Severity filtering controls which alerts are sent."""
+class TestSeverityFilteringControlsWhichAlertsAreSent:
+    """Severity filtering controls which alerts are sent based on configured severities."""
 
     @patch("check_zpools.alerting.send_email")
-    def test_critical_alert_sent_when_in_filter(self, mock_send: MagicMock) -> None:
-        """When CRITICAL is in alert_on_severities, CRITICAL alerts are sent."""
+    def test_sends_critical_alerts_when_critical_in_filter(self, mock_send: MagicMock, configurable_pool_status: Any) -> None:
+        """When CRITICAL in alert_on_severities, CRITICAL alerts are sent.
+
+        Given: Alerter configured with ["CRITICAL", "WARNING"]
+        When: Sending CRITICAL severity alert
+        Then: Alert is sent via SMTP
+        """
         mock_send.return_value = True
         alerter = an_alerter_with_severity_config(["CRITICAL", "WARNING"])
 
@@ -516,7 +687,7 @@ class TestSeverityFiltering:
             message="Pool faulted",
             details={},
         )
-        pool = a_pool_for_alerting("rpool")
+        pool = configurable_pool_status("rpool")
 
         result = alerter.send_alert(issue, pool)
 
@@ -524,8 +695,13 @@ class TestSeverityFiltering:
         assert mock_send.called
 
     @patch("check_zpools.alerting.send_email")
-    def test_warning_alert_sent_when_in_filter(self, mock_send: MagicMock) -> None:
-        """When WARNING is in alert_on_severities, WARNING alerts are sent."""
+    def test_sends_warning_alerts_when_warning_in_filter(self, mock_send: MagicMock, configurable_pool_status: Any) -> None:
+        """When WARNING in alert_on_severities, WARNING alerts are sent.
+
+        Given: Alerter configured with ["CRITICAL", "WARNING"]
+        When: Sending WARNING severity alert
+        Then: Alert is sent via SMTP
+        """
         mock_send.return_value = True
         alerter = an_alerter_with_severity_config(["CRITICAL", "WARNING"])
 
@@ -536,7 +712,7 @@ class TestSeverityFiltering:
             message="Pool at 85%",
             details={},
         )
-        pool = a_pool_for_alerting("rpool", capacity=85.0)
+        pool = configurable_pool_status("rpool", capacity=85.0)
 
         result = alerter.send_alert(issue, pool)
 
@@ -544,8 +720,13 @@ class TestSeverityFiltering:
         assert mock_send.called
 
     @patch("check_zpools.alerting.send_email")
-    def test_warning_alert_skipped_when_not_in_filter(self, mock_send: MagicMock) -> None:
-        """When WARNING not in alert_on_severities, WARNING alerts are skipped."""
+    def test_skips_warning_alerts_when_not_in_filter(self, mock_send: MagicMock, configurable_pool_status: Any) -> None:
+        """When WARNING not in alert_on_severities, WARNING alerts are skipped.
+
+        Given: Alerter configured with ["CRITICAL"] only
+        When: Attempting to send WARNING severity alert
+        Then: Alert is not sent
+        """
         mock_send.return_value = True
         alerter = an_alerter_with_severity_config(["CRITICAL"])  # Only CRITICAL
 
@@ -556,7 +737,7 @@ class TestSeverityFiltering:
             message="Pool at 85%",
             details={},
         )
-        pool = a_pool_for_alerting("rpool", capacity=85.0)
+        pool = configurable_pool_status("rpool", capacity=85.0)
 
         result = alerter.send_alert(issue, pool)
 
@@ -564,8 +745,13 @@ class TestSeverityFiltering:
         assert not mock_send.called
 
     @patch("check_zpools.alerting.send_email")
-    def test_info_alert_skipped_by_default(self, mock_send: MagicMock) -> None:
-        """When INFO not in alert_on_severities (default), INFO alerts are skipped."""
+    def test_skips_info_alerts_by_default(self, mock_send: MagicMock, configurable_pool_status: Any) -> None:
+        """When INFO not in alert_on_severities, INFO alerts are skipped.
+
+        Given: Alerter with default filter ["CRITICAL", "WARNING"]
+        When: Attempting to send INFO severity alert
+        Then: Alert is not sent
+        """
         mock_send.return_value = True
         alerter = an_alerter_with_severity_config(["CRITICAL", "WARNING"])  # Default
 
@@ -576,7 +762,7 @@ class TestSeverityFiltering:
             message="Scrub completed",
             details={},
         )
-        pool = a_pool_for_alerting("rpool")
+        pool = configurable_pool_status("rpool")
 
         result = alerter.send_alert(issue, pool)
 
@@ -584,8 +770,13 @@ class TestSeverityFiltering:
         assert not mock_send.called
 
     @patch("check_zpools.alerting.send_email")
-    def test_info_alert_sent_when_explicitly_added(self, mock_send: MagicMock) -> None:
-        """When INFO explicitly added to alert_on_severities, INFO alerts are sent."""
+    def test_sends_info_alerts_when_explicitly_added_to_filter(self, mock_send: MagicMock, configurable_pool_status: Any) -> None:
+        """When INFO explicitly in alert_on_severities, INFO alerts are sent.
+
+        Given: Alerter configured with ["CRITICAL", "WARNING", "INFO"]
+        When: Sending INFO severity alert
+        Then: Alert is sent via SMTP
+        """
         mock_send.return_value = True
         alerter = an_alerter_with_severity_config(["CRITICAL", "WARNING", "INFO"])
 
@@ -596,7 +787,7 @@ class TestSeverityFiltering:
             message="Scrub completed",
             details={},
         )
-        pool = a_pool_for_alerting("rpool")
+        pool = configurable_pool_status("rpool")
 
         result = alerter.send_alert(issue, pool)
 
@@ -604,8 +795,13 @@ class TestSeverityFiltering:
         assert mock_send.called
 
     @patch("check_zpools.alerting.send_email")
-    def test_severity_filter_case_insensitive(self, mock_send: MagicMock) -> None:
-        """Severity filter works with lowercase values in config."""
+    def test_filter_matching_is_case_insensitive(self, mock_send: MagicMock, configurable_pool_status: Any) -> None:
+        """When config uses lowercase, matching works case-insensitively.
+
+        Given: Alerter configured with ["critical", "warning"] (lowercase)
+        When: Sending CRITICAL severity alert (uppercase enum)
+        Then: Alert is sent via SMTP (case-insensitive match)
+        """
         mock_send.return_value = True
         alerter = an_alerter_with_severity_config(["critical", "warning"])  # lowercase
 
@@ -616,7 +812,7 @@ class TestSeverityFiltering:
             message="Pool faulted",
             details={},
         )
-        pool = a_pool_for_alerting("rpool")
+        pool = configurable_pool_status("rpool")
 
         result = alerter.send_alert(issue, pool)
 

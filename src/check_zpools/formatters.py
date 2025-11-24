@@ -124,6 +124,66 @@ def _build_pool_status_table() -> Table:
     return table
 
 
+def _get_capacity_color(capacity_percent: float) -> str:
+    """Determine color for capacity display.
+
+    Parameters
+    ----------
+    capacity_percent:
+        Capacity percentage (0-100).
+
+    Returns
+    -------
+    str:
+        Color name for Rich markup.
+    """
+    if capacity_percent < 80:
+        return "green"
+    if capacity_percent < 90:
+        return "yellow"
+    return "red"
+
+
+def _format_pool_size(size_bytes: int) -> str:
+    """Format pool size in human-readable format.
+
+    Parameters
+    ----------
+    size_bytes:
+        Pool size in bytes.
+
+    Returns
+    -------
+    str:
+        Formatted size (e.g., "1.50 TB" or "500.00 GB").
+    """
+    size_gb = size_bytes / (1024**3)
+    if size_gb >= 1024:
+        size_tb = size_gb / 1024
+        return f"{size_tb:.2f} TB"
+    return f"{size_gb:.2f} GB"
+
+
+def _format_pool_errors(read: int, write: int, checksum: int) -> str:
+    """Format error counts as R/W/C string.
+
+    Parameters
+    ----------
+    read:
+        Read error count.
+    write:
+        Write error count.
+    checksum:
+        Checksum error count.
+
+    Returns
+    -------
+    str:
+        Formatted error string (e.g., "0/0/0").
+    """
+    return f"{read}/{write}/{checksum}"
+
+
 def _format_pool_row(pool: PoolStatus) -> tuple[str, str, str, str, str, str]:
     """Format a pool status into table row data with Rich markup.
 
@@ -139,21 +199,12 @@ def _format_pool_row(pool: PoolStatus) -> tuple[str, str, str, str, str, str]:
     """
     # Determine colors
     health_color = "green" if pool.health.is_healthy() else "red"
-    capacity_color = "green" if pool.capacity_percent < 80 else ("yellow" if pool.capacity_percent < 90 else "red")
+    capacity_color = _get_capacity_color(pool.capacity_percent)
     error_color = "green" if not pool.has_errors() else "red"
 
-    # Format size in human-readable format
-    size_gb = pool.size_bytes / (1024**3)
-    if size_gb >= 1024:
-        size_tb = size_gb / 1024
-        size_str = f"{size_tb:.2f} TB"
-    else:
-        size_str = f"{size_gb:.2f} GB"
-
-    # Format errors as R/W/C
-    errors_str = f"{pool.read_errors}/{pool.write_errors}/{pool.checksum_errors}"
-
-    # Format last scrub time
+    # Format components
+    size_str = _format_pool_size(pool.size_bytes)
+    errors_str = _format_pool_errors(pool.read_errors, pool.write_errors, pool.checksum_errors)
     scrub_text, scrub_color = _format_last_scrub(pool.last_scrub)
 
     return (
@@ -222,6 +273,72 @@ def display_check_result_text(result: CheckResult, console: Console | None = Non
     console.print(f"\nPools Checked: {len(result.pools)}")
 
 
+def _make_timezone_aware(dt: datetime) -> datetime:
+    """Ensure datetime is timezone-aware (UTC).
+
+    Parameters
+    ----------
+    dt:
+        Datetime to make aware.
+
+    Returns
+    -------
+    datetime
+        Timezone-aware datetime in UTC.
+    """
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _calculate_scrub_age_days(last_scrub: datetime) -> int:
+    """Calculate age of last scrub in days.
+
+    Parameters
+    ----------
+    last_scrub:
+        Timestamp of last scrub.
+
+    Returns
+    -------
+    int
+        Number of days since last scrub.
+    """
+    now = datetime.now(timezone.utc)
+    last_scrub_aware = _make_timezone_aware(last_scrub)
+    delta = now - last_scrub_aware
+    return delta.days
+
+
+def _format_scrub_age(days: int) -> tuple[str, str]:
+    """Format scrub age as relative time with color.
+
+    Parameters
+    ----------
+    days:
+        Age in days.
+
+    Returns
+    -------
+    tuple[str, str]
+        Tuple of (formatted_text, color_name).
+    """
+    if days == 0:
+        return ("Today", "green")
+    if days == 1:
+        return ("Yesterday", "green")
+    if days < 7:
+        return (f"{days}d ago", "green")
+    if days < 30:
+        weeks = days // 7
+        return (f"{weeks}w ago", "green")
+    if days < 60:
+        return (f"{days}d ago", "yellow")  # Warning: approaching 2 months
+
+    months = days // 30
+    return (f"{months}mo ago", "red")  # Critical: very old scrub
+
+
 def _format_last_scrub(last_scrub: datetime | None) -> tuple[str, str]:
     """Format last scrub timestamp as relative time with color coding.
 
@@ -240,40 +357,8 @@ def _format_last_scrub(last_scrub: datetime | None) -> tuple[str, str]:
     if last_scrub is None:
         return ("Never", "yellow")
 
-    # Calculate time difference
-    now = datetime.now(timezone.utc)
-    # Ensure last_scrub is timezone-aware
-    if last_scrub.tzinfo is None:
-        last_scrub_aware = last_scrub.replace(tzinfo=timezone.utc)
-    else:
-        last_scrub_aware = last_scrub
-
-    delta = now - last_scrub_aware
-    days = delta.days
-
-    # Format relative time
-    if days == 0:
-        text = "Today"
-        color = "green"
-    elif days == 1:
-        text = "Yesterday"
-        color = "green"
-    elif days < 7:
-        text = f"{days}d ago"
-        color = "green"
-    elif days < 30:
-        weeks = days // 7
-        text = f"{weeks}w ago"
-        color = "green"
-    elif days < 60:
-        text = f"{days}d ago"
-        color = "yellow"  # Warning: approaching 2 months
-    else:
-        months = days // 30
-        text = f"{months}mo ago"
-        color = "red"  # Critical: very old scrub
-
-    return (text, color)
+    days = _calculate_scrub_age_days(last_scrub)
+    return _format_scrub_age(days)
 
 
 def _get_severity_color(severity: Severity) -> str:

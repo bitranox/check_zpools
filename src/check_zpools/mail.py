@@ -85,6 +85,70 @@ class EmailConfig:
     raise_on_missing_attachments: bool = True
     raise_on_invalid_recipient: bool = True
 
+    def _validate_timeout(self) -> None:
+        """Validate timeout is positive.
+
+        Raises
+        ------
+        ValueError: If timeout is not positive.
+        """
+        if self.timeout <= 0:
+            raise ValueError(f"timeout must be positive, got {self.timeout}")
+
+    def _validate_from_address(self) -> None:
+        """Validate from_address contains @.
+
+        Raises
+        ------
+        ValueError: If from_address doesn't contain @.
+        """
+        if "@" not in self.from_address:
+            raise ValueError(f"from_address must contain @, got {self.from_address!r}")
+
+    def _validate_smtp_host_port(self, host: str, port_str: str) -> None:
+        """Validate SMTP host port is numeric and in valid range.
+
+        Parameters
+        ----------
+        host:
+            Full host string (for error messages).
+        port_str:
+            Port string to validate.
+
+        Raises
+        ------
+        ValueError: If port is invalid.
+        """
+        try:
+            port = int(port_str)
+            if not (1 <= port <= 65535):
+                raise ValueError(f"Port must be 1-65535 in {host!r}")
+        except ValueError as e:
+            if "invalid literal" in str(e):
+                raise ValueError(f"Port must be numeric in {host!r}") from e
+            raise
+
+    def _validate_smtp_host(self, host: str) -> None:
+        """Validate single SMTP host format.
+
+        Parameters
+        ----------
+        host:
+            SMTP host string, optionally with :port.
+
+        Raises
+        ------
+        ValueError: If host format is invalid.
+        """
+        if ":" not in host:
+            return
+
+        parts = host.split(":")
+        if len(parts) != 2:
+            raise ValueError(f"Invalid SMTP host format (expected 'host:port'): {host!r}")
+
+        self._validate_smtp_host_port(host, parts[1])
+
     def __post_init__(self) -> None:
         """Validate configuration values.
 
@@ -107,28 +171,10 @@ class EmailConfig:
         ...
         ValueError: from_address must contain @, got 'not-an-email'
         """
-        # Validate timeout is positive
-        if self.timeout <= 0:
-            raise ValueError(f"timeout must be positive, got {self.timeout}")
-
-        # Validate from_address contains @
-        if "@" not in self.from_address:
-            raise ValueError(f"from_address must contain @, got {self.from_address!r}")
-
-        # Validate smtp_hosts format
+        self._validate_timeout()
+        self._validate_from_address()
         for host in self.smtp_hosts:
-            if ":" in host:
-                parts = host.split(":")
-                if len(parts) != 2:
-                    raise ValueError(f"Invalid SMTP host format (expected 'host:port'): {host!r}")
-                try:
-                    port = int(parts[1])
-                    if not (1 <= port <= 65535):
-                        raise ValueError(f"Port must be 1-65535 in {host!r}")
-                except ValueError as e:
-                    if "invalid literal" in str(e):
-                        raise ValueError(f"Port must be numeric in {host!r}") from e
-                    raise
+            self._validate_smtp_host(host)
 
     def to_conf_mail(self) -> ConfMail:
         """Convert to btx_lib_mail ConfMail object.
@@ -164,6 +210,110 @@ def _resolve_credentials(config: EmailConfig) -> tuple[str, str] | None:
     if config.smtp_username and config.smtp_password:
         return (config.smtp_username, config.smtp_password)
     return None
+
+
+def _determine_sender(from_address: str | None, config: EmailConfig) -> str:
+    """Determine sender address from override or config.
+
+    Parameters
+    ----------
+    from_address:
+        Optional override address.
+    config:
+        Email configuration with default sender.
+
+    Returns
+    -------
+    str:
+        Sender email address to use.
+    """
+    return from_address if from_address is not None else config.from_address
+
+
+def _normalize_recipients(recipients: str | Sequence[str]) -> str | list[str]:
+    """Normalize recipients for logging.
+
+    Parameters
+    ----------
+    recipients:
+        Single recipient or sequence.
+
+    Returns
+    -------
+    str | list[str]:
+        Recipients in logging-friendly format.
+    """
+    return recipients if isinstance(recipients, str) else list(recipients)
+
+
+def _log_email_send_attempt(sender: str, recipients: str | Sequence[str], subject: str, body_html: str, attachments: Sequence[Path] | None) -> None:
+    """Log email send attempt.
+
+    Parameters
+    ----------
+    sender:
+        Sender address.
+    recipients:
+        Recipients.
+    subject:
+        Email subject.
+    body_html:
+        HTML body.
+    attachments:
+        Attachments.
+    """
+    logger.info(
+        "Sending email",
+        extra={
+            "from": sender,
+            "recipients": _normalize_recipients(recipients),
+            "subject": subject,
+            "has_html": bool(body_html),
+            "attachment_count": len(attachments) if attachments else 0,
+        },
+    )
+
+
+def _log_email_success(sender: str, recipients: str | Sequence[str]) -> None:
+    """Log successful email send.
+
+    Parameters
+    ----------
+    sender:
+        Sender address.
+    recipients:
+        Recipients.
+    """
+    logger.info(
+        "Email sent successfully",
+        extra={
+            "from": sender,
+            "recipients": _normalize_recipients(recipients),
+        },
+    )
+
+
+def _log_email_failure(error: Exception, sender: str, recipients: str | Sequence[str]) -> None:
+    """Log email send failure.
+
+    Parameters
+    ----------
+    error:
+        Exception that occurred.
+    sender:
+        Sender address.
+    recipients:
+        Recipients.
+    """
+    logger.error(
+        "Failed to send email",
+        extra={
+            "error": str(error),
+            "from": sender,
+            "recipients": _normalize_recipients(recipients),
+        },
+        exc_info=True,
+    )
 
 
 def send_email(
@@ -235,18 +385,8 @@ def send_email(
     >>> result
     True
     """
-    sender = from_address if from_address is not None else config.from_address
-
-    logger.info(
-        "Sending email",
-        extra={
-            "from": sender,
-            "recipients": recipients if isinstance(recipients, str) else list(recipients),
-            "subject": subject,
-            "has_html": bool(body_html),
-            "attachment_count": len(attachments) if attachments else 0,
-        },
-    )
+    sender = _determine_sender(from_address, config)
+    _log_email_send_attempt(sender, recipients, subject, body_html, attachments)
 
     try:
         credentials = _resolve_credentials(config)
@@ -264,26 +404,11 @@ def send_email(
             timeout=config.timeout,
         )
 
-        logger.info(
-            "Email sent successfully",
-            extra={
-                "from": sender,
-                "recipients": recipients if isinstance(recipients, str) else list(recipients),
-            },
-        )
-
+        _log_email_success(sender, recipients)
         return result
 
     except Exception as e:
-        logger.error(
-            "Failed to send email",
-            extra={
-                "error": str(e),
-                "from": sender,
-                "recipients": recipients if isinstance(recipients, str) else list(recipients),
-            },
-            exc_info=True,
-        )
+        _log_email_failure(e, sender, recipients)
         raise
 
 

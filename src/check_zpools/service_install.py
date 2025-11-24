@@ -31,6 +31,10 @@ import os
 import shutil
 import subprocess  # nosec B404 - subprocess used safely with list arguments, not shell=True
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import psutil
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +132,75 @@ def _extract_version_from_cmdline(cmdline: list[str]) -> str | None:
     return None
 
 
+def _check_ancestor_for_uvx(ancestor: "psutil.Process", cmdline: list[str]) -> tuple[Path | None, str | None]:
+    """Check if ancestor process is uvx and extract details.
+
+    Parameters
+    ----------
+    ancestor:
+        Process to check.
+    cmdline:
+        Command line arguments of the process.
+
+    Returns
+    -------
+    tuple[Path | None, str | None]:
+        Tuple of (uvx_path, version_spec) if uvx found, otherwise (None, None).
+    """
+    if not _is_uvx_process(cmdline):
+        return (None, None)
+
+    uv_path = Path(cmdline[0]).resolve()
+    uvx_path = _find_uvx_executable(uv_path)
+
+    if not uvx_path:
+        return (None, None)
+
+    version_spec = _extract_version_from_cmdline(cmdline)
+    logger.info(f"Detected uvx: {uvx_path}, version: {version_spec or 'unspecified'}")
+    return (uvx_path, version_spec)
+
+
+def _walk_process_ancestors(start_process: "psutil.Process") -> tuple[Path | None, str | None]:
+    """Walk process tree looking for uvx.
+
+    Parameters
+    ----------
+    start_process:
+        Starting process to walk from.
+
+    Returns
+    -------
+    tuple[Path | None, str | None]:
+        Tuple of (uvx_path, version_spec) if uvx found, otherwise (None, None).
+    """
+    import psutil
+
+    ancestor = start_process.parent()
+
+    # Walk up process tree (max 10 levels)
+    for depth in range(10):
+        if not ancestor:
+            break
+
+        try:
+            cmdline = ancestor.cmdline()
+            uvx_result = _check_ancestor_for_uvx(ancestor, cmdline)
+            if uvx_result[0]:  # uvx_path found
+                return uvx_result
+
+            ancestor = ancestor.parent()
+
+        except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
+            logger.debug(f"Process access error at depth {depth}: {e}")
+            break
+        except Exception as e:
+            logger.debug(f"Error checking ancestor at depth {depth}: {e}")
+            ancestor = ancestor.parent()
+
+    return (None, None)
+
+
 def _detect_uvx_from_process_tree() -> tuple[Path | None, str | None]:
     """Detect uvx installation and extract version from process tree.
 
@@ -160,39 +233,11 @@ def _detect_uvx_from_process_tree() -> tuple[Path | None, str | None]:
         import psutil
 
         current_process = psutil.Process()
-        ancestor = current_process.parent()
-
-        # Walk up process tree (max 10 levels)
-        for depth in range(10):
-            if not ancestor:
-                break
-
-            try:
-                cmdline = ancestor.cmdline()
-
-                # Check if this process is uvx
-                if _is_uvx_process(cmdline):
-                    uv_path = Path(cmdline[0]).resolve()
-                    uvx_path = _find_uvx_executable(uv_path)
-
-                    if uvx_path:
-                        version_spec = _extract_version_from_cmdline(cmdline)
-                        logger.info(f"Detected uvx: {uvx_path}, version: {version_spec or 'unspecified'}")
-                        return (uvx_path, version_spec)
-
-                ancestor = ancestor.parent()
-
-            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                logger.debug(f"Process access error at depth {depth}: {e}")
-                break
-            except Exception as e:
-                logger.debug(f"Error checking ancestor at depth {depth}: {e}")
-                ancestor = ancestor.parent()
+        return _walk_process_ancestors(current_process)
 
     except Exception as e:
         logger.debug(f"Process tree detection failed: {e}")
-
-    return (None, None)
+        return (None, None)
 
 
 def _find_executable() -> tuple[str, Path, str | None]:
@@ -398,6 +443,81 @@ def _run_systemctl(command: list[str], *, check: bool = True) -> subprocess.Comp
     )
 
 
+def _handle_uvx_version(method: str, detected_version: str | None, uvx_version: str | None) -> str | None:
+    """Determine final uvx version to use and log warnings.
+
+    Parameters
+    ----------
+    method:
+        Installation method ('uvx' or 'direct').
+    detected_version:
+        Version detected from process tree.
+    uvx_version:
+        Version specified by user.
+
+    Returns
+    -------
+    str | None:
+        Final version to use, or None.
+    """
+    if method != "uvx":
+        return None
+
+    final_version = uvx_version or detected_version
+
+    if not final_version:
+        logger.warning("uvx detected but no version specifier found.")
+        logger.warning("Service will use 'uvx check_zpools' without version.")
+        logger.warning("This may fail. Use explicit version: uvx check_zpools@2.0.4 service-install")
+        logger.warning("Or use @latest for auto-updates (not recommended for production)")
+
+    return final_version
+
+
+def _enable_and_start_service(enable: bool, start: bool) -> None:
+    """Enable and/or start the systemd service.
+
+    Parameters
+    ----------
+    enable:
+        Whether to enable service on boot.
+    start:
+        Whether to start service immediately.
+    """
+    if enable:
+        logger.info("Enabling service (start on boot)")
+        _run_systemctl(["enable", SERVICE_NAME])
+
+    if start:
+        logger.info("Starting service")
+        _run_systemctl(["start", SERVICE_NAME])
+
+
+def _print_installation_summary(enable: bool, start: bool) -> None:
+    """Print installation success message and useful commands.
+
+    Parameters
+    ----------
+    enable:
+        Whether service was enabled.
+    start:
+        Whether service was started.
+    """
+    print("\n✓ check_zpools service installed successfully\n")
+
+    if enable:
+        print("  • Service enabled (will start on boot)")
+    if start:
+        print("  • Service started")
+
+    print("\nUseful commands:")
+    print(f"  • View status:  systemctl status {SERVICE_NAME}")
+    print(f"  • View logs:    journalctl -u {SERVICE_NAME} -f")
+    print(f"  • Stop service: systemctl stop {SERVICE_NAME}")
+    print(f"  • Disable:      systemctl disable {SERVICE_NAME}")
+    print("  • Uninstall:    check_zpools uninstall-service")
+
+
 def install_service(*, enable: bool = True, start: bool = True, uvx_version: str | None = None) -> None:
     """Install check_zpools as a systemd service.
 
@@ -448,59 +568,118 @@ def install_service(*, enable: bool = True, start: bool = True, uvx_version: str
     >>> install_service(start=False)  # doctest: +SKIP
     """
     logger.info("Installing check_zpools systemd service")
-
-    # Verify prerequisites
     _check_root_privileges()
 
-    # Detect installation method and find executable (unified call)
+    # Detect installation method and find executable
     method, executable_path, detected_version = _find_executable()
+    final_uvx_version = _handle_uvx_version(method, detected_version, uvx_version)
 
-    # Use detected version if not manually specified (uvx only)
-    if method == "uvx":
-        if not uvx_version:
-            uvx_version = detected_version
-
-        if not uvx_version:
-            logger.warning("uvx detected but no version specifier found.")
-            logger.warning("Service will use 'uvx check_zpools' without version.")
-            logger.warning("This may fail. Use explicit version: uvx check_zpools@2.0.4 service-install")
-            logger.warning("Or use @latest for auto-updates (not recommended for production)")
-
-    # Create directories
+    # Install service
     _create_service_directories()
+    _install_service_file(executable_path, method, final_uvx_version)
 
-    # Install service file
-    _install_service_file(executable_path, method, uvx_version)
+    # Configure systemd
+    logger.info("Reloading systemd daemon")
+    _run_systemctl(["daemon-reload"])
+    _enable_and_start_service(enable, start)
 
-    # Reload systemd daemon
+    # Report completion
+    logger.info("Service installation complete")
+    _print_installation_summary(enable, start)
+
+
+def _check_service_file_exists() -> bool:
+    """Check if service file exists and warn if not.
+
+    Returns
+    -------
+    bool:
+        True if service file exists, False otherwise.
+
+    Side Effects
+        Logs warning and prints message if file not found.
+    """
+    if SERVICE_FILE_PATH.exists():
+        return True
+
+    logger.warning(f"Service file not found: {SERVICE_FILE_PATH}")
+    print(f"⚠ Service file not found: {SERVICE_FILE_PATH}")
+    print("Service may not be installed.")
+    return False
+
+
+def _run_systemctl_with_logging(action: str) -> None:
+    """Run systemctl command with automatic error logging.
+
+    Parameters
+    ----------
+    action:
+        Systemctl action to perform (e.g., 'stop', 'disable').
+
+    Side Effects
+        Runs systemctl command and logs warnings on failure.
+    """
+    logger.info(f"{action.capitalize()}ing service")
+    result = _run_systemctl([action, SERVICE_NAME], check=False)
+    if result.returncode != 0:
+        logger.warning(f"Failed to {action} service: {result.stderr}")
+
+
+def _stop_service_if_requested(stop: bool) -> None:
+    """Stop service if requested.
+
+    Parameters
+    ----------
+    stop:
+        Whether to stop the service.
+
+    Side Effects
+        Runs systemctl stop command if stop=True. Logs warnings on failure.
+    """
+    if stop:
+        _run_systemctl_with_logging("stop")
+
+
+def _disable_service_if_requested(disable: bool) -> None:
+    """Disable service if requested.
+
+    Parameters
+    ----------
+    disable:
+        Whether to disable the service.
+
+    Side Effects
+        Runs systemctl disable command if disable=True. Logs warnings on failure.
+    """
+    if disable:
+        _run_systemctl_with_logging("disable")
+
+
+def _remove_service_file() -> None:
+    """Remove service file and reload systemd.
+
+    Side Effects
+        Deletes service file and runs systemctl daemon-reload.
+    """
+    logger.info(f"Removing service file: {SERVICE_FILE_PATH}")
+    SERVICE_FILE_PATH.unlink(missing_ok=True)
+
     logger.info("Reloading systemd daemon")
     _run_systemctl(["daemon-reload"])
 
-    # Enable service (start on boot)
-    if enable:
-        logger.info("Enabling service (start on boot)")
-        _run_systemctl(["enable", SERVICE_NAME])
 
-    # Start service now
-    if start:
-        logger.info("Starting service")
-        _run_systemctl(["start", SERVICE_NAME])
+def _print_uninstall_summary() -> None:
+    """Print uninstallation completion message.
 
-    # Show status
-    logger.info("Service installation complete")
-    print("\n✓ check_zpools service installed successfully\n")
-
-    if enable:
-        print("  • Service enabled (will start on boot)")
-    if start:
-        print("  • Service started")
-
-    print("\nUseful commands:")
-    print(f"  • View status:  systemctl status {SERVICE_NAME}")
-    print(f"  • View logs:    journalctl -u {SERVICE_NAME} -f")
-    print(f"  • Stop service: systemctl stop {SERVICE_NAME}")
-    print(f"  • Disable:      systemctl disable {SERVICE_NAME}")
-    print("  • Uninstall:    check_zpools uninstall-service")
+    Side Effects
+        Prints success message and cleanup instructions to stdout.
+    """
+    print("\n✓ check_zpools service uninstalled successfully\n")
+    print("Note: Cache and state directories remain:")
+    print(f"  • {CACHE_DIR}")
+    print(f"  • {LIB_DIR}")
+    print("\nTo remove these directories:")
+    print(f"  sudo rm -rf {CACHE_DIR} {LIB_DIR}")
 
 
 def uninstall_service(*, stop: bool = True, disable: bool = True) -> None:
@@ -539,46 +718,17 @@ def uninstall_service(*, stop: bool = True, disable: bool = True) -> None:
     >>> uninstall_service()  # doctest: +SKIP
     """
     logger.info("Uninstalling check_zpools systemd service")
-
-    # Verify prerequisites
     _check_root_privileges()
 
-    # Check if service file exists
-    if not SERVICE_FILE_PATH.exists():
-        logger.warning(f"Service file not found: {SERVICE_FILE_PATH}")
-        print(f"⚠ Service file not found: {SERVICE_FILE_PATH}")
-        print("Service may not be installed.")
+    if not _check_service_file_exists():
         return
 
-    # Stop service
-    if stop:
-        logger.info("Stopping service")
-        result = _run_systemctl(["stop", SERVICE_NAME], check=False)
-        if result.returncode != 0:
-            logger.warning(f"Failed to stop service: {result.stderr}")
-
-    # Disable service
-    if disable:
-        logger.info("Disabling service")
-        result = _run_systemctl(["disable", SERVICE_NAME], check=False)
-        if result.returncode != 0:
-            logger.warning(f"Failed to disable service: {result.stderr}")
-
-    # Remove service file
-    logger.info(f"Removing service file: {SERVICE_FILE_PATH}")
-    SERVICE_FILE_PATH.unlink(missing_ok=True)
-
-    # Reload systemd daemon
-    logger.info("Reloading systemd daemon")
-    _run_systemctl(["daemon-reload"])
+    _stop_service_if_requested(stop)
+    _disable_service_if_requested(disable)
+    _remove_service_file()
 
     logger.info("Service uninstallation complete")
-    print("\n✓ check_zpools service uninstalled successfully\n")
-    print("Note: Cache and state directories remain:")
-    print(f"  • {CACHE_DIR}")
-    print(f"  • {LIB_DIR}")
-    print("\nTo remove these directories:")
-    print(f"  sudo rm -rf {CACHE_DIR} {LIB_DIR}")
+    _print_uninstall_summary()
 
 
 def get_service_status() -> dict[str, bool | str]:

@@ -1,81 +1,93 @@
-"""Tests for daemon monitoring loop.
+"""Integration tests for daemon monitoring loop following clean architecture principles.
 
-Tests cover:
-- Check cycle execution
-- Signal handling (SIGTERM/SIGINT on POSIX)
-- Error recovery
-- Alert management integration
-- State persistence
+Design Philosophy
+-----------------
+These tests validate daemon behavior through real orchestration with minimal mocking:
+- Test names read like plain English sentences describing exact behavior
+- Each test validates ONE specific behavior - no multi-assert kitchen sinks
+- Real daemon loop behavior - tests actual monitoring cycle orchestration
+- OS-agnostic where possible, POSIX-specific for signal handling
+- Deterministic - no timing dependencies beyond minimal waits
 
-Most tests are OS-agnostic (daemon logic works everywhere).
-Signal handling tests are POSIX-only (SIGTERM/SIGINT).
+Test Structure Pattern
+----------------------
+1. Given: Setup minimal test state (fixtures, mocks)
+2. When: Execute ONE daemon action
+3. Then: Assert ONE specific outcome
+
+Coverage Strategy
+-----------------
+- Daemon lifecycle: Initialization, start, stop
+- Check cycles: Data fetching, parsing, monitoring
+- Alert handling: New issues, duplicates, recoveries
+- Error recovery: Transient failures, invalid data
+- Signal handling: SIGTERM/SIGINT (POSIX only)
 """
 
 from __future__ import annotations
 
 import signal
 import threading
+import time
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
 
 from check_zpools.daemon import ZPoolDaemon
-from check_zpools.models import CheckResult, PoolHealth, PoolIssue, PoolStatus, Severity
+from check_zpools.models import CheckResult, PoolIssue, PoolStatus, Severity
 
 
-# ============================================================================
-# Test Data Builders
-# ============================================================================
+# =============================================================================
+# OS Markers
+# =============================================================================
+
+# Most daemon tests are OS-agnostic - monitoring logic works same on all platforms
+# Signal handling tests require POSIX (SIGTERM/SIGINT not available on Windows)
 
 
-def a_healthy_pool_for_daemon(name: str = "rpool") -> PoolStatus:
-    """Create a healthy pool for daemon testing."""
-    return PoolStatus(
-        name=name,
-        health=PoolHealth.ONLINE,
-        capacity_percent=50.0,
-        size_bytes=1024**4,
-        allocated_bytes=int(0.5 * 1024**4),
-        free_bytes=int(0.5 * 1024**4),
-        read_errors=0,
-        write_errors=0,
-        checksum_errors=0,
-        last_scrub=datetime.now(UTC),
-        scrub_errors=0,
-        scrub_in_progress=False,
-    )
+# =============================================================================
+# Note: Shared fixtures like healthy_pool_status are defined in conftest.py
+# and automatically available to all test files.
+# =============================================================================
 
 
-def a_capacity_issue_for_daemon(pool_name: str, capacity: float = 85.0) -> PoolIssue:
-    """Create a capacity warning issue."""
+# =============================================================================
+# Test Fixtures - Daemon-Specific Test Data
+# =============================================================================
+
+
+@pytest.fixture
+def capacity_warning_issue() -> PoolIssue:
+    """Create a capacity warning issue for daemon testing.
+
+    Why
+        Represents a non-critical pool issue that triggers alerts.
+        Used for testing alert handling and recovery notifications.
+
+    Returns
+        PoolIssue with WARNING severity and capacity category.
+    """
     return PoolIssue(
-        pool_name=pool_name,
+        pool_name="rpool",
         severity=Severity.WARNING,
         category="capacity",
-        message=f"Pool at {capacity}% capacity",
+        message="Pool at 85.0% capacity",
         details={},
     )
 
 
-def an_ok_check_result() -> CheckResult:
-    """Create a check result with no issues."""
-    return CheckResult(
-        timestamp=datetime.now(UTC),
-        pools=[],
-        issues=[],
-        overall_severity=Severity.OK,
-    )
-
-
-# ============================================================================
-# Test Fixtures
-# ============================================================================
-
-
 @pytest.fixture
 def healthy_pool_json() -> dict:
-    """Realistic JSON for a healthy pool (from zpool status -j)."""
+    """Create realistic ZFS status JSON for a healthy pool.
+
+    Why
+        Simulates actual 'zpool status -j' output.
+        Used by daemon tests that need valid ZFS JSON data.
+
+    Returns
+        Dict matching ZFS JSON format with ONLINE pool.
+    """
     return {
         "output_version": {"command": "zpool status", "vers_major": 0, "vers_minor": 1},
         "pools": {
@@ -101,7 +113,15 @@ def healthy_pool_json() -> dict:
 
 @pytest.fixture
 def degraded_pool_json() -> dict:
-    """Realistic JSON for a degraded pool (from zpool status -j)."""
+    """Create realistic ZFS status JSON for a degraded pool.
+
+    Why
+        Simulates actual 'zpool status -j' output for unhealthy pool.
+        Used for testing error detection and alert handling.
+
+    Returns
+        Dict matching ZFS JSON format with DEGRADED pool.
+    """
     return {
         "output_version": {"command": "zpool status", "vers_major": 0, "vers_minor": 1},
         "pools": {
@@ -127,7 +147,15 @@ def degraded_pool_json() -> dict:
 
 @pytest.fixture
 def pool_list_json() -> dict:
-    """Realistic JSON from zpool list -j command."""
+    """Create realistic ZFS list JSON output.
+
+    Why
+        Simulates actual 'zpool list -j' output.
+        Used by daemon to get pool capacity information.
+
+    Returns
+        Dict matching ZFS JSON format with pool properties.
+    """
     return {
         "output_version": {"command": "zpool list", "vers_major": 0, "vers_minor": 1},
         "pools": {
@@ -141,12 +169,8 @@ def pool_list_json() -> dict:
                 "zpl_version": "5",
                 "properties": {
                     "health": {"value": "ONLINE"},
-                    "size": {
-                        "value": str(1024**4)  # 1 TB
-                    },
-                    "allocated": {
-                        "value": str(int(0.5 * 1024**4))  # 50% used
-                    },
+                    "size": {"value": str(1024**4)},  # 1 TB
+                    "allocated": {"value": str(int(0.5 * 1024**4))},  # 50% used
                     "free": {"value": str(int(0.5 * 1024**4))},
                     "capacity": {"value": "50"},
                 },
@@ -157,9 +181,16 @@ def pool_list_json() -> dict:
 
 @pytest.fixture
 def mock_zfs_client(healthy_pool_json: dict, pool_list_json: dict) -> Mock:
-    """Create mock ZFS client that returns realistic JSON data."""
+    """Create mock ZFS client that returns realistic JSON data.
+
+    Why
+        Avoids actual ZFS command execution in tests.
+        Returns valid JSON that parser can process.
+
+    Returns
+        Mock with get_pool_list and get_pool_status methods.
+    """
     client = Mock()
-    # Return valid ZFS JSON that parser can handle
     client.get_pool_list.return_value = pool_list_json
     client.get_pool_status.return_value = healthy_pool_json
     return client
@@ -167,7 +198,15 @@ def mock_zfs_client(healthy_pool_json: dict, pool_list_json: dict) -> Mock:
 
 @pytest.fixture
 def mock_monitor() -> Mock:
-    """Create mock pool monitor."""
+    """Create mock pool monitor.
+
+    Why
+        Daemon delegates pool checking to monitor.
+        Mock allows testing daemon orchestration.
+
+    Returns
+        Mock with check_all_pools method returning OK result.
+    """
     monitor = Mock()
     monitor.check_all_pools.return_value = CheckResult(
         timestamp=datetime.now(UTC),
@@ -180,7 +219,15 @@ def mock_monitor() -> Mock:
 
 @pytest.fixture
 def mock_alerter() -> Mock:
-    """Create mock email alerter."""
+    """Create mock email alerter.
+
+    Why
+        Daemon sends alerts via alerter.
+        Mock allows testing alert logic without SMTP.
+
+    Returns
+        Mock with send_alert and send_recovery methods.
+    """
     alerter = Mock()
     alerter.send_alert.return_value = True
     alerter.send_recovery.return_value = True
@@ -189,7 +236,15 @@ def mock_alerter() -> Mock:
 
 @pytest.fixture
 def mock_state_manager() -> Mock:
-    """Create mock alert state manager."""
+    """Create mock alert state manager.
+
+    Why
+        State manager tracks alert history for deduplication.
+        Mock allows testing alert suppression logic.
+
+    Returns
+        Mock with should_alert, record_alert, clear_issue methods.
+    """
     manager = Mock()
     manager.should_alert.return_value = True
     return manager
@@ -197,7 +252,15 @@ def mock_state_manager() -> Mock:
 
 @pytest.fixture
 def daemon_config() -> dict:
-    """Create test daemon configuration."""
+    """Create test daemon configuration.
+
+    Why
+        Fast check interval for testing (1 second vs 5 minute default).
+        Disables optional features for focused testing.
+
+    Returns
+        Dict with minimal daemon configuration.
+    """
     return {
         "check_interval_seconds": 1,  # Fast for testing
         "pools_to_monitor": [],
@@ -214,7 +277,15 @@ def daemon(
     mock_state_manager: Mock,
     daemon_config: dict,
 ) -> ZPoolDaemon:
-    """Create daemon instance with mocks."""
+    """Create daemon instance with all mocks configured.
+
+    Why
+        Provides fully-wired daemon for testing.
+        All dependencies mocked to focus on daemon logic.
+
+    Returns
+        ZPoolDaemon ready for testing.
+    """
     return ZPoolDaemon(
         zfs_client=mock_zfs_client,
         monitor=mock_monitor,
@@ -224,11 +295,16 @@ def daemon(
     )
 
 
-@pytest.mark.os_agnostic
-class TestDaemonInitialization:
-    """When creating a daemon, configuration is applied correctly."""
+# =============================================================================
+# Daemon Initialization Tests
+# =============================================================================
 
-    def test_daemon_remembers_all_provided_components(
+
+@pytest.mark.os_agnostic
+class TestDaemonInitializationStoresComponents:
+    """Daemon initialization stores all provided components."""
+
+    def test_stores_zfs_client_reference(
         self,
         mock_zfs_client: Mock,
         mock_monitor: Mock,
@@ -236,8 +312,12 @@ class TestDaemonInitialization:
         mock_state_manager: Mock,
         daemon_config: dict,
     ) -> None:
-        """When initializing with all components,
-        the daemon stores references to each."""
+        """When initializing with ZFS client, stores reference.
+
+        Given: ZFS client instance
+        When: Creating daemon with client
+        Then: Daemon stores client reference
+        """
         daemon = ZPoolDaemon(
             zfs_client=mock_zfs_client,
             monitor=mock_monitor,
@@ -247,11 +327,8 @@ class TestDaemonInitialization:
         )
 
         assert daemon.zfs_client == mock_zfs_client
-        assert daemon.monitor == mock_monitor
-        assert daemon.alerter == mock_alerter
-        assert daemon.state_manager == mock_state_manager
 
-    def test_daemon_applies_configured_check_interval(
+    def test_stores_monitor_reference(
         self,
         mock_zfs_client: Mock,
         mock_monitor: Mock,
@@ -259,8 +336,12 @@ class TestDaemonInitialization:
         mock_state_manager: Mock,
         daemon_config: dict,
     ) -> None:
-        """When config specifies check_interval_seconds,
-        the daemon uses that interval."""
+        """When initializing with monitor, stores reference.
+
+        Given: Pool monitor instance
+        When: Creating daemon with monitor
+        Then: Daemon stores monitor reference
+        """
         daemon = ZPoolDaemon(
             zfs_client=mock_zfs_client,
             monitor=mock_monitor,
@@ -269,17 +350,97 @@ class TestDaemonInitialization:
             config=daemon_config,
         )
 
-        assert daemon.check_interval == 1
+        assert daemon.monitor == mock_monitor
 
-    def test_daemon_uses_five_minute_default_when_interval_not_specified(
+    def test_stores_alerter_reference(
+        self,
+        mock_zfs_client: Mock,
+        mock_monitor: Mock,
+        mock_alerter: Mock,
+        mock_state_manager: Mock,
+        daemon_config: dict,
+    ) -> None:
+        """When initializing with alerter, stores reference.
+
+        Given: Email alerter instance
+        When: Creating daemon with alerter
+        Then: Daemon stores alerter reference
+        """
+        daemon = ZPoolDaemon(
+            zfs_client=mock_zfs_client,
+            monitor=mock_monitor,
+            alerter=mock_alerter,
+            state_manager=mock_state_manager,
+            config=daemon_config,
+        )
+
+        assert daemon.alerter == mock_alerter
+
+    def test_stores_state_manager_reference(
+        self,
+        mock_zfs_client: Mock,
+        mock_monitor: Mock,
+        mock_alerter: Mock,
+        mock_state_manager: Mock,
+        daemon_config: dict,
+    ) -> None:
+        """When initializing with state manager, stores reference.
+
+        Given: Alert state manager instance
+        When: Creating daemon with state manager
+        Then: Daemon stores state manager reference
+        """
+        daemon = ZPoolDaemon(
+            zfs_client=mock_zfs_client,
+            monitor=mock_monitor,
+            alerter=mock_alerter,
+            state_manager=mock_state_manager,
+            config=daemon_config,
+        )
+
+        assert daemon.state_manager == mock_state_manager
+
+
+@pytest.mark.os_agnostic
+class TestDaemonInitializationAppliesConfiguration:
+    """Daemon initialization applies configuration values."""
+
+    def test_uses_configured_check_interval(
         self,
         mock_zfs_client: Mock,
         mock_monitor: Mock,
         mock_alerter: Mock,
         mock_state_manager: Mock,
     ) -> None:
-        """When config omits check_interval_seconds,
-        the daemon defaults to 300 seconds (5 minutes)."""
+        """When config specifies check_interval_seconds, uses that interval.
+
+        Given: Config with check_interval_seconds=1
+        When: Creating daemon with config
+        Then: Daemon check_interval is 1
+        """
+        daemon = ZPoolDaemon(
+            zfs_client=mock_zfs_client,
+            monitor=mock_monitor,
+            alerter=mock_alerter,
+            state_manager=mock_state_manager,
+            config={"check_interval_seconds": 1},
+        )
+
+        assert daemon.check_interval == 1
+
+    def test_defaults_to_five_minutes_when_interval_not_specified(
+        self,
+        mock_zfs_client: Mock,
+        mock_monitor: Mock,
+        mock_alerter: Mock,
+        mock_state_manager: Mock,
+    ) -> None:
+        """When config omits check_interval_seconds, defaults to 300 seconds.
+
+        Given: Empty config
+        When: Creating daemon with config
+        Then: Daemon check_interval is 300 (5 minutes)
+        """
         daemon = ZPoolDaemon(
             zfs_client=mock_zfs_client,
             monitor=mock_monitor,
@@ -291,79 +452,143 @@ class TestDaemonInitialization:
         assert daemon.check_interval == 300
 
 
-@pytest.mark.os_agnostic
-class TestCheckCycle:
-    """When daemon executes a check cycle, it orchestrates data flow correctly."""
+# =============================================================================
+# Check Cycle Tests - Data Orchestration
+# =============================================================================
 
-    def test_check_cycle_fetches_pool_list_from_zfs(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
-        """When running a check cycle,
-        the daemon fetches pool list from ZFS client."""
+
+@pytest.mark.os_agnostic
+class TestCheckCycleFetchesZFSData:
+    """Check cycle fetches pool data from ZFS."""
+
+    def test_fetches_pool_list_from_zfs_client(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
+        """When running check cycle, fetches pool list.
+
+        Given: Daemon with ZFS client
+        When: Running _run_check_cycle
+        Then: Calls get_pool_list once
+        """
         daemon._run_check_cycle()
 
         mock_zfs_client.get_pool_list.assert_called_once()
 
-    def test_check_cycle_fetches_pool_status_from_zfs(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
-        """When running a check cycle,
-        the daemon fetches pool status from ZFS client."""
+    def test_fetches_pool_status_from_zfs_client(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
+        """When running check cycle, fetches pool status.
+
+        Given: Daemon with ZFS client
+        When: Running _run_check_cycle
+        Then: Calls get_pool_status once
+        """
         daemon._run_check_cycle()
 
         mock_zfs_client.get_pool_status.assert_called_once()
 
-    def test_check_cycle_passes_parsed_pools_to_monitor(self, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
-        """When running a check cycle,
-        parsed pool data is passed to the monitor."""
+
+@pytest.mark.os_agnostic
+class TestCheckCyclePassesDataToMonitor:
+    """Check cycle passes parsed pool data to monitor."""
+
+    def test_passes_parsed_pools_dictionary_to_monitor(self, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
+        """When running check cycle, passes pool dict to monitor.
+
+        Given: Daemon with monitor
+        When: Running _run_check_cycle
+        Then: Calls check_all_pools with dict
+        """
         daemon._run_check_cycle()
 
         mock_monitor.check_all_pools.assert_called_once()
         call_args = mock_monitor.check_all_pools.call_args[0][0]
         assert isinstance(call_args, dict)
+
+    def test_passes_non_empty_pools_dictionary(self, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
+        """When running check cycle, passes non-empty pool dict.
+
+        Given: ZFS client returning pool data
+        When: Running _run_check_cycle
+        Then: Monitor receives dict with pools
+        """
+        daemon._run_check_cycle()
+
+        call_args = mock_monitor.check_all_pools.call_args[0][0]
         assert len(call_args) > 0
 
-    def test_check_cycle_monitors_specific_pool_by_name(self, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
-        """When running a check cycle,
-        the monitor receives pools keyed by name."""
+    def test_passes_pool_keyed_by_name(self, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
+        """When running check cycle, pool dict keyed by name.
+
+        Given: ZFS returning 'rpool' data
+        When: Running _run_check_cycle
+        Then: Monitor receives dict with 'rpool' key
+        """
         daemon._run_check_cycle()
 
         call_args = mock_monitor.check_all_pools.call_args[0][0]
         assert "rpool" in call_args
 
-    def test_check_cycle_recovers_from_zfs_fetch_errors(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
-        """When ZFS client raises an error,
-        the check cycle logs and continues without crashing."""
+
+# =============================================================================
+# Error Recovery Tests - Resilience
+# =============================================================================
+
+
+@pytest.mark.os_agnostic
+class TestCheckCycleRecoversFromErrors:
+    """Check cycle recovers gracefully from errors."""
+
+    def test_continues_after_zfs_fetch_error(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
+        """When ZFS client raises error, logs and continues.
+
+        Given: ZFS client that raises RuntimeError
+        When: Running _run_check_cycle
+        Then: Does not crash (returns normally)
+        """
         mock_zfs_client.get_pool_list.side_effect = RuntimeError("ZFS error")
 
         # Should not raise
         daemon._run_check_cycle()
 
-    def test_check_cycle_recovers_from_parse_errors(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
-        """When ZFS returns invalid data that fails parsing,
-        the check cycle logs and continues without crashing."""
+    def test_continues_after_parse_error(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
+        """When ZFS returns invalid data, logs and continues.
+
+        Given: ZFS client returning invalid JSON
+        When: Running _run_check_cycle
+        Then: Does not crash (returns normally)
+        """
         mock_zfs_client.get_pool_list.return_value = {"invalid": "data"}
 
         # Should not raise
         daemon._run_check_cycle()
 
 
-@pytest.mark.os_agnostic
-class TestAlertHandling:
-    """When daemon detects issues, it manages alerts intelligently."""
+# =============================================================================
+# Alert Handling Tests - Issue Detection
+# =============================================================================
 
-    def test_new_issue_triggers_email_alert(
+
+@pytest.mark.os_agnostic
+class TestAlertHandlingSendsAlertsForNewIssues:
+    """Alert handling sends emails for newly detected issues."""
+
+    def test_sends_alert_when_new_issue_detected(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When a new issue is detected,
-        the daemon sends an alert email."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When new issue is detected, sends alert email.
 
+        Given: Monitor returns result with WARNING issue
+        And: State manager indicates issue is new
+        When: Running _run_check_cycle
+        Then: Calls send_alert once
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = True
@@ -372,22 +597,25 @@ class TestAlertHandling:
 
         assert mock_alerter.send_alert.call_count == 1
 
-    def test_new_issue_alert_includes_issue_details(
+    def test_alert_includes_issue_details(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When alerting on a new issue,
-        the alert includes the issue object."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When sending alert, includes issue object.
 
+        Given: Monitor returns result with issue
+        When: Running _run_check_cycle
+        Then: send_alert called with issue as first arg
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = True
@@ -395,24 +623,27 @@ class TestAlertHandling:
         daemon._run_check_cycle()
 
         call_args = mock_alerter.send_alert.call_args[0]
-        assert call_args[0] == issue
+        assert call_args[0] == capacity_warning_issue
 
-    def test_new_issue_alert_includes_pool_status(
+    def test_alert_includes_pool_status(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When alerting on a new issue,
-        the alert includes the pool status."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When sending alert, includes pool status.
 
+        Given: Monitor returns result with pool status
+        When: Running _run_check_cycle
+        Then: send_alert called with pool status as second arg
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = True
@@ -422,46 +653,62 @@ class TestAlertHandling:
         call_args = mock_alerter.send_alert.call_args[0]
         assert call_args[1].name == "rpool"
 
-    def test_new_issue_updates_state_manager(
+
+@pytest.mark.os_agnostic
+class TestAlertHandlingRecordsNewIssues:
+    """Alert handling records new issues in state manager."""
+
+    def test_records_alert_in_state_manager(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When alerting on a new issue,
-        the state manager records the alert."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When sending alert, records in state manager.
 
+        Given: New issue detected
+        When: Running _run_check_cycle
+        Then: Calls record_alert with issue
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = True
 
         daemon._run_check_cycle()
 
-        mock_state_manager.record_alert.assert_called_once_with(issue)
+        mock_state_manager.record_alert.assert_called_once_with(capacity_warning_issue)
 
-    def test_duplicate_issue_alert_is_suppressed(
+
+@pytest.mark.os_agnostic
+class TestAlertHandlingSuppressesDuplicates:
+    """Alert handling suppresses duplicate issue alerts."""
+
+    def test_suppresses_alert_when_issue_is_duplicate(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When state manager indicates an issue is a duplicate,
-        no alert email is sent."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When state manager indicates duplicate, does not send alert.
 
+        Given: Issue detected but state manager returns False for should_alert
+        When: Running _run_check_cycle
+        Then: send_alert is not called
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = False
@@ -470,16 +717,20 @@ class TestAlertHandling:
 
         mock_alerter.send_alert.assert_not_called()
 
-    def test_ok_severity_issues_do_not_trigger_alerts(
+    def test_does_not_alert_for_ok_severity_issues(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
     ) -> None:
-        """When an issue has OK severity,
-        no alert is sent by default."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = PoolIssue(
+        """When issue has OK severity, does not send alert.
+
+        Given: Issue with Severity.OK
+        When: Running _run_check_cycle
+        Then: send_alert is not called
+        """
+        ok_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.OK,
             category="health",
@@ -489,8 +740,8 @@ class TestAlertHandling:
 
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[ok_issue],
             overall_severity=Severity.OK,
         )
 
@@ -499,27 +750,35 @@ class TestAlertHandling:
         mock_alerter.send_alert.assert_not_called()
 
 
-@pytest.mark.os_agnostic
-class TestRecoveryDetection:
-    """When issues resolve, daemon sends recovery notifications."""
+# =============================================================================
+# Recovery Detection Tests - Issue Resolution
+# =============================================================================
 
-    def test_resolved_issue_triggers_recovery_notification(
+
+@pytest.mark.os_agnostic
+class TestRecoveryDetectionSendsNotifications:
+    """Recovery detection sends notifications when issues resolve."""
+
+    def test_sends_recovery_when_issue_resolves(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When an issue from previous cycle is resolved,
-        a recovery notification is sent."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When issue from previous cycle resolves, sends recovery.
 
+        Given: First cycle with issue, second cycle without
+        When: Running two _run_check_cycle calls
+        Then: send_recovery called once
+        """
         # First cycle: issue present
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = False
@@ -528,7 +787,7 @@ class TestRecoveryDetection:
         # Second cycle: issue resolved
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
+            pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
         )
@@ -536,22 +795,25 @@ class TestRecoveryDetection:
 
         mock_alerter.send_recovery.assert_called_once()
 
-    def test_recovery_notification_includes_pool_name(
+    def test_recovery_includes_pool_name(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When sending recovery notification,
-        the pool name is included."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When sending recovery, includes pool name.
 
+        Given: Issue resolves for 'rpool'
+        When: Recovery notification sent
+        Then: First arg is 'rpool'
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = False
@@ -559,7 +821,7 @@ class TestRecoveryDetection:
 
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
+            pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
         )
@@ -568,22 +830,25 @@ class TestRecoveryDetection:
         call_args = mock_alerter.send_recovery.call_args
         assert call_args[0][0] == "rpool"
 
-    def test_recovery_notification_includes_issue_category(
+    def test_recovery_includes_issue_category(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When sending recovery notification,
-        the issue category is included."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When sending recovery, includes issue category.
 
+        Given: Capacity issue resolves
+        When: Recovery notification sent
+        Then: Second arg is 'capacity'
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = False
@@ -591,7 +856,7 @@ class TestRecoveryDetection:
 
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
+            pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
         )
@@ -600,22 +865,25 @@ class TestRecoveryDetection:
         call_args = mock_alerter.send_recovery.call_args
         assert call_args[0][1] == "capacity"
 
-    def test_recovery_notification_includes_pool_status(
+    def test_recovery_includes_pool_status(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When sending recovery notification,
-        the current pool status is included."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When sending recovery, includes current pool status.
 
+        Given: Issue resolves
+        When: Recovery notification sent
+        Then: Third arg is pool status
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = False
@@ -623,7 +891,7 @@ class TestRecoveryDetection:
 
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
+            pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
         )
@@ -632,22 +900,30 @@ class TestRecoveryDetection:
         call_args = mock_alerter.send_recovery.call_args
         assert call_args[0][2].name == "rpool"
 
-    def test_recovery_clears_issue_from_state_manager(
+
+@pytest.mark.os_agnostic
+class TestRecoveryDetectionClearsState:
+    """Recovery detection clears resolved issues from state."""
+
+    def test_clears_issue_from_state_manager(
         self,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
         mock_monitor: Mock,
+        healthy_pool_status: PoolStatus,
+        capacity_warning_issue: PoolIssue,
     ) -> None:
-        """When an issue recovers,
-        the state manager clears the issue."""
-        pool = a_healthy_pool_for_daemon("rpool")
-        issue = a_capacity_issue_for_daemon("rpool")
+        """When issue recovers, clears from state manager.
 
+        Given: Issue resolves
+        When: Recovery processed
+        Then: Calls clear_issue with pool name and category
+        """
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
-            issues=[issue],
+            pools=[healthy_pool_status],
+            issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
         )
         mock_state_manager.should_alert.return_value = False
@@ -655,7 +931,7 @@ class TestRecoveryDetection:
 
         mock_monitor.check_all_pools.return_value = CheckResult(
             timestamp=datetime.now(UTC),
-            pools=[pool],
+            pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
         )
@@ -664,13 +940,22 @@ class TestRecoveryDetection:
         mock_state_manager.clear_issue.assert_called_with("rpool", "capacity")
 
 
-@pytest.mark.posix_only
-class TestSignalHandling:
-    """On POSIX systems, daemon handles SIGTERM/SIGINT for graceful shutdown."""
+# =============================================================================
+# Signal Handling Tests - Graceful Shutdown (POSIX Only)
+# =============================================================================
 
-    def test_setup_registers_sigterm_handler(self, daemon: ZPoolDaemon) -> None:
-        """When setting up signal handlers on POSIX,
-        SIGTERM handler is registered."""
+
+@pytest.mark.posix_only
+class TestSignalHandlingRegistersHandlers:
+    """On POSIX systems, daemon registers signal handlers."""
+
+    def test_registers_sigterm_handler(self, daemon: ZPoolDaemon) -> None:
+        """When setting up signals, registers SIGTERM handler.
+
+        Given: Daemon on POSIX system
+        When: Calling _setup_signal_handlers
+        Then: SIGTERM handler is changed
+        """
         original_sigterm = signal.getsignal(signal.SIGTERM)
 
         daemon._setup_signal_handlers()
@@ -678,9 +963,13 @@ class TestSignalHandling:
         new_sigterm = signal.getsignal(signal.SIGTERM)
         assert new_sigterm != original_sigterm
 
-    def test_setup_registers_sigint_handler(self, daemon: ZPoolDaemon) -> None:
-        """When setting up signal handlers on POSIX,
-        SIGINT handler is registered."""
+    def test_registers_sigint_handler(self, daemon: ZPoolDaemon) -> None:
+        """When setting up signals, registers SIGINT handler.
+
+        Given: Daemon on POSIX system
+        When: Calling _setup_signal_handlers
+        Then: SIGINT handler is changed
+        """
         original_sigint = signal.getsignal(signal.SIGINT)
 
         daemon._setup_signal_handlers()
@@ -689,31 +978,48 @@ class TestSignalHandling:
         assert new_sigint != original_sigint
 
 
-@pytest.mark.os_agnostic
-class TestDaemonStopBehavior:
-    """When daemon stop() is called, shutdown proceeds correctly."""
+# =============================================================================
+# Daemon Lifecycle Tests - Start/Stop
+# =============================================================================
 
-    def test_stop_sets_shutdown_event(self, daemon: ZPoolDaemon) -> None:
-        """When stop() is called,
-        the shutdown event is set."""
+
+@pytest.mark.os_agnostic
+class TestDaemonStopSetsShutdownState:
+    """Daemon stop() method sets shutdown state correctly."""
+
+    def test_sets_shutdown_event(self, daemon: ZPoolDaemon) -> None:
+        """When stop() called, sets shutdown event.
+
+        Given: Running daemon
+        When: Calling stop()
+        Then: shutdown_event is set
+        """
         daemon.running = True
 
         daemon.stop()
 
         assert daemon.shutdown_event.is_set()
 
-    def test_stop_sets_running_flag_to_false(self, daemon: ZPoolDaemon) -> None:
-        """When stop() is called,
-        the running flag becomes False."""
+    def test_sets_running_flag_to_false(self, daemon: ZPoolDaemon) -> None:
+        """When stop() called, sets running flag False.
+
+        Given: Running daemon
+        When: Calling stop()
+        Then: running is False
+        """
         daemon.running = True
 
         daemon.stop()
 
         assert daemon.running is False
 
-    def test_stop_is_idempotent(self, daemon: ZPoolDaemon) -> None:
-        """When stop() is called multiple times,
-        it completes safely without errors."""
+    def test_is_idempotent(self, daemon: ZPoolDaemon) -> None:
+        """When stop() called multiple times, handles safely.
+
+        Given: Running daemon
+        When: Calling stop() twice
+        Then: No errors occur
+        """
         daemon.running = True
 
         daemon.stop()
@@ -722,13 +1028,22 @@ class TestDaemonStopBehavior:
         assert daemon.shutdown_event.is_set()
 
 
-@pytest.mark.os_agnostic
-class TestDaemonLoop:
-    """When daemon runs its monitoring loop, it executes periodic checks."""
+# =============================================================================
+# Monitoring Loop Tests - Periodic Execution
+# =============================================================================
 
-    def test_loop_executes_at_least_one_check_cycle(self, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
-        """When monitoring loop runs,
-        at least one check cycle executes."""
+
+@pytest.mark.os_agnostic
+class TestMonitoringLoopExecutesCycles:
+    """Monitoring loop executes check cycles periodically."""
+
+    def test_executes_at_least_one_check_cycle(self, daemon: ZPoolDaemon, mock_monitor: Mock) -> None:
+        """When loop runs, executes at least one check.
+
+        Given: Daemon with 1-second check interval
+        When: Loop runs for 1.5 seconds
+        Then: check_all_pools called at least once
+        """
 
         def run_loop():
             daemon._run_monitoring_loop()
@@ -737,17 +1052,19 @@ class TestDaemonLoop:
         thread.start()
 
         # Give it time to run at least one cycle
-        import time
-
         time.sleep(1.5)  # Sleep longer than check interval (1 second)
         daemon.stop()
         thread.join(timeout=2.0)
 
         assert mock_monitor.check_all_pools.call_count >= 1
 
-    def test_loop_continues_after_transient_errors(self, daemon: ZPoolDaemon, mock_zfs_client: Mock, pool_list_json: dict) -> None:
-        """When a check cycle encounters an error,
-        the loop continues and retries successfully."""
+    def test_continues_after_transient_errors(self, daemon: ZPoolDaemon, mock_zfs_client: Mock, pool_list_json: dict) -> None:
+        """When check cycle encounters error, loop continues.
+
+        Given: ZFS client that fails once then succeeds
+        When: Loop runs for 1 second
+        Then: get_pool_list called multiple times (retry successful)
+        """
         call_count = 0
 
         def failing_then_succeeding_get_pool_list():
