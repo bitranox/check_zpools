@@ -31,9 +31,48 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from pydantic import BaseModel, ConfigDict
+
 from .models import PoolIssue
 
 logger = logging.getLogger(__name__)
+
+
+class AlertStateModel(BaseModel):
+    """Pydantic model for AlertState JSON serialization.
+
+    Why
+    ---
+    Provides type-safe JSON serialization with automatic datetime conversion.
+    Ensures schema consistency and validation for persisted alert state.
+
+    Attributes
+    ----------
+    pool_name:
+        Name of the ZFS pool this alert concerns.
+    issue_category:
+        Category of the issue (health, capacity, errors, scrub).
+    first_seen:
+        When this issue was first detected.
+    last_alerted:
+        When we last sent an alert for this issue. None if never sent.
+    alert_count:
+        How many times we've sent alerts for this issue.
+    last_severity:
+        The severity level of the last alert sent.
+    """
+
+    pool_name: str
+    issue_category: str
+    first_seen: datetime
+    last_alerted: datetime | None
+    alert_count: int
+    last_severity: str | None
+
+    model_config = ConfigDict(
+        # Automatic datetime to ISO string conversion
+        json_encoders={datetime: lambda v: v.isoformat()}
+    )
 
 
 @dataclass
@@ -362,21 +401,22 @@ class AlertStateManager:
 
         What
         ---
-        Serializes current state to JSON with ISO-formatted timestamps.
-        Handles write errors gracefully.
+        Serializes current state to JSON with ISO-formatted timestamps using
+        Pydantic for type-safe serialization. Handles write errors gracefully.
         """
         try:
-            # Build serializable dict
-            alerts: dict[str, Any] = {}
-            for key, state in self.states.items():
-                alerts[key] = {
-                    "pool_name": state.pool_name,
-                    "issue_category": state.issue_category,
-                    "first_seen": state.first_seen.isoformat(),
-                    "last_alerted": state.last_alerted.isoformat() if state.last_alerted else None,
-                    "alert_count": state.alert_count,
-                    "last_severity": state.last_severity,
-                }
+            # Build serializable dict using Pydantic for type safety
+            alerts: dict[str, Any] = {
+                key: AlertStateModel(
+                    pool_name=state.pool_name,
+                    issue_category=state.issue_category,
+                    first_seen=state.first_seen,
+                    last_alerted=state.last_alerted,
+                    alert_count=state.alert_count,
+                    last_severity=state.last_severity,
+                ).model_dump(mode="json")
+                for key, state in self.states.items()
+            }
 
             data = {"version": 1, "alerts": alerts}
 

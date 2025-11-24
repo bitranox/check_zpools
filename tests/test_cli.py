@@ -576,8 +576,10 @@ def test_when_config_deploy_is_invoked_it_deploys_configuration(
     def mock_deploy(*, targets: Any, force: bool = False) -> list[Path]:
         return [deployed_path]
 
-    # Patch in the cli module where the function is used
-    monkeypatch.setattr(cli_mod, "deploy_configuration", mock_deploy)
+    # Patch in the config_deploy command module where the function is used
+    from check_zpools.cli_commands.commands import config_deploy
+
+    monkeypatch.setattr(config_deploy, "deploy_configuration", mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
 
@@ -596,7 +598,9 @@ def test_when_config_deploy_finds_no_files_to_create_it_informs_user(
     def mock_deploy(*, targets: Any, force: bool = False) -> list[Path]:
         return []  # No files created
 
-    monkeypatch.setattr(cli_mod, "deploy_configuration", mock_deploy)
+    from check_zpools.cli_commands.commands import config_deploy
+
+    monkeypatch.setattr(config_deploy, "deploy_configuration", mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user"])
 
@@ -613,7 +617,9 @@ def test_when_config_deploy_encounters_permission_error_it_handles_gracefully(
     def mock_deploy(*, targets: Any, force: bool = False) -> list[Any]:
         raise PermissionError("Permission denied")
 
-    monkeypatch.setattr(cli_mod, "deploy_configuration", mock_deploy)
+    from check_zpools.cli_commands.commands import config_deploy
+
+    monkeypatch.setattr(config_deploy, "deploy_configuration", mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "app"])
 
@@ -641,7 +647,9 @@ def test_when_config_deploy_supports_multiple_targets(
         assert "host" in targets
         return [path1, path2]
 
-    monkeypatch.setattr(cli_mod, "deploy_configuration", mock_deploy)
+    from check_zpools.cli_commands.commands import config_deploy
+
+    monkeypatch.setattr(config_deploy, "deploy_configuration", mock_deploy)
 
     result: Result = cli_runner.invoke(cli_mod.cli, ["config-deploy", "--target", "user", "--target", "host"])
 
@@ -708,7 +716,7 @@ def test_when_send_email_is_invoked_with_valid_config_it_sends(
     config_path = tmp_path / "test_config.toml"
     config_path.write_text('[email]\nsmtp_hosts = ["smtp.test.com:587"]\nfrom_address = "sender@test.com"\n')
 
-    with patch("check_zpools.cli.get_config") as mock_get_config:
+    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
         with patch("smtplib.SMTP"):
             # Mock config
             mock_config_obj = MagicMock()
@@ -744,7 +752,7 @@ def test_when_send_email_receives_multiple_recipients_it_accepts_them(
     """When multiple --to flags are provided, send-email should accept them."""
     from unittest.mock import patch, MagicMock
 
-    with patch("check_zpools.cli.get_config") as mock_get_config:
+    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
         with patch("smtplib.SMTP"):
             mock_config_obj = MagicMock()
             mock_config_obj.as_dict.return_value = {
@@ -780,7 +788,7 @@ def test_when_send_email_includes_html_body_it_sends(
     """When HTML body is provided, send-email should include it."""
     from unittest.mock import patch, MagicMock
 
-    with patch("check_zpools.cli.get_config") as mock_get_config:
+    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
         with patch("smtplib.SMTP"):
             mock_config_obj = MagicMock()
             mock_config_obj.as_dict.return_value = {
@@ -821,7 +829,7 @@ def test_when_send_email_has_attachments_it_sends(
     attachment = tmp_path / "test.txt"
     attachment.write_text("Test content")
 
-    with patch("check_zpools.cli.get_config") as mock_get_config:
+    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
         with patch("smtplib.SMTP"):
             mock_config_obj = MagicMock()
             mock_config_obj.as_dict.return_value = {
@@ -857,7 +865,7 @@ def test_when_send_email_smtp_fails_it_reports_error(
     """When SMTP connection fails, send-email should show error message."""
     from unittest.mock import patch, MagicMock
 
-    with patch("check_zpools.cli.get_config") as mock_get_config:
+    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
         with patch("smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = ConnectionError("Cannot connect")
 
@@ -916,7 +924,7 @@ def test_when_send_notification_is_invoked_with_valid_config_it_sends(
     """When SMTP is configured, send-notification should successfully send."""
     from unittest.mock import patch, MagicMock
 
-    with patch("check_zpools.cli.get_config") as mock_get_config:
+    with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
         with patch("smtplib.SMTP"):
             mock_config_obj = MagicMock()
             mock_config_obj.as_dict.return_value = {
@@ -951,7 +959,7 @@ def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
     """When multiple --to flags are provided, send-notification should accept them."""
     from unittest.mock import patch, MagicMock
 
-    with patch("check_zpools.cli.get_config") as mock_get_config:
+    with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
         with patch("smtplib.SMTP"):
             mock_config_obj = MagicMock()
             mock_config_obj.as_dict.return_value = {
@@ -987,7 +995,7 @@ def test_when_send_notification_smtp_fails_it_reports_error(
     """When SMTP connection fails, send-notification should show error message."""
     from unittest.mock import patch, MagicMock
 
-    with patch("check_zpools.cli.get_config") as mock_get_config:
+    with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
         with patch("smtplib.SMTP") as mock_smtp:
             mock_smtp.side_effect = ConnectionError("Cannot connect")
 
