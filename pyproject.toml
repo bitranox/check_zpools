@@ -12,6 +12,7 @@ dependencies = [
     "btx-lib-mail>=1.0.1",
     "python-dateutil>=2.9.0.post0",
     "psutil>=7.1.3",
+    "pydantic>=2.10.4",
 ]
 license = { text = "MIT" }
 authors = [{ name = "bitranox", email = "bitranox@gmail.com" }]
@@ -34,9 +35,9 @@ Issues = "https://github.com/bitranox/check_zpools/issues"
 dev = [
   "pytest>=9.0.1",
   "pytest-cov>=7.0.0",
-  "ruff>=0.14.5",
+  "ruff>=0.14.6",
   "pyright>=1.1.407",
-  "bandit>=1.9.1",
+  "bandit>=1.9.2",
   "build>=1.3.0",
   "twine>=6.2.0",
   "codecov-cli>=11.2.5",

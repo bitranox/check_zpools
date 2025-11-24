@@ -33,9 +33,199 @@ import logging
 import shutil
 import subprocess  # nosec B404 - subprocess used safely with list arguments, not shell=True
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeVar
+
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
+
+
+# Type variable for generic Pydantic model returns
+T = TypeVar("T", bound=BaseModel)
+
+
+class ZFSCommandResponse(BaseModel):
+    """Base response from ZFS JSON commands.
+
+    Why
+        Provides type-safe wrapper for ZFS command outputs while maintaining
+        flexibility for different ZFS versions with varying field structures.
+        Supports dict-like access for backward compatibility with existing
+        parser code.
+
+    Notes
+    -----
+    - Allows extra fields for forward/backward compatibility with ZFS versions
+    - Parser layer handles detailed validation and type conversion
+    - This layer focuses on transport and basic structure
+    - Supports dict-like interface (__getitem__, get, __contains__) for
+      seamless integration with code expecting dict[str, Any]
+    """
+
+    model_config = ConfigDict(extra="allow")  # Allow unknown ZFS fields for version flexibility
+
+    def __getitem__(self, key: str) -> Any:
+        """Support dict-like item access for backward compatibility.
+
+        Why
+            Enables seamless integration with existing code that expects
+            dict[str, Any] responses, particularly the ZFSParser.
+
+        Parameters
+        ----------
+        key:
+            Attribute/field name to access
+
+        Returns
+        -------
+        Any:
+            Field value
+
+        Raises
+        ------
+        KeyError:
+            When key doesn't exist
+
+        Examples
+        --------
+        >>> response = ZpoolListResponse.model_validate({"pools": {}})  # doctest: +SKIP
+        >>> response["pools"]  # doctest: +SKIP
+        {}
+        """
+        try:
+            return getattr(self, key)
+        except AttributeError as exc:
+            # Try model_extra for dynamic fields (extra="allow")
+            extra_fields = self.__pydantic_extra__
+            if extra_fields is not None and key in extra_fields:
+                return extra_fields[key]
+            raise KeyError(key) from exc
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Support dict-like get() method for backward compatibility.
+
+        Why
+            Enables seamless integration with existing code that uses
+            dict.get() for safe field access with defaults.
+
+        Parameters
+        ----------
+        key:
+            Attribute/field name to access
+        default:
+            Default value if key doesn't exist
+
+        Returns
+        -------
+        Any:
+            Field value or default
+
+        Examples
+        --------
+        >>> response = ZpoolListResponse.model_validate({"pools": {}})  # doctest: +SKIP
+        >>> response.get("pools", {})  # doctest: +SKIP
+        {}
+        >>> response.get("nonexistent", "fallback")  # doctest: +SKIP
+        'fallback'
+        """
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key: str) -> bool:
+        """Support 'in' operator for backward compatibility.
+
+        Why
+            Enables seamless integration with existing code that uses
+            'key in dict' checks.
+
+        Parameters
+        ----------
+        key:
+            Attribute/field name to check
+
+        Returns
+        -------
+        bool:
+            True if key exists, False otherwise
+
+        Examples
+        --------
+        >>> response = ZpoolListResponse.model_validate({"pools": {}})  # doctest: +SKIP
+        >>> "pools" in response  # doctest: +SKIP
+        True
+        >>> "nonexistent" in response  # doctest: +SKIP
+        False
+        """
+        # Check if it's a defined field
+        if hasattr(self, key):
+            return True
+        # Check if it's in extra fields
+        extra_fields = self.__pydantic_extra__
+        if extra_fields is not None and key in extra_fields:
+            return True
+        return False
+
+    def keys(self) -> list[str]:
+        """Support dict-like keys() method for backward compatibility.
+
+        Why
+            Enables seamless integration with existing code that iterates
+            over dict.keys().
+
+        Returns
+        -------
+        list[str]:
+            List of all field names (both defined and extra)
+
+        Examples
+        --------
+        >>> response = ZpoolListResponse.model_validate({"pools": {}})  # doctest: +SKIP
+        >>> "pools" in response.keys()  # doctest: +SKIP
+        True
+        """
+        result = list(self.__class__.model_fields.keys())
+        extra_fields = self.__pydantic_extra__
+        if extra_fields is not None:
+            result.extend(extra_fields.keys())
+        return result
+
+
+class ZpoolListResponse(ZFSCommandResponse):
+    """Response from 'zpool list -j' command.
+
+    Why
+        Type-safe wrapper for zpool list output. Maintains flexibility since
+        ZFS JSON format varies by version, with detailed parsing handled
+        by ZFSParser.
+
+    Examples
+    --------
+    >>> response = ZpoolListResponse.model_validate({"pools": {}})  # doctest: +SKIP
+    >>> isinstance(response, ZpoolListResponse)  # doctest: +SKIP
+    True
+    """
+
+    pass
+
+
+class ZpoolStatusResponse(ZFSCommandResponse):
+    """Response from 'zpool status -j' command.
+
+    Why
+        Type-safe wrapper for zpool status output. Maintains flexibility since
+        ZFS JSON format varies by version, with detailed parsing handled
+        by ZFSParser.
+
+    Examples
+    --------
+    >>> response = ZpoolStatusResponse.model_validate({"pools": {}})  # doctest: +SKIP
+    >>> isinstance(response, ZpoolStatusResponse)  # doctest: +SKIP
+    True
+    """
+
+    pass
 
 
 class ZFSCommandError(RuntimeError):
@@ -160,7 +350,7 @@ class ZFSClient:
         pool_name: str | None = None,
         properties: list[str] | None = None,
         timeout: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> ZpoolListResponse:
         """Execute `zpool list -j` and return parsed JSON.
 
         Why
@@ -179,8 +369,8 @@ class ZFSClient:
 
         Returns
         -------
-        dict:
-            Parsed JSON output from zpool list command.
+        ZpoolListResponse:
+            Pydantic model wrapping parsed JSON output from zpool list command.
 
         Raises
         ------
@@ -205,14 +395,14 @@ class ZFSClient:
             command.append(pool_name)
 
         logger.debug(f"Executing: {' '.join(command)}")
-        return self._execute_json_command(command, timeout=timeout)
+        return self._execute_json_command(command, timeout=timeout, response_model=ZpoolListResponse)
 
     def get_pool_status(
         self,
         *,
         pool_name: str | None = None,
         timeout: int | None = None,
-    ) -> dict[str, Any]:
+    ) -> ZpoolStatusResponse:
         """Execute `zpool status -j` and return parsed JSON.
 
         Why
@@ -229,8 +419,8 @@ class ZFSClient:
 
         Returns
         -------
-        dict:
-            Parsed JSON output from zpool status command.
+        ZpoolStatusResponse:
+            Pydantic model wrapping parsed JSON output from zpool status command.
 
         Raises
         ------
@@ -252,7 +442,7 @@ class ZFSClient:
             command.append(pool_name)
 
         logger.debug(f"Executing: {' '.join(command)}")
-        return self._execute_json_command(command, timeout=timeout)
+        return self._execute_json_command(command, timeout=timeout, response_model=ZpoolStatusResponse)
 
     def get_pool_status_text(
         self,
@@ -381,8 +571,14 @@ class ZFSClient:
         command: list[str],
         *,
         timeout: int | None = None,
-    ) -> dict[str, Any]:
-        """Execute command and parse JSON output.
+        response_model: type[T],
+    ) -> T:
+        """Execute command and parse JSON output into Pydantic model.
+
+        Why
+            Provides type-safe JSON parsing with validation. Uses Pydantic
+            models to ensure API contracts while maintaining flexibility
+            for ZFS version variations.
 
         Parameters
         ----------
@@ -390,11 +586,13 @@ class ZFSClient:
             Full command to execute as list of strings.
         timeout:
             Timeout in seconds. Uses default_timeout if None.
+        response_model:
+            Pydantic model class to parse response into.
 
         Returns
         -------
-        dict:
-            Parsed JSON from command stdout.
+        T:
+            Pydantic model instance containing parsed JSON from command stdout.
 
         Raises
         ------
@@ -407,11 +605,15 @@ class ZFSClient:
         """
         result = self._execute_command(command, timeout=timeout)
 
-        # Parse JSON output
+        # Parse JSON output into Pydantic model
         try:
             data = json.loads(result.stdout)
             logger.debug(f"Parsed JSON successfully, top-level keys: {list(data.keys())}")
-            return data
+
+            # Validate and wrap in Pydantic model
+            model_instance = response_model.model_validate(data)
+            logger.debug(f"Successfully validated response as {response_model.__name__}")
+            return model_instance
         except json.JSONDecodeError as exc:
             logger.error(
                 "Failed to parse JSON output",
@@ -458,4 +660,7 @@ __all__ = [
     "ZFSClient",
     "ZFSCommandError",
     "ZFSNotAvailableError",
+    "ZFSCommandResponse",
+    "ZpoolListResponse",
+    "ZpoolStatusResponse",
 ]

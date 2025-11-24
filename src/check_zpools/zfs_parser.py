@@ -30,11 +30,28 @@ import logging
 import re
 from datetime import datetime, timezone
 from functools import lru_cache
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from .models import PoolHealth, PoolStatus
 
 logger = logging.getLogger(__name__)
+
+
+class DictLike(Protocol):
+    """Protocol for dict-like objects supporting basic dict operations.
+
+    Why
+        Enables parser to accept both dict[str, Any] and Pydantic models
+        that implement dict-like interface, maintaining backward compatibility
+        while supporting new type-safe responses.
+    """
+
+    def get(self, key: str, default: Any = None) -> Any: ...
+
+    def __getitem__(self, key: str) -> Any: ...
+
+    def __contains__(self, key: str) -> bool: ...
+
 
 # Pre-compiled regex patterns for performance
 # Pattern for parsing size strings with binary suffixes (e.g., "1.5T", "500G")
@@ -83,7 +100,7 @@ class ZFSParser:
     'rpool'
     """
 
-    def parse_pool_list(self, json_data: dict[str, Any]) -> dict[str, PoolStatus]:
+    def parse_pool_list(self, json_data: dict[str, Any] | DictLike) -> dict[str, PoolStatus]:
         """Parse `zpool list -j` JSON output into PoolStatus objects.
 
         Why
@@ -93,7 +110,7 @@ class ZFSParser:
         Parameters
         ----------
         json_data:
-            Parsed JSON from `zpool list -j` command.
+            Parsed JSON from `zpool list -j` command (dict or Pydantic model).
 
         Returns
         -------
@@ -139,7 +156,7 @@ class ZFSParser:
             logger.error("Failed to parse zpool list output", exc_info=True)
             raise ZFSParseError(f"Failed to parse zpool list output: {exc}") from exc
 
-    def parse_pool_status(self, json_data: dict[str, Any]) -> dict[str, PoolStatus]:
+    def parse_pool_status(self, json_data: dict[str, Any] | DictLike) -> dict[str, PoolStatus]:
         """Parse `zpool status -j` JSON output into PoolStatus objects.
 
         Why
@@ -149,7 +166,7 @@ class ZFSParser:
         Parameters
         ----------
         json_data:
-            Parsed JSON from `zpool status -j` command.
+            Parsed JSON from `zpool status -j` command (dict or Pydantic model).
 
         Returns
         -------
