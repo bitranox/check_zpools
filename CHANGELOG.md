@@ -3,6 +3,15 @@ a# Changelog
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [3.0.0] - 2025-11-25
+
+### Breaking Changes
+- **Environment variable format changed**: lib_layered_config now requires TRIPLE underscore (`___`) between slug and section
+  - Old format: `CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD=value`
+  - New format: `CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD=value`
+  - Pattern: `<slug>___<section>__<key>=value`
+  - Users must update any environment variables they have configured
+
 ## [2.5.0] - 2025-11-25
 
 ### Changed
@@ -16,9 +25,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Explained dual logging mechanism (console capture + direct journald API)
   - Added `-o verbose` journalctl example with real structured field output
   - Documented structured field queries for capacity thresholds and error counts
-- **Environment variables**: Fixed all documentation to use correct double underscore (`__`) for lib_layered_config nested keys
-  - `CHECK_ZPOOLS_SECTION__KEY=value` (correct format)
-  - Updated in `defaultconfig.toml`, `config.toml.example`, `.env.example`, and `README.md`
+- **Environment variables**: Fixed all documentation to use correct lib_layered_config format
+  - Format: `<slug>___<section>__<key>=value` (TRIPLE underscore after slug, DOUBLE for section/key)
+  - Example: `CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD=value`
+  - Updated in `defaultconfig.toml`, `config.toml.example`, `.env.example`, `README.md`, and `service_install.py`
 
 ## [2.4.0] - 2025-11-24
 

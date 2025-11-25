@@ -20,7 +20,7 @@ capacity_warning_percent = 80
 # Purpose: Percentage at which to trigger WARNING alerts for pool capacity
 # Type: integer (0-100)
 # Default: 80
-# Environment: CHECK_ZPOOLS_CAPACITY_WARNING_PERCENT
+# Environment: CHECK_ZPOOLS___ZFS__CAPACITY_WARNING_PERCENT
 # Note: ZFS performance degrades significantly above 80% capacity
 # Example: capacity_warning_percent = 75
 
@@ -28,7 +28,7 @@ capacity_critical_percent = 90
 # Purpose: Percentage at which to trigger CRITICAL alerts for pool capacity
 # Type: integer (0-100)
 # Default: 90
-# Environment: CHECK_ZPOOLS_CAPACITY_CRITICAL_PERCENT
+# Environment: CHECK_ZPOOLS___ZFS__CAPACITY_CRITICAL_PERCENT
 # Example: capacity_critical_percent = 95
 
 # Scrub age monitoring
@@ -36,7 +36,7 @@ scrub_max_age_days = 30
 # Purpose: Maximum days since last scrub before WARNING alert
 # Type: integer
 # Default: 30
-# Environment: CHECK_ZPOOLS_SCRUB_MAX_AGE_DAYS
+# Environment: CHECK_ZPOOLS___ZFS__SCRUB_MAX_AGE_DAYS
 # Note: Set to 0 to disable scrub age monitoring
 # Example: scrub_max_age_days = 7
 
@@ -45,21 +45,21 @@ read_errors_warning = 1
 # Purpose: Number of read errors to trigger WARNING
 # Type: integer
 # Default: 1 (any errors trigger warning)
-# Environment: CHECK_ZPOOLS_READ_ERRORS_WARNING
+# Environment: CHECK_ZPOOLS___ZFS__READ_ERRORS_WARNING
 # Example: read_errors_warning = 5
 
 write_errors_warning = 1
 # Purpose: Number of write errors to trigger WARNING
 # Type: integer
 # Default: 1 (any errors trigger warning)
-# Environment: CHECK_ZPOOLS_WRITE_ERRORS_WARNING
+# Environment: CHECK_ZPOOLS___ZFS__WRITE_ERRORS_WARNING
 # Example: write_errors_warning = 5
 
 checksum_errors_warning = 1
 # Purpose: Number of checksum errors to trigger WARNING
 # Type: integer
 # Default: 1 (any errors trigger warning)
-# Environment: CHECK_ZPOOLS_CHECKSUM_ERRORS_WARNING
+# Environment: CHECK_ZPOOLS___ZFS__CHECKSUM_ERRORS_WARNING
 # Note: Checksum errors are serious and may indicate hardware issues
 # Example: checksum_errors_warning = 0  # Alert on any checksum error
 
@@ -69,14 +69,14 @@ check_interval_seconds = 300
 # Purpose: Interval between pool checks when running as daemon
 # Type: integer (seconds)
 # Default: 300 (5 minutes)
-# Environment: CHECK_ZPOOLS_DAEMON_CHECK_INTERVAL_SECONDS
+# Environment: CHECK_ZPOOLS___DAEMON__CHECK_INTERVAL_SECONDS
 # Example: check_interval_seconds = 60  # Check every minute
 
 alert_resend_interval_hours = 2
 # Purpose: Hours before re-sending alerts for persistent issues with unchanged severity
 # Type: integer
 # Default: 24 (re-alert daily)
-# Environment: CHECK_ZPOOLS_DAEMON_ALERT_RESEND_INTERVAL_HOURS
+# Environment: CHECK_ZPOOLS___DAEMON__ALERT_RESEND_INTERVAL_HOURS
 # Note: Prevents alert fatigue while keeping admins informed. This interval only
 #       applies when the issue severity remains unchanged. If the severity changes
 #       (e.g., WARNING → CRITICAL or DEGRADED → ONLINE), an alert is sent immediately
@@ -87,14 +87,14 @@ pools_to_monitor = []
 # Purpose: List of specific pool names to monitor (empty = all pools)
 # Type: array of strings
 # Default: [] (monitor all pools)
-# Environment: CHECK_ZPOOLS_DAEMON_POOLS_TO_MONITOR (comma-separated)
+# Environment: CHECK_ZPOOLS___DAEMON__POOLS_TO_MONITOR (comma-separated)
 # Example: pools_to_monitor = ["rpool", "zpool-data", "zpool-backup"]
 
 state_file = ""
 # Purpose: Path to alert state file for deduplication
 # Type: string (file path)
 # Default: "" (uses platform-specific cache directory)
-# Environment: CHECK_ZPOOLS_DAEMON_STATE_FILE
+# Environment: CHECK_ZPOOLS___DAEMON__STATE_FILE
 # Note: Default is ~/.cache/check_zpools/alert_state.json on Linux
 # Example: state_file = "/var/lib/check_zpools/alert_state.json"
 
@@ -102,14 +102,14 @@ send_ok_emails = false
 # Purpose: Send email when all pools are healthy (OK status)
 # Type: boolean
 # Default: false
-# Environment: CHECK_ZPOOLS_DAEMON_SEND_OK_EMAILS
+# Environment: CHECK_ZPOOLS___DAEMON__SEND_OK_EMAILS
 # Example: send_ok_emails = true
 
 send_recovery_emails = true
 # Purpose: Send email when issues are resolved
 # Type: boolean
 # Default: true
-# Environment: CHECK_ZPOOLS_DAEMON_SEND_RECOVERY_EMAILS
+# Environment: CHECK_ZPOOLS___DAEMON__SEND_RECOVERY_EMAILS
 # Example: send_recovery_emails = false
 
 [alerts]
@@ -118,14 +118,14 @@ alert_recipients = []
 # Purpose: Email addresses to receive alerts
 # Type: array of strings
 # Default: [] (no email alerts sent)
-# Environment: CHECK_ZPOOLS_ALERTS_ALERT_RECIPIENTS (comma-separated)
+# Environment: CHECK_ZPOOLS___ALERTS__ALERT_RECIPIENTS (comma-separated)
 # Example: alert_recipients = ["admin@example.com", "ops-team@example.com"]
 
 subject_prefix = "[ZFS Alert]"
 # Purpose: Prefix for email subject lines
 # Type: string
 # Default: "[ZFS Alert]"
-# Environment: CHECK_ZPOOLS_ALERTS_SUBJECT_PREFIX
+# Environment: CHECK_ZPOOLS___ALERTS__SUBJECT_PREFIX
 # Example: subject_prefix = "[PROD-ZFS]"
 
 alert_on_severities = ["CRITICAL", "WARNING"]
@@ -133,7 +133,7 @@ alert_on_severities = ["CRITICAL", "WARNING"]
 # Type: array of strings
 # Default: ["CRITICAL", "WARNING"]
 # Values: "CRITICAL", "WARNING", "INFO"
-# Environment: CHECK_ZPOOLS_ALERTS_ALERT_ON_SEVERITIES (comma-separated)
+# Environment: CHECK_ZPOOLS___ALERTS__ALERT_ON_SEVERITIES (comma-separated)
 # Example: alert_on_severities = ["CRITICAL"]  # Only critical alerts
 # Note: This setting filters alerts when issues are first detected or severity changes.
 #       Recovery emails (when issues resolve to ONLINE) are controlled separately by
@@ -162,7 +162,7 @@ smtp_hosts = []
 # Purpose: SMTP servers to use for email delivery (tried in order)
 # Type: array of strings in "host[:port]" format
 # Default: [] (empty, must be configured to send email)
-# Environment: CHECK_ZPOOLS_EMAIL_SMTP_HOSTS (comma-separated list)
+# Environment: CHECK_ZPOOLS___EMAIL__SMTP_HOSTS (comma-separated list)
 # Note: Port 587 is standard for STARTTLS, 465 for implicit TLS, 25 for plain
 # Example: smtp_hosts = ["smtp.gmail.com:587", "smtp.backup.com:587"]
 
@@ -170,14 +170,14 @@ from_address = "noreply@localhost"
 # Purpose: Default sender address for outgoing emails
 # Type: string (valid email address)
 # Default: "noreply@localhost"
-# Environment: CHECK_ZPOOLS_EMAIL_FROM_ADDRESS
+# Environment: CHECK_ZPOOLS___EMAIL__FROM_ADDRESS
 # Example: from_address = "alerts@example.com"
 
 smtp_username = ""
 # Purpose: SMTP authentication username
 # Type: string
 # Default: "" (no authentication)
-# Environment: CHECK_ZPOOLS_EMAIL_SMTP_USERNAME
+# Environment: CHECK_ZPOOLS___EMAIL__SMTP_USERNAME
 # Note: Both username and password must be set to enable authentication
 # Example: smtp_username = "user@example.com"
 
@@ -185,14 +185,14 @@ smtp_password = ""
 # Purpose: SMTP authentication password
 # Type: string or None
 # Default: None (no authentication)
-# Environment: CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD
+# Environment: CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD
 #
 # **SECURITY WARNING**: NEVER store passwords in configuration files!
 # Always use environment variables or user-level config with restricted permissions.
 #
 # Recommended methods (in order of security):
 #   1. Environment variable (best for production):
-#      export CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD="your-password"
+#      export CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD="your-password"
 #
 #   2. User config with restricted permissions:
 #      echo '[email]' > ~/.config/check_zpools/config.toml
@@ -200,7 +200,7 @@ smtp_password = ""
 #      chmod 600 ~/.config/check_zpools/config.toml
 #
 #   3. .env file (for development only, add to .gitignore):
-#      echo 'CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD=your-password' > .env
+#      echo 'CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD=your-password' > .env
 #      chmod 600 .env
 #
 # DO NOT set smtp_password in configuration files - use environment variables!
@@ -210,7 +210,7 @@ use_starttls = true
 # Purpose: Enable STARTTLS negotiation before authentication
 # Type: boolean
 # Default: true
-# Environment: CHECK_ZPOOLS_EMAIL_USE_STARTTLS
+# Environment: CHECK_ZPOOLS___EMAIL__USE_STARTTLS
 # Note: Standard for port 587; disable for implicit TLS (port 465)
 # Example: use_starttls = false
 
@@ -218,14 +218,14 @@ timeout = 30.0
 # Purpose: Socket timeout in seconds for SMTP operations
 # Type: float
 # Default: 30.0
-# Environment: CHECK_ZPOOLS_EMAIL_TIMEOUT
+# Environment: CHECK_ZPOOLS___EMAIL__TIMEOUT
 # Example: timeout = 60.0
 
 raise_on_missing_attachments = true
 # Purpose: Behavior when attachment files are missing
 # Type: boolean
 # Default: true (raise FileNotFoundError)
-# Environment: CHECK_ZPOOLS_EMAIL_RAISE_ON_MISSING_ATTACHMENTS
+# Environment: CHECK_ZPOOLS___EMAIL__RAISE_ON_MISSING_ATTACHMENTS
 # Note: When false, logs warning and continues without attachment
 # Example: raise_on_missing_attachments = false
 
@@ -233,7 +233,7 @@ raise_on_invalid_recipient = true
 # Purpose: Behavior when recipient email addresses are invalid
 # Type: boolean
 # Default: true (raise ValueError)
-# Environment: CHECK_ZPOOLS_EMAIL_RAISE_ON_INVALID_RECIPIENT
+# Environment: CHECK_ZPOOLS___EMAIL__RAISE_ON_INVALID_RECIPIENT
 # Note: When false, logs warning and skips invalid addresses
 # Example: raise_on_invalid_recipient = true
 
@@ -260,11 +260,11 @@ raise_on_invalid_recipient = true
 #   Use these for runtime overrides (e.g., in CI/CD, debugging).
 #
 # Method 2: lib_layered_config environment variables
-#   CHECK_ZPOOLS_LIB_LOG_RICH__CONSOLE_LEVEL=DEBUG
-#   CHECK_ZPOOLS_LIB_LOG_RICH__ENABLE_GRAYLOG=true
+#   CHECK_ZPOOLS___LIB_LOG_RICH__CONSOLE_LEVEL=DEBUG
+#   CHECK_ZPOOLS___LIB_LOG_RICH__ENABLE_GRAYLOG=true
 #   etc.
 #
-#   Format: CHECK_ZPOOLS_<section>__<setting> (note: DOUBLE underscore for nesting)
+#   Format: <slug>___<section>__<key>=value (note: TRIPLE underscore after slug, DOUBLE for section/key)
 #   These are merged via lib_layered_config before init().
 #
 # Precedence (lowest to highest):

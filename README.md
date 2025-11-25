@@ -673,8 +673,8 @@ alert_recipients = ["admin@example.com", "ops@example.com"]
 smtp_hosts = ["smtp.gmail.com:587"]
 from_address = "zfs-monitor@example.com"
 smtp_username = "alerts@example.com"
-# IMPORTANT: Set password via environment variable (note: DOUBLE underscore):
-# CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD=your-app-password
+# IMPORTANT: Set password via environment variable (note: TRIPLE underscore after slug):
+# CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD=your-app-password
 use_starttls = true
 timeout = 30.0
 ```
@@ -765,45 +765,46 @@ alert_recipients = [
 **Security Best Practices:**
 ```bash
 # NEVER put passwords in config files!
-# Use environment variables instead (note: DOUBLE underscore between section and key):
-export CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD="your-app-password"
+# Use environment variables instead (note: TRIPLE underscore after slug, DOUBLE for section/key):
+export CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD="your-app-password"
 
 # Or use .env file:
-echo "CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD=your-app-password" > .env
+echo "CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD=your-app-password" > .env
 ```
 
 ---
 
 ### Environment Variable Overrides
 
-All configuration can be overridden via environment variables using the prefix `CHECK_ZPOOLS_`:
+All configuration can be overridden via environment variables using the prefix `CHECK_ZPOOLS___`:
 
 **Format:**
 ```
-CHECK_ZPOOLS_<SECTION>__<SUBSECTION>__<KEY>=value
+<slug>___<section>__<key>=value
+CHECK_ZPOOLS___<SECTION>__<KEY>=value
 ```
-> **Note:** Use DOUBLE underscore (`__`) to separate nested sections/keys.
+> **Note:** Use TRIPLE underscore (`___`) after the slug, and DOUBLE underscore (`__`) between section and key.
 
 **Examples:**
 ```bash
 # Override ZFS capacity thresholds
-export CHECK_ZPOOLS_ZFS__CAPACITY__WARNING_PERCENT=85
-export CHECK_ZPOOLS_ZFS__CAPACITY__CRITICAL_PERCENT=95
+export CHECK_ZPOOLS___ZFS__CAPACITY_WARNING_PERCENT=85
+export CHECK_ZPOOLS___ZFS__CAPACITY_CRITICAL_PERCENT=95
 
 # Override daemon check interval
-export CHECK_ZPOOLS_DAEMON__CHECK_INTERVAL_SECONDS=600
+export CHECK_ZPOOLS___DAEMON__CHECK_INTERVAL_SECONDS=600
 
 # Override email SMTP settings
-export CHECK_ZPOOLS_EMAIL__SMTP_HOSTS="smtp.gmail.com:587"
-export CHECK_ZPOOLS_EMAIL__FROM_ADDRESS="alerts@example.com"
-export CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD="app-password"
+export CHECK_ZPOOLS___EMAIL__SMTP_HOSTS="smtp.gmail.com:587"
+export CHECK_ZPOOLS___EMAIL__FROM_ADDRESS="alerts@example.com"
+export CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD="app-password"
 
 # Override logging (lib_log_rich native variables - highest precedence)
 export LOG_CONSOLE_LEVEL=DEBUG
 export LOG_NO_COLOR=true
 
 # Run with overrides
-CHECK_ZPOOLS_ZFS__CAPACITY__WARNING_PERCENT=85 check_zpools check
+CHECK_ZPOOLS___ZFS__CAPACITY_WARNING_PERCENT=85 check_zpools check
 ```
 
 ---
