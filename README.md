@@ -673,8 +673,8 @@ alert_recipients = ["admin@example.com", "ops@example.com"]
 smtp_hosts = ["smtp.gmail.com:587"]
 from_address = "zfs-monitor@example.com"
 smtp_username = "alerts@example.com"
-# IMPORTANT: Set password via environment variable:
-# CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD=your-app-password
+# IMPORTANT: Set password via environment variable (note: DOUBLE underscore):
+# CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD=your-app-password
 use_starttls = true
 timeout = 30.0
 ```
@@ -765,11 +765,11 @@ alert_recipients = [
 **Security Best Practices:**
 ```bash
 # NEVER put passwords in config files!
-# Use environment variables instead:
-export CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD="your-app-password"
+# Use environment variables instead (note: DOUBLE underscore between section and key):
+export CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD="your-app-password"
 
 # Or use .env file:
-echo "CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD=your-app-password" > .env
+echo "CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD=your-app-password" > .env
 ```
 
 ---
@@ -780,29 +780,30 @@ All configuration can be overridden via environment variables using the prefix `
 
 **Format:**
 ```
-CHECK_ZPOOLS_<SECTION>_<SUBSECTION>_<KEY>=value
+CHECK_ZPOOLS_<SECTION>__<SUBSECTION>__<KEY>=value
 ```
+> **Note:** Use DOUBLE underscore (`__`) to separate nested sections/keys.
 
 **Examples:**
 ```bash
 # Override ZFS capacity thresholds
-export CHECK_ZPOOLS_ZFS_CAPACITY_WARNING_PERCENT=85
-export CHECK_ZPOOLS_ZFS_CAPACITY_CRITICAL_PERCENT=95
+export CHECK_ZPOOLS_ZFS__CAPACITY__WARNING_PERCENT=85
+export CHECK_ZPOOLS_ZFS__CAPACITY__CRITICAL_PERCENT=95
 
 # Override daemon check interval
-export CHECK_ZPOOLS_DAEMON_CHECK_INTERVAL_SECONDS=600
+export CHECK_ZPOOLS_DAEMON__CHECK_INTERVAL_SECONDS=600
 
 # Override email SMTP settings
-export CHECK_ZPOOLS_EMAIL_SMTP_HOSTS="smtp.gmail.com:587"
-export CHECK_ZPOOLS_EMAIL_FROM_ADDRESS="alerts@example.com"
-export CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD="app-password"
+export CHECK_ZPOOLS_EMAIL__SMTP_HOSTS="smtp.gmail.com:587"
+export CHECK_ZPOOLS_EMAIL__FROM_ADDRESS="alerts@example.com"
+export CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD="app-password"
 
-# Override logging
+# Override logging (lib_log_rich native variables - highest precedence)
 export LOG_CONSOLE_LEVEL=DEBUG
-export LOG_FILE=/var/log/check_zpools.log
+export LOG_NO_COLOR=true
 
 # Run with overrides
-CHECK_ZPOOLS_ZFS_CAPACITY_WARNING_PERCENT=85 check_zpools check
+CHECK_ZPOOLS_ZFS__CAPACITY__WARNING_PERCENT=85 check_zpools check
 ```
 
 ---
@@ -1083,7 +1084,12 @@ INFO: Pool: rpool [health="ONLINE", capacity_percent="45.2%", size="1.00 TB", al
 
 #### Systemd Service Logs
 
-When running as a systemd service, logs are sent to journald:
+When running as a systemd service, logs are sent to journald via two mechanisms:
+
+1. **Console output capture**: systemd captures stdout/stderr and forwards to journald
+2. **Direct journald logging**: Structured fields are written directly to journald via the native API
+
+This dual approach ensures logs are visible in journalctl while also providing rich structured metadata (pool names, capacity percentages, error counts, etc.) that can be queried programmatically.
 
 ```bash
 # Follow logs in real-time
@@ -1111,6 +1117,77 @@ sudo journalctl -u check_zpools | grep "Pool: rpool"
 
 # Export logs to file
 sudo journalctl -u check_zpools > /tmp/check_zpools.log
+
+# View with structured fields (verbose output)
+sudo journalctl -u check_zpools -o verbose -n 10
+```
+
+**Verbose output example** (`-o verbose`):
+
+The verbose format shows all structured fields attached to each log entry:
+
+```
+Tue 2025-11-25 12:00:05.123456 CET [s=abc123;i=1234;b=xyz789]
+    _CAP_EFFECTIVE=1ffffffffff
+    _SELINUX_CONTEXT=unconfined
+    _SYSTEMD_SLICE=system.slice
+    _BOOT_ID=986dd66e4e954b5597d26b935d2b628d
+    _MACHINE_ID=373857a545ac4c4c85fa656760c38a36
+    _HOSTNAME=proxmox-pbs
+    _RUNTIME_SCOPE=system
+    PRIORITY=6
+    _GID=0
+    _UID=0
+    _COMM=python
+    _EXE=/usr/bin/python3.13
+    _CMDLINE=/root/.cache/uv/archive-v0/eHdzBoX7oENWEEFWZvspZ/bin/python /root/.cache/uv/archive-v0/eHdzBoX7oENWEEFWZvspZ/bin/check_zpools daemon --foreground
+    _SYSTEMD_CGROUP=/system.slice/check_zpools.service
+    _SYSTEMD_UNIT=check_zpools.service
+    LOGGER_LEVEL=INFO
+    SERVICE=check_zpools
+    ENVIRONMENT=prod
+    JOB_ID=cli-daemon
+    USER_NAME=root
+    HOSTNAME=proxmox-pbs
+    COMMAND=daemon
+    FOREGROUND=True
+    _TRANSPORT=journal
+    LOGGER_NAME=check_zpools.daemon
+    PATHNAME=/root/.cache/uv/archive-v0/eHdzBoX7oENWEEFWZvspZ/lib/python3.13/site-packages/check_zpools/daemon.py
+    FILENAME=daemon.py
+    MODULE=daemon
+    MESSAGE=Pool: rpool
+    LINENO=557
+    FUNCNAME=_log_pool_details
+    POOL_NAME=rpool
+    CAPACITY_PERCENT=18.0%
+    SIZE=464.00 GB
+    ALLOCATED=87.20 GB
+    FREE=377.00 GB
+    READ_ERRORS=0
+    WRITE_ERRORS=0
+    CHECKSUM_ERRORS=0
+    SCRUB_ERRORS=0
+    SCRUB_IN_PROGRESS=False
+    HEALTH=ONLINE
+    LAST_SCRUB=2025-11-25 10:04:00
+    _PID=997164
+    _SYSTEMD_INVOCATION_ID=2c67ad4fc02e477ca6eab402f29d198c
+    PROCESS_ID=997164
+    PROCESS_ID_CHAIN=997164
+    EVENT_ID=b45d3d93670242e0a1dc2eeae30f5151
+    TIMESTAMP=2025-11-25T11:50:48.386780+00:00
+    _SOURCE_REALTIME_TIMESTAMP=1764071448390274
+```
+
+These structured fields enable powerful queries:
+
+```bash
+# Find entries where capacity exceeds 80%
+sudo journalctl -u check_zpools CAPACITY_PERCENT=80..100
+
+# Find entries with errors
+sudo journalctl -u check_zpools READ_ERRORS=1..
 ```
 
 #### Foreground Mode Logs

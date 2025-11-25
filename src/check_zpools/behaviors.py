@@ -204,14 +204,10 @@ def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
     monitor_config = _build_monitor_config(config)
     monitor = PoolMonitor(monitor_config)
 
-    # Fetch and parse pool data
+    # Fetch and parse pool data (single command with --json-int provides all data)
     try:
-        list_data = client.get_pool_list()
         status_data = client.get_pool_status()
-
-        pools_from_list = parser.parse_pool_list(list_data)
-        pools_from_status = parser.parse_pool_status(status_data)
-        pools = parser.merge_pool_data(pools_from_list, pools_from_status)
+        pools = parser.parse_pool_status(status_data)
 
         logger.info("Fetched pool data", extra={"pool_count": len(pools)})
 

@@ -2,9 +2,8 @@
 
 Purpose
 -------
-Execute ZFS pool commands (`zpool list`, `zpool status`) and return their JSON
-output. Handles command discovery, execution, error handling, and timeout
-management.
+Execute ZFS pool commands (`zpool status`) and return their JSON output.
+Handles command discovery, execution, error handling, and timeout management.
 
 Contents
 --------
@@ -24,6 +23,7 @@ Architecture Notes
 - Synchronous execution with configurable timeouts
 - Comprehensive error handling with detailed messages
 - All methods are pure (no persistent state between calls)
+- Uses `--json-int` flag for integer values (no string parsing needed)
 """
 
 from __future__ import annotations
@@ -192,31 +192,13 @@ class ZFSCommandResponse(BaseModel):
         return result
 
 
-class ZpoolListResponse(ZFSCommandResponse):
-    """Response from 'zpool list -j' command.
-
-    Why
-        Type-safe wrapper for zpool list output. Maintains flexibility since
-        ZFS JSON format varies by version, with detailed parsing handled
-        by ZFSParser.
-
-    Examples
-    --------
-    >>> response = ZpoolListResponse.model_validate({"pools": {}})  # doctest: +SKIP
-    >>> isinstance(response, ZpoolListResponse)  # doctest: +SKIP
-    True
-    """
-
-    pass
-
-
 class ZpoolStatusResponse(ZFSCommandResponse):
-    """Response from 'zpool status -j' command.
+    """Response from 'zpool status -j --json-int' command.
 
     Why
         Type-safe wrapper for zpool status output. Maintains flexibility since
         ZFS JSON format varies by version, with detailed parsing handled
-        by ZFSParser.
+        by ZFSParser. With --json-int, all numeric values are integers.
 
     Examples
     --------
@@ -291,7 +273,7 @@ class ZFSClient:
     Examples
     --------
     >>> client = ZFSClient()  # doctest: +SKIP
-    >>> data = client.get_pool_list()  # doctest: +SKIP
+    >>> data = client.get_pool_status()  # doctest: +SKIP
     >>> print(data["pools"].keys())  # doctest: +SKIP
     dict_keys(['rpool', 'zpool-data'])
     """
@@ -344,71 +326,18 @@ class ZFSClient:
         """
         return self.zpool_path.exists() and self.zpool_path.is_file()
 
-    def get_pool_list(
-        self,
-        *,
-        pool_name: str | None = None,
-        properties: list[str] | None = None,
-        timeout: int | None = None,
-    ) -> ZpoolListResponse:
-        """Execute `zpool list -j` and return parsed JSON.
-
-        Why
-            Gets high-level pool information including size, capacity, and
-            health state. This is faster than `zpool status` and sufficient
-            for capacity monitoring.
-
-        Parameters
-        ----------
-        pool_name:
-            Optional specific pool to query. If None, gets all pools.
-        properties:
-            Optional list of properties to retrieve. If None, uses ZFS defaults.
-        timeout:
-            Command timeout in seconds. Uses default_timeout if None.
-
-        Returns
-        -------
-        ZpoolListResponse:
-            Pydantic model wrapping parsed JSON output from zpool list command.
-
-        Raises
-        ------
-        ZFSCommandError:
-            When command fails or returns non-zero exit code.
-        json.JSONDecodeError:
-            When command output is not valid JSON.
-
-        Examples
-        --------
-        >>> client = ZFSClient()  # doctest: +SKIP
-        >>> data = client.get_pool_list()  # doctest: +SKIP
-        >>> "pools" in data  # doctest: +SKIP
-        True
-        """
-        command = [str(self.zpool_path), "list", "-j"]
-
-        if properties:
-            command.extend(["-o", ",".join(properties)])
-
-        if pool_name:
-            command.append(pool_name)
-
-        logger.debug(f"Executing: {' '.join(command)}")
-        return self._execute_json_command(command, timeout=timeout, response_model=ZpoolListResponse)
-
     def get_pool_status(
         self,
         *,
         pool_name: str | None = None,
         timeout: int | None = None,
     ) -> ZpoolStatusResponse:
-        """Execute `zpool status -j` and return parsed JSON.
+        """Execute `zpool status -j --json-int` and return parsed JSON.
 
         Why
-            Gets detailed pool status including vdev layout, error counts,
-            scrub status, and resilver progress. More comprehensive but slower
-            than `zpool list`.
+            Gets complete pool information including capacity, error counts,
+            scrub status, and health state. With --json-int, all numeric values
+            are integers (bytes, timestamps) requiring no string parsing.
 
         Parameters
         ----------
@@ -421,6 +350,9 @@ class ZFSClient:
         -------
         ZpoolStatusResponse:
             Pydantic model wrapping parsed JSON output from zpool status command.
+            Contains pools with vdevs having integer fields: alloc_space,
+            total_space, read_errors, write_errors, checksum_errors, and
+            scan_stats with integer timestamps.
 
         Raises
         ------
@@ -436,7 +368,7 @@ class ZFSClient:
         >>> "pools" in data  # doctest: +SKIP
         True
         """
-        command = [str(self.zpool_path), "status", "-j"]
+        command = [str(self.zpool_path), "status", "-j", "--json-int"]
 
         if pool_name:
             command.append(pool_name)
@@ -661,6 +593,5 @@ __all__ = [
     "ZFSCommandError",
     "ZFSNotAvailableError",
     "ZFSCommandResponse",
-    "ZpoolListResponse",
     "ZpoolStatusResponse",
 ]

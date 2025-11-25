@@ -467,17 +467,14 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
         mock_config.as_dict.return_value = {"zfs": {}}
         mock_get_config.return_value = mock_config
 
-        # Setup ZFS client
+        # Setup ZFS client (single command with --json-int)
         mock_client = MagicMock()
-        mock_client.get_pool_list.return_value = {"pools": {}}
         mock_client.get_pool_status.return_value = {"pools": {}}
         mock_client_class.return_value = mock_client
 
-        # Setup parser
+        # Setup parser (parse_pool_status provides all data)
         mock_parser = MagicMock()
-        mock_parser.parse_pool_list.return_value = {"rpool": healthy_pool_status}
         mock_parser.parse_pool_status.return_value = {"rpool": healthy_pool_status}
-        mock_parser.merge_pool_data.return_value = {"rpool": healthy_pool_status}
         mock_parser_class.return_value = mock_parser
 
         # Setup monitor
@@ -488,7 +485,6 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
         result = behaviors.check_pools_once()
 
         assert result == ok_check_result, "Result must match expected CheckResult"
-        mock_client.get_pool_list.assert_called_once()
         mock_client.get_pool_status.assert_called_once()
         mock_monitor.check_all_pools.assert_called_once()
 
@@ -508,7 +504,6 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
         custom_config = {"zfs": {"capacity_warning_percent": 70}}
 
         mock_client = MagicMock()
-        mock_client.get_pool_list.return_value = {"pools": {}}
         mock_client.get_pool_status.return_value = {"pools": {}}
         mock_client_class.return_value = mock_client
 
@@ -538,7 +533,7 @@ class TestCheckPoolsOnceHandlesZFSErrors:
         from check_zpools.zfs_client import ZFSNotAvailableError
 
         mock_client = MagicMock()
-        mock_client.get_pool_list.side_effect = ZFSNotAvailableError("ZFS not found")
+        mock_client.get_pool_status.side_effect = ZFSNotAvailableError("ZFS not found")
         mock_client_class.return_value = mock_client
 
         with pytest.raises(ZFSNotAvailableError, match="ZFS not found"):
@@ -551,12 +546,12 @@ class TestCheckPoolsOnceHandlesZFSErrors:
     ) -> None:
         """When generic error occurs during pool check, wraps in RuntimeError.
 
-        Given: ZFS client raises ValueError during get_pool_list
+        Given: ZFS client raises ValueError during get_pool_status
         When: Running check_pools_once
         Then: RuntimeError is raised with helpful message
         """
         mock_client = MagicMock()
-        mock_client.get_pool_list.side_effect = ValueError("Invalid JSON")
+        mock_client.get_pool_status.side_effect = ValueError("Invalid JSON")
         mock_client_class.return_value = mock_client
 
         with pytest.raises(RuntimeError, match="Failed to check pools"):
@@ -571,17 +566,16 @@ class TestCheckPoolsOnceHandlesZFSErrors:
     ) -> None:
         """When parser error occurs, wraps in RuntimeError.
 
-        Given: Parser raises KeyError during parse_pool_list
+        Given: Parser raises KeyError during parse_pool_status
         When: Running check_pools_once
         Then: RuntimeError is raised with helpful message
         """
         mock_client = MagicMock()
-        mock_client.get_pool_list.return_value = {"pools": {}}
         mock_client.get_pool_status.return_value = {"pools": {}}
         mock_client_class.return_value = mock_client
 
         mock_parser = MagicMock()
-        mock_parser.parse_pool_list.side_effect = KeyError("Missing key")
+        mock_parser.parse_pool_status.side_effect = KeyError("Missing key")
         mock_parser_class.return_value = mock_parser
 
         with pytest.raises(RuntimeError, match="Failed to check pools"):

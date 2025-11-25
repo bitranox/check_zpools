@@ -79,10 +79,10 @@ def capacity_warning_issue() -> PoolIssue:
 
 @pytest.fixture
 def healthy_pool_json() -> dict:
-    """Create realistic ZFS status JSON for a healthy pool.
+    """Create realistic ZFS status JSON for a healthy pool (--json-int format).
 
     Why
-        Simulates actual 'zpool status -j' output.
+        Simulates actual 'zpool status -j --json-int' output.
         Used by daemon tests that need valid ZFS JSON data.
 
     Returns
@@ -93,15 +93,27 @@ def healthy_pool_json() -> dict:
         "pools": {
             "rpool": {
                 "name": "rpool",
-                "type": "POOL",
                 "state": "ONLINE",
-                "pool_guid": "17068583395379267683",
-                "txg": "2888298",
-                "spa_version": "5000",
-                "zpl_version": "5",
-                "vdev_tree": {"type": "root", "stats": {"read_errors": 0, "write_errors": 0, "checksum_errors": 0}},
-                "scan": {
-                    "state": "finished",
+                "pool_guid": 17068583395379267683,
+                "txg": 2888298,
+                "spa_version": 5000,
+                "zpl_version": 5,
+                "vdevs": {
+                    "rpool": {
+                        "name": "rpool",
+                        "vdev_type": "root",
+                        "state": "ONLINE",
+                        "alloc_space": int(0.5 * 1024**4),  # 50% used
+                        "total_space": 1024**4,  # 1 TB
+                        "def_space": 1024**4,
+                        "read_errors": 0,
+                        "write_errors": 0,
+                        "checksum_errors": 0,
+                    }
+                },
+                "scan_stats": {
+                    "function": "SCRUB",
+                    "state": "FINISHED",
                     "start_time": int(datetime.now(UTC).timestamp()) - 86400,  # 1 day ago
                     "end_time": int(datetime.now(UTC).timestamp()) - 86400,
                     "errors": 0,
@@ -113,10 +125,10 @@ def healthy_pool_json() -> dict:
 
 @pytest.fixture
 def degraded_pool_json() -> dict:
-    """Create realistic ZFS status JSON for a degraded pool.
+    """Create realistic ZFS status JSON for a degraded pool (--json-int format).
 
     Why
-        Simulates actual 'zpool status -j' output for unhealthy pool.
+        Simulates actual 'zpool status -j --json-int' output for unhealthy pool.
         Used for testing error detection and alert handling.
 
     Returns
@@ -127,15 +139,27 @@ def degraded_pool_json() -> dict:
         "pools": {
             "rpool": {
                 "name": "rpool",
-                "type": "POOL",
                 "state": "DEGRADED",
-                "pool_guid": "17068583395379267683",
-                "txg": "2966143",
-                "spa_version": "5000",
-                "zpl_version": "5",
-                "vdev_tree": {"type": "root", "stats": {"read_errors": 5, "write_errors": 2, "checksum_errors": 1}},
-                "scan": {
-                    "state": "finished",
+                "pool_guid": 17068583395379267683,
+                "txg": 2966143,
+                "spa_version": 5000,
+                "zpl_version": 5,
+                "vdevs": {
+                    "rpool": {
+                        "name": "rpool",
+                        "vdev_type": "root",
+                        "state": "DEGRADED",
+                        "alloc_space": int(0.5 * 1024**4),
+                        "total_space": 1024**4,
+                        "def_space": 1024**4,
+                        "read_errors": 5,
+                        "write_errors": 2,
+                        "checksum_errors": 1,
+                    }
+                },
+                "scan_stats": {
+                    "function": "SCRUB",
+                    "state": "FINISHED",
                     "start_time": int(datetime.now(UTC).timestamp()) - 86400,
                     "end_time": int(datetime.now(UTC).timestamp()) - 86400,
                     "errors": 3,
@@ -146,41 +170,7 @@ def degraded_pool_json() -> dict:
 
 
 @pytest.fixture
-def pool_list_json() -> dict:
-    """Create realistic ZFS list JSON output.
-
-    Why
-        Simulates actual 'zpool list -j' output.
-        Used by daemon to get pool capacity information.
-
-    Returns
-        Dict matching ZFS JSON format with pool properties.
-    """
-    return {
-        "output_version": {"command": "zpool list", "vers_major": 0, "vers_minor": 1},
-        "pools": {
-            "rpool": {
-                "name": "rpool",
-                "type": "POOL",
-                "state": "ONLINE",
-                "pool_guid": "17068583395379267683",
-                "txg": "2888298",
-                "spa_version": "5000",
-                "zpl_version": "5",
-                "properties": {
-                    "health": {"value": "ONLINE"},
-                    "size": {"value": str(1024**4)},  # 1 TB
-                    "allocated": {"value": str(int(0.5 * 1024**4))},  # 50% used
-                    "free": {"value": str(int(0.5 * 1024**4))},
-                    "capacity": {"value": "50"},
-                },
-            }
-        },
-    }
-
-
-@pytest.fixture
-def mock_zfs_client(healthy_pool_json: dict, pool_list_json: dict) -> Mock:
+def mock_zfs_client(healthy_pool_json: dict) -> Mock:
     """Create mock ZFS client that returns realistic JSON data.
 
     Why
@@ -188,10 +178,9 @@ def mock_zfs_client(healthy_pool_json: dict, pool_list_json: dict) -> Mock:
         Returns valid JSON that parser can process.
 
     Returns
-        Mock with get_pool_list and get_pool_status methods.
+        Mock with get_pool_status method (single command with --json-int).
     """
     client = Mock()
-    client.get_pool_list.return_value = pool_list_json
     client.get_pool_status.return_value = healthy_pool_json
     return client
 
@@ -461,23 +450,12 @@ class TestDaemonInitializationAppliesConfiguration:
 class TestCheckCycleFetchesZFSData:
     """Check cycle fetches pool data from ZFS."""
 
-    def test_fetches_pool_list_from_zfs_client(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
-        """When running check cycle, fetches pool list.
-
-        Given: Daemon with ZFS client
-        When: Running _run_check_cycle
-        Then: Calls get_pool_list once
-        """
-        daemon._run_check_cycle()
-
-        mock_zfs_client.get_pool_list.assert_called_once()
-
     def test_fetches_pool_status_from_zfs_client(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
         """When running check cycle, fetches pool status.
 
         Given: Daemon with ZFS client
         When: Running _run_check_cycle
-        Then: Calls get_pool_status once
+        Then: Calls get_pool_status once (single command with --json-int)
         """
         daemon._run_check_cycle()
 
@@ -542,7 +520,7 @@ class TestCheckCycleRecoversFromErrors:
         When: Running _run_check_cycle
         Then: Does not crash (returns normally)
         """
-        mock_zfs_client.get_pool_list.side_effect = RuntimeError("ZFS error")
+        mock_zfs_client.get_pool_status.side_effect = RuntimeError("ZFS error")
 
         # Should not raise
         daemon._run_check_cycle()
@@ -554,7 +532,7 @@ class TestCheckCycleRecoversFromErrors:
         When: Running _run_check_cycle
         Then: Does not crash (returns normally)
         """
-        mock_zfs_client.get_pool_list.return_value = {"invalid": "data"}
+        mock_zfs_client.get_pool_status.return_value = {"invalid": "data"}
 
         # Should not raise
         daemon._run_check_cycle()
@@ -1058,23 +1036,23 @@ class TestMonitoringLoopExecutesCycles:
 
         assert mock_monitor.check_all_pools.call_count >= 1
 
-    def test_continues_after_transient_errors(self, daemon: ZPoolDaemon, mock_zfs_client: Mock, pool_list_json: dict) -> None:
+    def test_continues_after_transient_errors(self, daemon: ZPoolDaemon, mock_zfs_client: Mock, healthy_pool_json: dict) -> None:
         """When check cycle encounters error, loop continues.
 
         Given: ZFS client that fails once then succeeds
         When: Loop runs for 1 second
-        Then: get_pool_list called multiple times (retry successful)
+        Then: get_pool_status called multiple times (retry successful)
         """
         call_count = 0
 
-        def failing_then_succeeding_get_pool_list():
+        def failing_then_succeeding_get_pool_status():
             nonlocal call_count
             call_count += 1
             if call_count == 1:
                 raise RuntimeError("Temporary error")
-            return pool_list_json
+            return healthy_pool_json
 
-        mock_zfs_client.get_pool_list.side_effect = failing_then_succeeding_get_pool_list
+        mock_zfs_client.get_pool_status.side_effect = failing_then_succeeding_get_pool_status
 
         def run_loop():
             daemon._run_monitoring_loop()

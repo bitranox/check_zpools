@@ -3,6 +3,23 @@ a# Changelog
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [2.5.0] - 2025-11-25
+
+### Changed
+- **Systemd service logging**: Added custom console format template to service file
+  - Removes emoji icons (`{level_icon}`) from log output for cleaner journald logs
+  - Avoids UTF-8 emoji characters (ℹ, ⚠, ✖) appearing as escape sequences in journal
+  - Format: `{timestamp} {LEVEL:>8} {logger_name} - {message} {context_fields}`
+
+### Documentation
+- **README**: Enhanced systemd logging documentation
+  - Explained dual logging mechanism (console capture + direct journald API)
+  - Added `-o verbose` journalctl example with real structured field output
+  - Documented structured field queries for capacity thresholds and error counts
+- **Environment variables**: Fixed all documentation to use correct double underscore (`__`) for lib_layered_config nested keys
+  - `CHECK_ZPOOLS_SECTION__KEY=value` (correct format)
+  - Updated in `defaultconfig.toml`, `config.toml.example`, `.env.example`, and `README.md`
+
 ## [2.4.0] - 2025-11-24
 
 ### Refactored

@@ -192,7 +192,7 @@ smtp_password = ""
 #
 # Recommended methods (in order of security):
 #   1. Environment variable (best for production):
-#      export CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD="your-password"
+#      export CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD="your-password"
 #
 #   2. User config with restricted permissions:
 #      echo '[email]' > ~/.config/check_zpools/config.toml
@@ -200,7 +200,7 @@ smtp_password = ""
 #      chmod 600 ~/.config/check_zpools/config.toml
 #
 #   3. .env file (for development only, add to .gitignore):
-#      echo 'CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD=your-password' > .env
+#      echo 'CHECK_ZPOOLS_EMAIL__SMTP_PASSWORD=your-password' > .env
 #      chmod 600 .env
 #
 # DO NOT set smtp_password in configuration files - use environment variables!
@@ -260,11 +260,11 @@ raise_on_invalid_recipient = true
 #   Use these for runtime overrides (e.g., in CI/CD, debugging).
 #
 # Method 2: lib_layered_config environment variables
-#   CHECK_ZPOOLS_LIB_LOG_RICH_CONSOLE_LEVEL=DEBUG
-#   CHECK_ZPOOLS_LIB_LOG_RICH_ENABLE_GRAYLOG=true
+#   CHECK_ZPOOLS_LIB_LOG_RICH__CONSOLE_LEVEL=DEBUG
+#   CHECK_ZPOOLS_LIB_LOG_RICH__ENABLE_GRAYLOG=true
 #   etc.
 #
-#   Format: CHECK_ZPOOLS_<section>_<setting>
+#   Format: CHECK_ZPOOLS_<section>__<setting> (note: DOUBLE underscore for nesting)
 #   These are merged via lib_layered_config before init().
 #
 # Precedence (lowest to highest):

@@ -380,6 +380,10 @@ SyslogIdentifier=check_zpools
 # Environment
 Environment="LOG_CONSOLE_LEVEL=INFO"
 Environment="LOG_ENABLE_JOURNALD=true"
+# This removes the emoji {{level_icon}} from the log format template, so journald logs will show clean text without the Unicode characters.
+Environment="CHECK_ZPOOLS_LIB_LOG_RICH__CONSOLE_FORMAT_TEMPLATE={{timestamp}} {{LEVEL:>8}} {{logger_name}} - {{message}} {{context_fields}}"
+# This forces console output without colors
+Environment="CHECK_ZPOOLS_LIB_LOG_RICH__NO_COLOR=true"
 
 # Graceful shutdown
 TimeoutStopSec=30s

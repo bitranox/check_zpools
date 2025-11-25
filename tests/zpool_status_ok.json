@@ -1,0 +1,141 @@
+{
+  "output_version": {
+    "command": "zpool status",
+    "vers_major": 0,
+    "vers_minor": 1
+  },
+  "pools": {
+    "rpool": {
+      "name": "rpool",
+      "state": "ONLINE",
+      "pool_guid": 17068583395379267683,
+      "txg": 3124818,
+      "spa_version": 5000,
+      "zpl_version": 5,
+      "scan_stats": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "start_time": 1764050401,
+        "end_time": 1764050594,
+        "to_examine": 93598175232,
+        "examined": 93615464448,
+        "errors": 0
+      },
+      "vdevs": {
+        "rpool": {
+          "name": "rpool",
+          "vdev_type": "root",
+          "guid": 17068583395379267683,
+          "class": "normal",
+          "state": "ONLINE",
+          "alloc_space": 93584101376,
+          "total_space": 498216206336,
+          "def_space": 498216206336,
+          "read_errors": 0,
+          "write_errors": 0,
+          "checksum_errors": 0
+        }
+      },
+      "error_count": 0
+    },
+    "zpool-hdd": {
+      "name": "zpool-hdd",
+      "state": "ONLINE",
+      "pool_guid": 13321006569551940811,
+      "txg": 2906564,
+      "spa_version": 5000,
+      "zpl_version": 5,
+      "scan_stats": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "start_time": 1764050402,
+        "end_time": 1764050414,
+        "to_examine": 214401024,
+        "examined": 214401024,
+        "errors": 0
+      },
+      "vdevs": {
+        "zpool-hdd": {
+          "name": "zpool-hdd",
+          "vdev_type": "root",
+          "guid": 13321006569551940811,
+          "class": "normal",
+          "state": "ONLINE",
+          "alloc_space": 214695936,
+          "total_space": 15994458210304,
+          "def_space": 12776823062528,
+          "read_errors": 0,
+          "write_errors": 0,
+          "checksum_errors": 0
+        }
+      },
+      "error_count": 0
+    },
+    "zpool-nvme": {
+      "name": "zpool-nvme",
+      "state": "ONLINE",
+      "pool_guid": 17744074474903330142,
+      "txg": 2923759,
+      "spa_version": 5000,
+      "zpl_version": 5,
+      "scan_stats": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "start_time": 1764050403,
+        "end_time": 1764050448,
+        "to_examine": 40779259904,
+        "examined": 40778997760,
+        "errors": 0
+      },
+      "vdevs": {
+        "zpool-nvme": {
+          "name": "zpool-nvme",
+          "vdev_type": "root",
+          "guid": 17744074474903330142,
+          "class": "normal",
+          "state": "ONLINE",
+          "alloc_space": 40779595776,
+          "total_space": 511101108224,
+          "def_space": 511101108224,
+          "read_errors": 0,
+          "write_errors": 0,
+          "checksum_errors": 0
+        }
+      },
+      "error_count": 0
+    },
+    "zpool-ssd": {
+      "name": "zpool-ssd",
+      "state": "ONLINE",
+      "pool_guid": 7050059699569218323,
+      "txg": 2936845,
+      "spa_version": 5000,
+      "zpl_version": 5,
+      "scan_stats": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "start_time": 1764050404,
+        "end_time": 1764055279,
+        "to_examine": 14372257693696,
+        "examined": 14372286234624,
+        "errors": 0
+      },
+      "vdevs": {
+        "zpool-ssd": {
+          "name": "zpool-ssd",
+          "vdev_type": "root",
+          "guid": 7050059699569218323,
+          "class": "normal",
+          "state": "ONLINE",
+          "alloc_space": 14373450383360,
+          "total_space": 31988916420608,
+          "def_space": 25553646125056,
+          "read_errors": 0,
+          "write_errors": 0,
+          "checksum_errors": 0
+        }
+      },
+      "error_count": 0
+    }
+  }
+}

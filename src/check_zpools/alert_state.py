@@ -31,7 +31,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, field_serializer
 
 from .models import PoolIssue
 
@@ -69,10 +69,11 @@ class AlertStateModel(BaseModel):
     alert_count: int
     last_severity: str | None
 
-    model_config = ConfigDict(
-        # Automatic datetime to ISO string conversion
-        json_encoders={datetime: lambda v: v.isoformat()}
-    )
+    @field_serializer("first_seen", "last_alerted")
+    @classmethod
+    def serialize_datetime(cls, value: datetime | None) -> str | None:
+        """Serialize datetime to ISO format string."""
+        return value.isoformat() if value else None
 
 
 @dataclass

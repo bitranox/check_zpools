@@ -256,9 +256,8 @@ class ZPoolDaemon:
         dict[str, PoolStatus] | None:
             Parsed pool data, or None if fetch/parse failed
         """
-        # Fetch ZFS data
+        # Fetch ZFS data (single command with --json-int provides all data)
         try:
-            list_data = self.zfs_client.get_pool_list()
             status_data = self.zfs_client.get_pool_status()
         except Exception as exc:
             logger.error(
@@ -270,9 +269,7 @@ class ZPoolDaemon:
 
         # Parse into PoolStatus objects
         try:
-            pools_from_list = self.parser.parse_pool_list(list_data)
-            pools_from_status = self.parser.parse_pool_status(status_data)
-            return self.parser.merge_pool_data(pools_from_list, pools_from_status)
+            return self.parser.parse_pool_status(status_data)
         except Exception as exc:
             logger.error(
                 "Failed to parse ZFS data",

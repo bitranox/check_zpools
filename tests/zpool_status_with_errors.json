@@ -7,26 +7,36 @@
   "pools": {
     "zpool-data": {
       "name": "zpool-data",
-      "type": "POOL",
       "state": "ONLINE",
-      "pool_guid": "13321006569551940811",
-      "txg": "2762941",
-      "spa_version": "5000",
-      "zpl_version": "5",
-      "vdev_tree": {
-        "type": "root",
-        "stats": {
+      "pool_guid": 13321006569551940811,
+      "txg": 2906564,
+      "spa_version": 5000,
+      "zpl_version": 5,
+      "scan_stats": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "start_time": 1764050402,
+        "end_time": 1764050414,
+        "to_examine": 214401024,
+        "examined": 214401024,
+        "errors": 3
+      },
+      "vdevs": {
+        "zpool-data": {
+          "name": "zpool-data",
+          "vdev_type": "root",
+          "guid": 13321006569551940811,
+          "class": "normal",
+          "state": "ONLINE",
+          "alloc_space": 214695936,
+          "total_space": 15994458210304,
+          "def_space": 12776823062528,
           "read_errors": 5,
           "write_errors": 2,
           "checksum_errors": 1
         }
       },
-      "scan": {
-        "state": "finished",
-        "start_time": 1699000000,
-        "end_time": 1699020000,
-        "errors": 3
-      }
+      "error_count": 0
     }
   }
 }
