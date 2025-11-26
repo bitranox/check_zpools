@@ -140,6 +140,7 @@ class TestRemoveExistingAlias:
 # ============================================================================
 
 
+@pytest.mark.linux_only
 class TestGetUserInfo:
     """Tests for user information retrieval."""
 
@@ -182,6 +183,7 @@ class TestGetUserInfo:
 # ============================================================================
 
 
+@pytest.mark.linux_only
 class TestGetBashrcPathForUser:
     """Tests for bashrc path resolution."""
 
@@ -203,6 +205,7 @@ class TestGetBashrcPathForUser:
 # ============================================================================
 
 
+@pytest.mark.linux_only
 class TestBuildExecCommand:
     """Tests for executable command building."""
 
