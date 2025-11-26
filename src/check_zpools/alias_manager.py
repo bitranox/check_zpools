@@ -68,7 +68,7 @@ def _check_root_privileges(username: str | None = None) -> None:
     if system == "Darwin":
         raise NotImplementedError("Alias management is not supported on macOS")
 
-    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:  # type: ignore[attr-defined]
         if username is not None:
             logger.error("--user flag requires root privileges")
             raise PermissionError(f"The --user flag requires root privileges.\nExample: sudo {__init__conf__.shell_command} alias-create --user {username}")
@@ -100,10 +100,10 @@ def _get_user_info(username: str | None) -> tuple[str, Path]:
         if sudo_user:
             username = sudo_user
         else:
-            username = pwd.getpwuid(os.getuid()).pw_name
+            username = pwd.getpwuid(os.getuid()).pw_name  # type: ignore[attr-defined]
 
     try:
-        pw_entry = pwd.getpwnam(username)
+        pw_entry = pwd.getpwnam(username)  # type: ignore[attr-defined]
         return (username, Path(pw_entry.pw_dir))
     except KeyError as exc:
         raise KeyError(f"User not found: {username}") from exc
