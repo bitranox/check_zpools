@@ -1,7 +1,17 @@
-a# Changelog
+# Changelog
 
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
+
+
+## [3.2.2] - 2025-11-26
+
+### Fixed
+- **README Documentation**: Corrected configuration examples to match actual defaults
+  - Changed from nested structure (`[zfs.capacity]`, `[zfs.errors]`, `[zfs.scrub]`) to flat `[zfs]` section
+  - Fixed config key names: `warning_percent` → `capacity_warning_percent`, `alert_resend_hours` → `alert_resend_interval_hours`
+  - Corrected default values: error thresholds from `0` to `1`, alert resend from `24h` to `2h`
+  - Fixed environment variable format in examples: `CHECK_ZPOOLS_EMAIL_*` → `CHECK_ZPOOLS___EMAIL__*` (triple underscore after slug)
 
 ## [3.2.1] - 2025-11-26
 

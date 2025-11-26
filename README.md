@@ -306,7 +306,7 @@ sudo rm -rf /var/cache/check_zpools /var/lib/check_zpools
 
 #### `service-status` - Check Service Status
 
-Displays the current status of the check_zpools systemd service.
+Displays comprehensive status of the check_zpools systemd service including daemon configuration, current pool status, and active alert states.
 
 **Usage:**
 ```bash
@@ -317,22 +317,36 @@ check_zpools service-status
 
 **Example Output:**
 ```
-Service Status:
-  Installed: Yes (/etc/systemd/system/check_zpools.service)
-  Running:   Yes (active since 2025-11-16 10:30:00)
-  Enabled:   Yes (starts on boot)
+check_zpools Service Status
+========================================================
+✓ Service file installed: /etc/systemd/system/check_zpools.service
+  • Running:  ✓ Yes
+  • Enabled:  ✓ Yes (starts on boot)
+  • Started:  2025-11-26 08:00:00 CET (uptime: 3h 15m 30s)
 
-Systemctl Output:
-● check_zpools.service - ZFS Pool Monitoring Daemon
-     Loaded: loaded (/etc/systemd/system/check_zpools.service; enabled)
-     Active: active (running) since Sat 2025-11-16 10:30:00 CET; 5h ago
-   Main PID: 12345 (python3)
-      Tasks: 1 (limit: 4915)
-     Memory: 28.5M
-        CPU: 1.234s
-     CGroup: /system.slice/check_zpools.service
-             └─12345 /usr/bin/python3 /usr/local/bin/check_zpools daemon --foreground
+Daemon Configuration:
+--------------------------------------------------------
+  • Check interval:     300s (5m)
+  • Alert resend:       2h (email silencing period)
+
+Current Pool Status:
+--------------------------------------------------------
+  • Pools monitored:    4
+  • Device status:      ✗ 1 FAULTED
+  • Active issues:      1
+      → rpool: Device wwn-0x5002538f55117008-part3 is FAULTED
+
+Active Alert States:
+--------------------------------------------------------
+  [CRITICAL] rpool:device
+      Alerts sent: 3, Next email in: 1h 45m
 ```
+
+**What it shows:**
+- **Service status**: Running, enabled, and uptime since last start
+- **Daemon configuration**: Check interval and alert resend (email silencing) period
+- **Pool status**: Number of pools monitored, faulted device count, active issues
+- **Alert states**: For each tracked issue, shows alerts sent and time until next email
 
 ---
 
@@ -581,8 +595,8 @@ check_zpools send-notification \
   --subject "Service Status" \
   --message "All services operational"
 
-# Use environment variable for SMTP password
-CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD="app-password" \
+# Use environment variable for SMTP password (note: TRIPLE underscore after slug)
+CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD="app-password" \
 check_zpools send-notification \
   --to test@example.com \
   --subject "Test" \
@@ -641,29 +655,25 @@ Authors:
 
 ### Quick Start Configuration
 
-Create `~/.config/check_zpools/config.toml` with the following content:
+Use `config-deploy --target app` to create a config file in `/etc/xdg/check_zpools/config.toml` and set the settings (example):
 
 ```toml
 # ZFS Monitoring Thresholds
-[zfs.capacity]
-warning_percent = 80   # Alert when pool reaches 80% capacity
-critical_percent = 90  # Critical alert at 90%
-
-[zfs.errors]
-read_errors_warning = 0      # Alert on any read errors
-write_errors_warning = 0     # Alert on any write errors
-checksum_errors_warning = 0  # Alert on any checksum errors
-
-[zfs.scrub]
-max_age_days = 30  # Warn if scrub not run in 30 days
+[zfs]
+capacity_warning_percent = 80   # Alert when pool reaches 80% capacity
+capacity_critical_percent = 90  # Critical alert at 90%
+scrub_max_age_days = 30         # Warn if scrub not run in 30 days
+read_errors_warning = 1         # Alert on read errors (1 = any error)
+write_errors_warning = 1        # Alert on write errors
+checksum_errors_warning = 1     # Alert on checksum errors
 
 # Daemon Settings
 [daemon]
-check_interval_seconds = 300  # Check every 5 minutes
-alert_resend_hours = 24       # Resend alerts with unchanged severity after 24 hours
-pools_to_monitor = []         # Empty = monitor all pools
-send_ok_emails = false        # Don't send emails for OK status
-send_recovery_emails = true   # Notify when issues resolve
+check_interval_seconds = 300          # Check every 5 minutes
+alert_resend_interval_hours = 2       # Resend alerts with unchanged severity after 2 hours
+pools_to_monitor = []                 # Empty = monitor all pools
+send_ok_emails = false                # Don't send emails for OK status
+send_recovery_emails = true           # Notify when issues resolve
 
 # Email Alert Recipients
 [alerts]
@@ -682,36 +692,22 @@ timeout = 30.0
 
 ### Configuration Sections
 
-#### `[zfs.capacity]` - Capacity Monitoring
+#### `[zfs]` - ZFS Monitoring
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `warning_percent` | int | 80 | Capacity percentage that triggers WARNING alert |
-| `critical_percent` | int | 90 | Capacity percentage that triggers CRITICAL alert |
+| `capacity_warning_percent` | int | 80 | Capacity percentage that triggers WARNING alert |
+| `capacity_critical_percent` | int | 90 | Capacity percentage that triggers CRITICAL alert |
+| `scrub_max_age_days` | int | 30 | Maximum days since last scrub before alerting (0 = disabled) |
+| `read_errors_warning` | int | 1 | Threshold for read error alerts (1 = any error triggers alert) |
+| `write_errors_warning` | int | 1 | Threshold for write error alerts |
+| `checksum_errors_warning` | int | 1 | Threshold for checksum error alerts |
 
 **Constraints:**
-- `0 < warning_percent < critical_percent <= 100`
+- `0 < capacity_warning_percent < capacity_critical_percent <= 100`
 - Defaults are appropriate for most systems
 
----
-
-#### `[zfs.errors]` - Error Monitoring
-
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `read_errors_warning` | int | 0 | Threshold for read error alerts (0 = any error triggers alert) |
-| `write_errors_warning` | int | 0 | Threshold for write error alerts |
-| `checksum_errors_warning` | int | 0 | Threshold for checksum error alerts |
-
-**Note:** Default of `0` means ANY error triggers an alert. Set higher thresholds only if you understand the implications.
-
----
-
-#### `[zfs.scrub]` - Scrub Monitoring
-
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `max_age_days` | int | 30 | Maximum days since last scrub before alerting (0 = disabled) |
+**Note:** Default error threshold of `1` means ANY error triggers an alert. Set higher thresholds only if you understand the implications.
 
 **Recommendation:** Monthly scrubs (30 days) are appropriate for most systems. High-value data may require weekly scrubs (7 days).
 
@@ -722,14 +718,14 @@ timeout = 30.0
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `check_interval_seconds` | int | 300 | Seconds between pool checks (300 = 5 minutes) |
-| `alert_resend_hours` | int | 24 | Hours before resending alerts when severity unchanged |
+| `alert_resend_interval_hours` | int | 2 | Hours before resending alerts when severity unchanged |
 | `pools_to_monitor` | list | `[]` | Specific pools to monitor (empty = all pools) |
 | `send_ok_emails` | bool | `false` | Send email when pools are OK |
 | `send_recovery_emails` | bool | `true` | Send email when issues resolve |
 
 **Notes:**
 - `check_interval_seconds`: Lower values increase system load
-- `alert_resend_hours`: Prevents alert fatigue from persistent unchanged issues. State changes (e.g., WARNING → CRITICAL) trigger immediate alerts regardless of this interval
+- `alert_resend_interval_hours`: Prevents alert fatigue from persistent unchanged issues. State changes (e.g., WARNING → CRITICAL) trigger immediate alerts regardless of this interval
 - `pools_to_monitor`: Example: `["rpool", "tank"]`
 
 ---
@@ -823,8 +819,8 @@ use_starttls = true
 ```
 
 ```bash
-# Set password via environment variable
-export CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+# Set password via environment variable (note: TRIPLE underscore after slug)
+export CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
 ```
 
 **Setup Gmail App Password:**
@@ -1020,7 +1016,7 @@ check_zpools config --section alerts
 check_zpools config --section email
 
 # Verify SMTP password is set
-echo $CHECK_ZPOOLS_EMAIL_SMTP_PASSWORD
+echo $CHECK_ZPOOLS___EMAIL__SMTP_PASSWORD
 
 # Check alert state (may be suppressed)
 cat ~/.cache/check_zpools/alert_state.json
