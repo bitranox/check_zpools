@@ -405,7 +405,7 @@ Active Alert States:
 
 ### Bash Alias Management
 
-> **Note:** Bash alias management is only available on Linux and macOS. Not supported on Windows.
+> **Note:** Bash alias management is only available on Linux. Not supported on Windows or macOS.
 
 CLI tools installed inside a virtual environment (whether created normally or via uv/uvx) do not register their commands system-wide. The alias commands create a shell function in `.bashrc` that forwards calls to the venv-installed executable.
 

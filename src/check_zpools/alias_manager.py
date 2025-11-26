@@ -62,8 +62,11 @@ def _check_root_privileges(username: str | None = None) -> None:
     """
     import platform
 
-    if platform.system() == "Windows":
+    system = platform.system()
+    if system == "Windows":
         raise NotImplementedError("Alias management is not supported on Windows")
+    if system == "Darwin":
+        raise NotImplementedError("Alias management is not supported on macOS")
 
     if not hasattr(os, "geteuid") or os.geteuid() != 0:
         if username is not None:

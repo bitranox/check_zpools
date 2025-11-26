@@ -774,12 +774,12 @@ class TestAliasDeleteCLIRunner:
 
 
 # ============================================================================
-# Tests for Windows platform handling
+# Tests for unsupported platform handling
 # ============================================================================
 
 
-class TestWindowsPlatformHandling:
-    """Tests for Windows platform detection and error handling."""
+class TestUnsupportedPlatformHandling:
+    """Tests for unsupported platform detection and error handling."""
 
     def test_create_alias_raises_on_windows(self) -> None:
         """Should raise NotImplementedError on Windows."""
@@ -791,4 +791,16 @@ class TestWindowsPlatformHandling:
         """Should raise NotImplementedError on Windows."""
         with patch("platform.system", return_value="Windows"):
             with pytest.raises(NotImplementedError, match="Windows"):
+                delete_alias()
+
+    def test_create_alias_raises_on_macos(self) -> None:
+        """Should raise NotImplementedError on macOS."""
+        with patch("platform.system", return_value="Darwin"):
+            with pytest.raises(NotImplementedError, match="macOS"):
+                create_alias()
+
+    def test_delete_alias_raises_on_macos(self) -> None:
+        """Should raise NotImplementedError on macOS."""
+        with patch("platform.system", return_value="Darwin"):
+            with pytest.raises(NotImplementedError, match="macOS"):
                 delete_alias()

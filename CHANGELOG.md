@@ -7,7 +7,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ## [3.3.0] - 2025-11-26
 
 ### Added
-- **Bash Alias Management**: New commands to create shell function aliases for venv/uvx installations
+- **Bash Alias Management** (Linux only): New commands to create shell function aliases for venv/uvx installations
   - `alias-create`: Creates a shell function in `~/.bashrc` that forwards calls to the venv-installed executable
   - `alias-delete`: Removes the shell function alias from `~/.bashrc`
   - Both commands support `--user <username>` to manage aliases for specific users
@@ -24,13 +24,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
     ```
 
 ### Tests
-- Added 52 tests for alias management functionality covering:
+- Added 54 tests for alias management functionality covering:
   - Alias block generation and removal
   - User resolution (SUDO_USER, specified user, current user)
   - Root privilege checking with specific `--user` flag error messages
   - CLI command registration and options
   - Edge cases (file at start/end, multiline content preservation)
-  - Windows platform handling (NotImplementedError)
+  - Unsupported platform handling (Windows, macOS)
   - Click CLI runner integration tests
 
 ## [3.2.2] - 2025-11-26
