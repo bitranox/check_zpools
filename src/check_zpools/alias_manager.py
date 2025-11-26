@@ -102,11 +102,13 @@ def _get_user_info(username: str | None) -> tuple[str, Path]:
         else:
             username = pwd.getpwuid(os.getuid()).pw_name  # type: ignore[attr-defined]
 
+    # At this point username is guaranteed to be str (either from parameter, SUDO_USER, or getpwuid)
+    # Cast for pyright on Windows where pwd functions have Unknown return types
+    resolved_username: str = str(username)
+
     try:
-        pw_entry = pwd.getpwnam(username)  # type: ignore[attr-defined]
-        # Assert username is str (already guaranteed by logic above, but helps pyright on Windows)
-        assert isinstance(username, str)
-        return (username, Path(pw_entry.pw_dir))
+        pw_entry = pwd.getpwnam(resolved_username)  # type: ignore[attr-defined]
+        return (resolved_username, Path(pw_entry.pw_dir))
     except KeyError as exc:
         raise KeyError(f"User not found: {username}") from exc
 
