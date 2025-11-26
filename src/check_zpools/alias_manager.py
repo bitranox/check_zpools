@@ -104,6 +104,8 @@ def _get_user_info(username: str | None) -> tuple[str, Path]:
 
     try:
         pw_entry = pwd.getpwnam(username)  # type: ignore[attr-defined]
+        # Assert username is str (already guaranteed by logic above, but helps pyright on Windows)
+        assert isinstance(username, str)
         return (username, Path(pw_entry.pw_dir))
     except KeyError as exc:
         raise KeyError(f"User not found: {username}") from exc
