@@ -45,6 +45,37 @@ _BYTES_PER_TB = 1024**4
 _BYTES_PER_PB = 1024**5
 
 
+def _format_bytes_human(size_bytes: int) -> str:
+    """Format bytes into human-readable size with appropriate unit.
+
+    Why
+    ---
+    Sizes should be displayed in the most readable unit (GB, TB, PB)
+    based on the actual value, with 2 decimal places for precision.
+
+    Parameters
+    ----------
+    size_bytes:
+        Size in bytes to format.
+
+    Returns
+    -------
+    str
+        Formatted size string (e.g., "9.48 GB", "1.25 TB").
+    """
+    if size_bytes >= _BYTES_PER_PB:
+        return f"{size_bytes / _BYTES_PER_PB:.2f} PB"
+    if size_bytes >= _BYTES_PER_TB:
+        return f"{size_bytes / _BYTES_PER_TB:.2f} TB"
+    if size_bytes >= _BYTES_PER_GB:
+        return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
+    if size_bytes >= _BYTES_PER_MB:
+        return f"{size_bytes / _BYTES_PER_MB:.2f} MB"
+    if size_bytes >= _BYTES_PER_KB:
+        return f"{size_bytes / _BYTES_PER_KB:.2f} KB"
+    return f"{size_bytes} B"
+
+
 class EmailAlerter:
     """Send email alerts for ZFS pool issues with rich formatting.
 
@@ -369,11 +400,11 @@ class EmailAlerter:
         list[str]
             List of formatted pool details lines.
         """
-        # Format pool capacity
+        # Format pool capacity with human-readable sizes
         capacity_pct = pool.capacity_percent
-        used_tb = pool.allocated_bytes / _BYTES_PER_TB
-        total_tb = pool.size_bytes / _BYTES_PER_TB
-        free_tb = pool.free_bytes / _BYTES_PER_TB
+        used_str = _format_bytes_human(pool.allocated_bytes)
+        total_str = _format_bytes_human(pool.size_bytes)
+        free_str = _format_bytes_human(pool.free_bytes)
 
         # Format scrub information
         if pool.last_scrub:
@@ -389,8 +420,8 @@ class EmailAlerter:
         return [
             "",
             "POOL DETAILS:",
-            f"  Capacity: {capacity_pct:.1f}% used ({used_tb:.2f} TB / {total_tb:.2f} TB)",
-            f"  Free Space: {free_tb:.2f} TB",
+            f"  Capacity: {capacity_pct:.2f} % used ({used_str} / {total_str})",
+            f"  Free Space: {free_str}",
             f"  Errors: {pool.read_errors} read, {pool.write_errors} write, {pool.checksum_errors} checksum",
             f"  Last Scrub: {scrub_info}",
         ]
@@ -528,19 +559,16 @@ class EmailAlerter:
             List of formatted lines for capacity section.
         """
         capacity_pct = pool.capacity_percent
-        used_tb = pool.allocated_bytes / _BYTES_PER_TB
-        total_tb = pool.size_bytes / _BYTES_PER_TB
-        free_tb = pool.free_bytes / _BYTES_PER_TB
-        used_gb = pool.allocated_bytes / _BYTES_PER_GB
-        total_gb = pool.size_bytes / _BYTES_PER_GB
-        free_gb = pool.free_bytes / _BYTES_PER_GB
+        total_str = _format_bytes_human(pool.size_bytes)
+        used_str = _format_bytes_human(pool.allocated_bytes)
+        free_str = _format_bytes_human(pool.free_bytes)
 
         return [
             "Capacity:",
-            f"  Total:     {total_tb:.2f} TB ({total_gb:.2f} GB) [{pool.size_bytes:,} bytes]",
-            f"  Used:      {used_tb:.2f} TB ({used_gb:.2f} GB) [{pool.allocated_bytes:,} bytes]",
-            f"  Free:      {free_tb:.2f} TB ({free_gb:.2f} GB) [{pool.free_bytes:,} bytes]",
-            f"  Usage:     {capacity_pct:.2f}%",
+            f"  Total:     {total_str} [{pool.size_bytes:,} bytes]",
+            f"  Used:      {used_str} [{pool.allocated_bytes:,} bytes]",
+            f"  Free:      {free_str} [{pool.free_bytes:,} bytes]",
+            f"  Usage:     {capacity_pct:.2f} %",
             "",
         ]
 

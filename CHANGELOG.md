@@ -3,6 +3,15 @@ a# Changelog
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [3.0.1] - 2025-11-26
+
+### Changed
+- **Email Alert Formatting**: Improved size and percentage display in alert emails
+  - Sizes now display in appropriate units (GB, TB, PB) based on actual value instead of always showing TB
+  - Percentages formatted with max 2 decimal places (e.g., "92.48 %" instead of "92.5%")
+  - Added `_format_bytes_human()` helper function for consistent size formatting across email alerts
+  - **Why this matters**: Smaller pools now show readable values like "9.48 GB" instead of "0.01 TB"
+
 ## [3.0.0] - 2025-11-25
 
 ### Breaking Changes
