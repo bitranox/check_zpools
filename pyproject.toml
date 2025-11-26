@@ -1,6 +1,6 @@
 [project]
 name = "check_zpools"
-version = "3.1.0"
+version = "3.2.0"
 description = "Zpool Monitoring Daemon"
 readme = "README.md"
 requires-python = ">=3.13"

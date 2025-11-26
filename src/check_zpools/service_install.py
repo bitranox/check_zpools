@@ -26,12 +26,15 @@ Security Considerations
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import re
 import shutil
 import subprocess  # nosec B404 - subprocess used safely with list arguments, not shell=True
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import psutil
@@ -780,6 +783,136 @@ def get_service_status() -> dict[str, bool | str]:
     return status
 
 
+def _get_service_start_time() -> datetime | None:
+    """Get service start time from systemctl.
+
+    Returns
+    -------
+    datetime | None
+        Service start time in UTC, or None if not available.
+    """
+    try:
+        result = _run_systemctl(
+            ["show", SERVICE_NAME, "--property=ActiveEnterTimestamp"],
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout:
+            # Output: ActiveEnterTimestamp=Wed 2025-11-26 10:30:00 UTC
+            match = re.search(r"ActiveEnterTimestamp=(.+)", result.stdout.strip())
+            if match and match.group(1) and match.group(1) != "n/a":
+                timestamp_str = match.group(1).strip()
+                # Parse systemd timestamp format
+                try:
+                    # Try parsing with timezone
+                    return datetime.strptime(timestamp_str, "%a %Y-%m-%d %H:%M:%S %Z").replace(tzinfo=UTC)
+                except ValueError:
+                    # Timestamp format didn't match, return None
+                    logger.debug("Could not parse systemd timestamp: %s", timestamp_str)
+    except Exception as exc:
+        # Systemctl command failed or other error - not critical for status display
+        logger.debug("Could not get service start time: %s", exc)
+    return None
+
+
+def _format_duration(delta: timedelta) -> str:
+    """Format a timedelta as human-readable duration.
+
+    Parameters
+    ----------
+    delta:
+        Time duration to format.
+
+    Returns
+    -------
+    str
+        Formatted duration (e.g., "2d 3h 15m" or "45m 30s").
+    """
+    total_seconds = int(delta.total_seconds())
+    if total_seconds < 0:
+        return "0s"
+
+    days, remainder = divmod(total_seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    parts = []
+    if days > 0:
+        parts.append(f"{days}d")
+    if hours > 0:
+        parts.append(f"{hours}h")
+    if minutes > 0:
+        parts.append(f"{minutes}m")
+    if seconds > 0 or not parts:
+        parts.append(f"{seconds}s")
+
+    return " ".join(parts[:3])  # Show at most 3 components
+
+
+def _load_alert_state() -> dict[str, Any]:
+    """Load alert state from the state file.
+
+    Returns
+    -------
+    dict
+        Alert state data with 'alerts' key, or empty dict on error.
+    """
+    state_file = CACHE_DIR / "alert_state.json"
+    if not state_file.exists():
+        return {}
+
+    try:
+        with state_file.open() as f:
+            return json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _get_daemon_config() -> dict[str, Any]:
+    """Load daemon configuration from layered config.
+
+    Returns
+    -------
+    dict
+        Daemon configuration section, or empty dict on error.
+    """
+    try:
+        from lib_config_layers import LayeredConfig  # type: ignore[import-not-found]
+
+        from . import __init__conf__
+
+        config = LayeredConfig(
+            app_name=__init__conf__.slug_name,  # type: ignore[attr-defined]
+            default_config=__init__conf__.default_config,  # type: ignore[attr-defined]
+        )
+        return config.get("daemon", {})  # type: ignore[no-any-return]
+    except Exception:
+        return {}
+
+
+def _get_pool_status_summary() -> tuple[int, int, list[str]]:
+    """Get current ZFS pool and device status.
+
+    Returns
+    -------
+    tuple[int, int, list[str]]
+        (pool_count, faulted_device_count, list of issue descriptions)
+    """
+    try:
+        from .behaviors import check_pools_once
+
+        result = check_pools_once()
+        pool_count = len(result.pools)
+        faulted_count = sum(len(p.faulted_devices) for p in result.pools)
+
+        issues = []
+        for issue in result.issues:
+            issues.append(f"{issue.pool_name}: {issue.message}")
+
+        return pool_count, faulted_count, issues
+    except Exception as e:
+        return 0, 0, [f"Error getting pool status: {e}"]
+
+
 def show_service_status() -> None:
     """Display service status with rich formatting.
 
@@ -792,19 +925,94 @@ def show_service_status() -> None:
     status = get_service_status()
 
     print("\ncheck_zpools Service Status")
-    print("=" * 40)
+    print("=" * 56)
 
-    if status["installed"]:
-        print(f"✓ Service file installed: {SERVICE_FILE_PATH}")
-        print(f"  • Running:  {'✓ Yes' if status['running'] else '✗ No'}")
-        print(f"  • Enabled:  {'✓ Yes (starts on boot)' if status['enabled'] else '✗ No'}")
-        print("\nService Details:")
-        print("-" * 40)
-        print(status["status_text"])
-    else:
+    if not status["installed"]:
         print("✗ Service not installed")
         print("\nTo install:")
         print("  sudo check_zpools install-service")
+        return
+
+    print(f"✓ Service file installed: {SERVICE_FILE_PATH}")
+    print(f"  • Running:  {'✓ Yes' if status['running'] else '✗ No'}")
+    print(f"  • Enabled:  {'✓ Yes (starts on boot)' if status['enabled'] else '✗ No'}")
+
+    # Service uptime
+    if status["running"]:
+        start_time = _get_service_start_time()
+        if start_time:
+            uptime = datetime.now(UTC) - start_time
+            print(f"  • Started:  {start_time.strftime('%Y-%m-%d %H:%M:%S UTC')} (uptime: {_format_duration(uptime)})")
+
+    # Daemon configuration
+    daemon_config = _get_daemon_config()
+    check_interval = daemon_config.get("check_interval_seconds", 300)
+    resend_hours = daemon_config.get("alert_resend_interval_hours", 2)
+
+    print("\nDaemon Configuration:")
+    print("-" * 56)
+    print(f"  • Check interval:     {check_interval}s ({check_interval // 60}m)")
+    print(f"  • Alert resend:       {resend_hours}h (email silencing period)")
+
+    # Pool status
+    print("\nCurrent Pool Status:")
+    print("-" * 56)
+    pool_count, faulted_count, issues = _get_pool_status_summary()
+
+    if pool_count > 0:
+        device_status = "✓ All OK" if faulted_count == 0 else f"✗ {faulted_count} FAULTED"
+        print(f"  • Pools monitored:    {pool_count}")
+        print(f"  • Device status:      {device_status}")
+
+        if issues:
+            print(f"  • Active issues:      {len(issues)}")
+            for issue in issues[:5]:  # Show first 5 issues
+                print(f"      → {issue}")
+            if len(issues) > 5:
+                print(f"      ... and {len(issues) - 5} more")
+        else:
+            print("  • Active issues:      None")
+    else:
+        print("  • Could not retrieve pool status")
+
+    # Alert state
+    alert_data = _load_alert_state()
+    alerts = alert_data.get("alerts", {})
+
+    if alerts:
+        print("\nActive Alert States:")
+        print("-" * 56)
+        now = datetime.now(UTC)
+
+        for _key, state in alerts.items():
+            pool_name = state.get("pool_name", "unknown")
+            category = state.get("issue_category", "unknown")
+            last_alerted_str = state.get("last_alerted")
+            alert_count = state.get("alert_count", 0)
+            severity = state.get("last_severity", "UNKNOWN")
+
+            # Calculate time until next email
+            if last_alerted_str:
+                try:
+                    last_alerted = datetime.fromisoformat(last_alerted_str.replace("Z", "+00:00"))
+                    next_alert = last_alerted + timedelta(hours=resend_hours)
+                    time_remaining = next_alert - now
+
+                    if time_remaining.total_seconds() > 0:
+                        remaining_str = _format_duration(time_remaining)
+                    else:
+                        remaining_str = "now (will send on next check)"
+                except (ValueError, TypeError):
+                    remaining_str = "unknown"
+            else:
+                remaining_str = "unknown"
+
+            print(f"  [{severity}] {pool_name}:{category}")
+            print(f"      Alerts sent: {alert_count}, Next email in: {remaining_str}")
+    else:
+        print("\nAlert State: No active alerts being tracked")
+
+    print()  # Final newline
 
 
 __all__ = [

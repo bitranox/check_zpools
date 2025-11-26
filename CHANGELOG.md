@@ -3,6 +3,49 @@ a# Changelog
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [3.2.0] - 2025-11-26
+
+### Added
+- **Enhanced `service-status` Command**: Now displays comprehensive daemon status
+  - Service uptime: Shows when the service was started and how long it's been running
+  - Daemon configuration: Check interval and alert resend (email silencing) period
+  - Current pool status: Number of pools monitored, faulted device count, and active issues
+  - Active alert states: For each tracked issue shows alerts sent count and time until next email
+  - **Example output**:
+    ```
+    check_zpools Service Status
+    ========================================================
+    ✓ Service file installed: /etc/systemd/system/check_zpools.service
+      • Running:  ✓ Yes
+      • Enabled:  ✓ Yes (starts on boot)
+      • Started:  2025-11-26 08:00:00 UTC (uptime: 3h 15m)
+
+    Daemon Configuration:
+    --------------------------------------------------------
+      • Check interval:     300s (5m)
+      • Alert resend:       2h (email silencing period)
+
+    Current Pool Status:
+    --------------------------------------------------------
+      • Pools monitored:    4
+      • Device status:      ✗ 1 FAULTED
+      • Active issues:      1
+          → rpool: Device wwn-0x5002538f55117008-part3 is FAULTED
+
+    Active Alert States:
+    --------------------------------------------------------
+      [CRITICAL] rpool:device
+          Alerts sent: 3, Next email in: 1h 45m
+    ```
+
+### Tests
+- Added 33 new tests for enhanced service status functionality covering:
+  - Duration formatting (`_format_duration`)
+  - Alert state loading (`_load_alert_state`)
+  - Service start time parsing (`_get_service_start_time`)
+  - Pool status summary (`_get_pool_status_summary`)
+  - Full `show_service_status()` output verification
+
 ## [3.1.0] - 2025-11-26
 
 ### Added
