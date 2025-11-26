@@ -117,6 +117,7 @@ def _build_pool_status_table() -> Table:
     table = Table(title="Pool Status", show_header=True, header_style="bold cyan")
     table.add_column("Pool", style="bold", no_wrap=True)
     table.add_column("Health", justify="center")
+    table.add_column("Devices", justify="center")
     table.add_column("Capacity", justify="right")
     table.add_column("Size", justify="right")
     table.add_column("Errors (R/W/C)", justify="right")
@@ -184,7 +185,26 @@ def _format_pool_errors(read: int, write: int, checksum: int) -> str:
     return f"{read}/{write}/{checksum}"
 
 
-def _format_pool_row(pool: PoolStatus) -> tuple[str, str, str, str, str, str]:
+def _format_faulted_devices(pool: PoolStatus) -> tuple[str, str]:
+    """Format faulted devices count with color.
+
+    Parameters
+    ----------
+    pool:
+        Pool status to format.
+
+    Returns
+    -------
+    tuple[str, str]:
+        Tuple of (formatted_text, color_name).
+    """
+    faulted_count = len(pool.faulted_devices)
+    if faulted_count == 0:
+        return ("OK", "green")
+    return (f"{faulted_count} FAULTED", "red")
+
+
+def _format_pool_row(pool: PoolStatus) -> tuple[str, str, str, str, str, str, str]:
     """Format a pool status into table row data with Rich markup.
 
     Parameters
@@ -194,8 +214,8 @@ def _format_pool_row(pool: PoolStatus) -> tuple[str, str, str, str, str, str]:
 
     Returns
     -------
-    tuple[str, str, str, str, str, str]:
-        Formatted values for: name, health, capacity, size, errors, scrub
+    tuple[str, str, str, str, str, str, str]:
+        Formatted values for: name, health, devices, capacity, size, errors, scrub
     """
     # Determine colors
     health_color = "green" if pool.health.is_healthy() else "red"
@@ -206,10 +226,12 @@ def _format_pool_row(pool: PoolStatus) -> tuple[str, str, str, str, str, str]:
     size_str = _format_pool_size(pool.size_bytes)
     errors_str = _format_pool_errors(pool.read_errors, pool.write_errors, pool.checksum_errors)
     scrub_text, scrub_color = _format_last_scrub(pool.last_scrub)
+    devices_text, devices_color = _format_faulted_devices(pool)
 
     return (
         pool.name,
         f"[{health_color}]{pool.health.value}[/{health_color}]",
+        f"[{devices_color}]{devices_text}[/{devices_color}]",
         f"[{capacity_color}]{pool.capacity_percent:.1f}%[/{capacity_color}]",
         size_str,
         f"[{error_color}]{errors_str}[/{error_color}]",

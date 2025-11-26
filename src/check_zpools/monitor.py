@@ -30,7 +30,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from .models import CheckResult, PoolHealth, PoolIssue, PoolStatus, Severity  # noqa: F401 - PoolHealth used in doctests  # pyright: ignore[reportUnusedImport]
+from .models import CheckResult, DeviceStatus, PoolHealth, PoolIssue, PoolStatus, Severity  # noqa: F401 - PoolHealth, DeviceStatus used in doctests  # pyright: ignore[reportUnusedImport]
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +164,10 @@ class PoolMonitor:
         if health_issue:
             issues.append(health_issue)
 
+        # Check for faulted/degraded devices (even if pool is ONLINE)
+        device_issues = self._check_faulted_devices(pool)
+        issues.extend(device_issues)
+
         # Check capacity
         capacity_issue = self._check_capacity(pool)
         if capacity_issue:
@@ -278,6 +282,94 @@ class PoolMonitor:
                 "expected_state": "ONLINE",
             },
         )
+
+    def _check_faulted_devices(self, pool: PoolStatus) -> list[PoolIssue]:
+        """Check for faulted or degraded devices within the pool.
+
+        Why
+        ---
+        A pool can be ONLINE while containing FAULTED devices if redundancy
+        exists (e.g., mirror with one working disk). We need to alert on
+        device failures even when the pool remains operational.
+
+        Parameters
+        ----------
+        pool:
+            Pool to check
+
+        Returns
+        -------
+        list[PoolIssue]:
+            List of issues for each faulted/degraded device
+        """
+        issues: list[PoolIssue] = []
+
+        for device in pool.faulted_devices:
+            severity = self._determine_device_severity(device)
+            message = self._format_device_message(device)
+
+            issues.append(
+                PoolIssue(
+                    pool_name=pool.name,
+                    severity=severity,
+                    category="device",
+                    message=message,
+                    details={
+                        "device_name": device.name,
+                        "device_state": device.state,
+                        "device_type": device.vdev_type,
+                        "read_errors": device.read_errors,
+                        "write_errors": device.write_errors,
+                        "checksum_errors": device.checksum_errors,
+                    },
+                )
+            )
+
+        return issues
+
+    def _determine_device_severity(self, device: DeviceStatus) -> Severity:
+        """Determine severity level for a device issue.
+
+        Parameters
+        ----------
+        device:
+            Device status to evaluate
+
+        Returns
+        -------
+        Severity:
+            CRITICAL for FAULTED/UNAVAIL, WARNING for DEGRADED/errors
+        """
+        if device.is_faulted() or device.state.upper() in ("UNAVAIL", "REMOVED"):
+            return Severity.CRITICAL
+        return Severity.WARNING
+
+    def _format_device_message(self, device: DeviceStatus) -> str:
+        """Format a human-readable message for a device issue.
+
+        Parameters
+        ----------
+        device:
+            Device status to describe
+
+        Returns
+        -------
+        str:
+            Descriptive message about the device problem
+        """
+        parts = [f"Device {device.name} is {device.state}"]
+
+        if device.has_errors():
+            error_parts = []
+            if device.read_errors > 0:
+                error_parts.append(f"{device.read_errors} read")
+            if device.write_errors > 0:
+                error_parts.append(f"{device.write_errors} write")
+            if device.checksum_errors > 0:
+                error_parts.append(f"{device.checksum_errors} checksum")
+            parts.append(f"with {', '.join(error_parts)} errors")
+
+        return " ".join(parts)
 
     def _check_capacity(self, pool: PoolStatus) -> PoolIssue | None:
         """Check pool capacity against thresholds.

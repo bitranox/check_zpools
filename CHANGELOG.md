@@ -3,6 +3,17 @@ a# Changelog
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [3.1.0] - 2025-11-26
+
+### Added
+- **Faulted Device Detection**: Detect and report FAULTED/DEGRADED devices even when pool is ONLINE
+  - Added `DeviceStatus` model to track individual device state within pools
+  - Added `faulted_devices` field to `PoolStatus` containing problematic devices
+  - Parser now recursively traverses vdev tree to find FAULTED, DEGRADED, or error-having devices
+  - Monitor creates CRITICAL issues for FAULTED devices, WARNING for others with errors
+  - CLI table now shows "Devices" column (OK/N FAULTED) for quick visibility
+  - **Why this matters**: A pool can be ONLINE with redundancy (mirror/raidz) while containing FAULTED devices that need replacement. Previously this was invisible - now it's properly alerted.
+
 ## [3.0.1] - 2025-11-26
 
 ### Changed

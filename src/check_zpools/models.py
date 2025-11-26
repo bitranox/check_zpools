@@ -229,6 +229,72 @@ class Severity(str, Enum):
 
 
 @dataclass(frozen=True)
+class DeviceStatus:
+    """Status of a single device (vdev) within a ZFS pool.
+
+    Why
+        Tracks individual device health separately from pool health.
+        A pool can be ONLINE while containing FAULTED devices if redundancy
+        exists (e.g., mirror with one working device).
+
+    Attributes
+    ----------
+    name:
+        Device name or path (e.g., "wwn-0x5002538f55117008-part3")
+    state:
+        Device state (ONLINE, FAULTED, DEGRADED, OFFLINE, etc.)
+    read_errors:
+        Count of read I/O errors on this device
+    write_errors:
+        Count of write I/O errors on this device
+    checksum_errors:
+        Count of checksum errors on this device
+    vdev_type:
+        Type of vdev (disk, mirror, raidz, draid, etc.)
+
+    Examples
+    --------
+    >>> device = DeviceStatus(
+    ...     name="wwn-0x5002538f55117008-part3",
+    ...     state="FAULTED",
+    ...     read_errors=3,
+    ...     write_errors=220,
+    ...     checksum_errors=0,
+    ...     vdev_type="disk",
+    ... )
+    >>> device.is_faulted()
+    True
+    """
+
+    name: str
+    state: str
+    read_errors: int
+    write_errors: int
+    checksum_errors: int
+    vdev_type: str
+
+    def is_faulted(self) -> bool:
+        """Return True if device is in a faulted state."""
+        return self.state.upper() == "FAULTED"
+
+    def is_degraded(self) -> bool:
+        """Return True if device is in a degraded state."""
+        return self.state.upper() == "DEGRADED"
+
+    def is_offline(self) -> bool:
+        """Return True if device is offline."""
+        return self.state.upper() == "OFFLINE"
+
+    def is_healthy(self) -> bool:
+        """Return True if device is healthy (ONLINE)."""
+        return self.state.upper() == "ONLINE"
+
+    def has_errors(self) -> bool:
+        """Return True if device has any errors."""
+        return self.read_errors > 0 or self.write_errors > 0 or self.checksum_errors > 0
+
+
+@dataclass(frozen=True)
 class PoolStatus:
     """Complete status snapshot of a single ZFS pool.
 
@@ -263,6 +329,9 @@ class PoolStatus:
         Number of errors found during last scrub
     scrub_in_progress:
         Whether a scrub is currently running
+    faulted_devices:
+        List of devices that are FAULTED, DEGRADED, or have errors.
+        Empty list if all devices are healthy.
 
     Examples
     --------
@@ -280,6 +349,7 @@ class PoolStatus:
     ...     last_scrub=datetime.now(UTC),
     ...     scrub_errors=0,
     ...     scrub_in_progress=False,
+    ...     faulted_devices=[],
     ... )
     >>> pool.name
     'rpool'
@@ -299,6 +369,7 @@ class PoolStatus:
     last_scrub: datetime | None
     scrub_errors: int
     scrub_in_progress: bool
+    faulted_devices: tuple[DeviceStatus, ...] = ()
 
     def has_errors(self) -> bool:
         """Return True if pool has any I/O or checksum errors.
@@ -477,6 +548,7 @@ class CheckResult:
 
 
 __all__ = [
+    "DeviceStatus",
     "PoolHealth",
     "Severity",
     "PoolStatus",

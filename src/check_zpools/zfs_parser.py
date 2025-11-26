@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from .models import PoolHealth, PoolStatus
+from .models import DeviceStatus, PoolHealth, PoolStatus
 
 logger = logging.getLogger(__name__)
 
@@ -196,6 +196,9 @@ class ZFSParser:
         # Extract scrub information
         scrub_info = self._extract_scrub_info(pool_data)
 
+        # Find faulted/degraded devices recursively
+        faulted_devices = self._find_problematic_devices(root_vdev)
+
         return PoolStatus(
             name=pool_name,
             health=health,
@@ -209,6 +212,7 @@ class ZFSParser:
             last_scrub=scrub_info["last_scrub"],
             scrub_errors=scrub_info["scrub_errors"],
             scrub_in_progress=scrub_info["scrub_in_progress"],
+            faulted_devices=tuple(faulted_devices),
         )
 
     def _get_root_vdev(self, pool_data: dict[str, Any], pool_name: str) -> dict[str, Any]:
@@ -387,6 +391,90 @@ class ZFSParser:
         except ValueError:
             logger.warning(f"Unknown health state '{health_value}' for pool {pool_name}, using OFFLINE")
             return PoolHealth.OFFLINE
+
+    def _find_problematic_devices(self, vdev: dict[str, Any]) -> list[DeviceStatus]:
+        """Recursively find devices that are faulted, degraded, or have errors.
+
+        Why
+        ---
+        A pool can be ONLINE while containing FAULTED devices if redundancy
+        exists. We need to traverse the entire vdev tree to find all
+        problematic devices for proper alerting.
+
+        Parameters
+        ----------
+        vdev:
+            Vdev data from zpool status JSON (can be root, mirror, disk, etc.)
+
+        Returns
+        -------
+        list[DeviceStatus]:
+            List of devices that are not healthy or have errors.
+        """
+        problematic: list[DeviceStatus] = []
+
+        # Check if this vdev itself is problematic (only for disk/leaf devices)
+        vdev_type = str(vdev.get("vdev_type", "")).lower()
+        state = str(vdev.get("state", "UNKNOWN")).upper()
+        name = str(vdev.get("name", "unknown"))
+
+        # Get error counts
+        read_errors = self._safe_int(vdev.get("read_errors", 0))
+        write_errors = self._safe_int(vdev.get("write_errors", 0))
+        checksum_errors = self._safe_int(vdev.get("checksum_errors", 0))
+
+        # Only report leaf devices (disks) - not containers like mirror/raidz
+        is_leaf = vdev_type in ("disk", "file", "spare", "cache", "log")
+        is_problematic = state in ("FAULTED", "DEGRADED", "OFFLINE", "UNAVAIL", "REMOVED")
+        has_errors = read_errors > 0 or write_errors > 0 or checksum_errors > 0
+
+        if is_leaf and (is_problematic or has_errors):
+            device = DeviceStatus(
+                name=name,
+                state=state,
+                read_errors=read_errors,
+                write_errors=write_errors,
+                checksum_errors=checksum_errors,
+                vdev_type=vdev_type,
+            )
+            problematic.append(device)
+            logger.debug(
+                f"Found problematic device: {name}",
+                extra={
+                    "device": name,
+                    "state": state,
+                    "read_errors": read_errors,
+                    "write_errors": write_errors,
+                    "checksum_errors": checksum_errors,
+                },
+            )
+
+        # Recursively check child vdevs
+        children = vdev.get("vdevs", {})
+        if isinstance(children, dict):
+            for child_vdev in children.values():
+                if isinstance(child_vdev, dict):
+                    problematic.extend(self._find_problematic_devices(child_vdev))
+
+        return problematic
+
+    def _safe_int(self, value: Any) -> int:
+        """Safely convert value to int.
+
+        Parameters
+        ----------
+        value:
+            Value to convert.
+
+        Returns
+        -------
+        int:
+            Integer value, or 0 if conversion fails.
+        """
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return 0
 
 
 __all__ = [
