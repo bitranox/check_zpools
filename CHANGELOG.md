@@ -32,7 +32,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   - Now uses `pool:device:device_name` as the key for device-specific tracking
   - Each faulted device is tracked independently for suppression and resend intervals
   - Recovery detection clears all device issues for a pool when the "device" category recovers
-
+pre-v
 ### Tests
 - Added 54 tests for alias management functionality (marked `linux_only` to skip on macOS CI)
 - Added 12 tests for device-specific alert tracking covering:
