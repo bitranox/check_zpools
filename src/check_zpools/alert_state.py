@@ -142,9 +142,43 @@ class AlertStateManager:
         if self.state_file.exists():
             self.state_file.chmod(0o600)
 
-    def _make_key(self, pool_name: str, category: str) -> str:
-        """Generate unique key for a pool+category combination."""
+    def _make_key(self, pool_name: str, category: str, device_name: str | None = None) -> str:
+        """Generate unique key for a pool+category+device combination.
+
+        Parameters
+        ----------
+        pool_name:
+            Name of the ZFS pool.
+        category:
+            Issue category (health, capacity, errors, scrub, device).
+        device_name:
+            For device issues, the specific device name. None for pool-level issues.
+
+        Returns
+        -------
+        str:
+            Unique key for this alert state.
+        """
+        if device_name:
+            return f"{pool_name}:{category}:{device_name}"
         return f"{pool_name}:{category}"
+
+    def _extract_device_name(self, issue: PoolIssue) -> str | None:
+        """Extract device name from issue details if this is a device issue.
+
+        Parameters
+        ----------
+        issue:
+            The pool issue to extract device name from.
+
+        Returns
+        -------
+        str | None:
+            Device name if this is a device issue with device_name in details, else None.
+        """
+        if issue.category == "device" and issue.details:
+            return issue.details.get("device_name")
+        return None
 
     def should_alert(self, issue: PoolIssue) -> bool:
         """Determine whether to send an alert for this issue.
@@ -172,7 +206,8 @@ class AlertStateManager:
         bool
             True if alert should be sent, False to suppress.
         """
-        key = self._make_key(issue.pool_name, issue.category)
+        device_name = self._extract_device_name(issue)
+        key = self._make_key(issue.pool_name, issue.category, device_name)
         state = self.states.get(key)
 
         if state is None:
@@ -250,7 +285,8 @@ class AlertStateManager:
         issue:
             The issue for which an alert was sent.
         """
-        key = self._make_key(issue.pool_name, issue.category)
+        device_name = self._extract_device_name(issue)
+        key = self._make_key(issue.pool_name, issue.category, device_name)
         now = datetime.now(UTC)
         current_severity = issue.severity.value
 
@@ -290,7 +326,7 @@ class AlertStateManager:
 
         self.save_state()
 
-    def clear_issue(self, pool_name: str, category: str) -> bool:
+    def clear_issue(self, pool_name: str, category: str, device_name: str | None = None) -> bool:
         """Clear state when an issue is resolved.
 
         Why
@@ -300,7 +336,9 @@ class AlertStateManager:
 
         What
         ---
-        Removes the state entry for this pool+category and persists to disk.
+        For device issues without a specific device_name, clears ALL device
+        issues for the pool. For other issues or specific devices, clears
+        only the matching state entry.
 
         Parameters
         ----------
@@ -308,22 +346,58 @@ class AlertStateManager:
             Name of the pool.
         category:
             Issue category to clear.
+        device_name:
+            For device issues, the specific device. If None and category is
+            "device", clears all device issues for the pool.
 
         Returns
         -------
         bool
-            True if state was cleared, False if no state existed.
+            True if any state was cleared, False if no state existed.
         """
-        key = self._make_key(pool_name, category)
+        # For device category without specific device, clear all device issues for this pool
+        if category == "device" and device_name is None:
+            return self._clear_all_device_issues(pool_name)
+
+        key = self._make_key(pool_name, category, device_name)
         if key in self.states:
             del self.states[key]
             self.save_state()
             logger.info(
                 "Cleared resolved issue",
-                extra={"pool": pool_name, "category": category},
+                extra={"pool": pool_name, "category": category, "device": device_name},
             )
             return True
         return False
+
+    def _clear_all_device_issues(self, pool_name: str) -> bool:
+        """Clear all device issues for a specific pool.
+
+        Parameters
+        ----------
+        pool_name:
+            Name of the pool.
+
+        Returns
+        -------
+        bool:
+            True if any device issues were cleared.
+        """
+        prefix = f"{pool_name}:device:"
+        keys_to_remove = [key for key in self.states if key.startswith(prefix)]
+
+        if not keys_to_remove:
+            return False
+
+        for key in keys_to_remove:
+            del self.states[key]
+            logger.info(
+                "Cleared resolved device issue",
+                extra={"pool": pool_name, "key": key},
+            )
+
+        self.save_state()
+        return True
 
     def load_state(self) -> None:
         """Load alert state from JSON file.

@@ -771,3 +771,176 @@ class TestStateChangeDetection:
         result = manager.should_alert(critical_issue)
 
         assert result is True
+
+
+# ============================================================================
+# Tests: Device-Specific Alert Tracking
+# ============================================================================
+
+
+def a_device_issue_for(pool_name: str, device_name: str, severity: Severity = Severity.CRITICAL) -> PoolIssue:
+    """Create a device issue for a specific device in a pool."""
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=severity,
+        category="device",
+        message=f"Device {device_name} is FAULTED",
+        details={"device_name": device_name, "device_state": "FAULTED"},
+    )
+
+
+class TestDeviceSpecificAlertTracking:
+    """Device issues are tracked per-device, not just per-pool."""
+
+    @pytest.mark.os_agnostic
+    def test_different_devices_in_same_pool_tracked_separately(self, tmp_path: Path) -> None:
+        """When recording alerts for different devices in the same pool,
+        each device is tracked independently."""
+        manager = a_state_manager(tmp_path)
+        device1_issue = a_device_issue_for("rpool", "sda1")
+        device2_issue = a_device_issue_for("rpool", "sdb1")
+
+        manager.record_alert(device1_issue)
+        manager.record_alert(device2_issue)
+
+        assert "rpool:device:sda1" in manager.states
+        assert "rpool:device:sdb1" in manager.states
+        assert len(manager.states) == 2
+
+    @pytest.mark.os_agnostic
+    def test_second_device_alerts_even_if_first_device_suppressed(self, tmp_path: Path) -> None:
+        """When one device alert is suppressed (within interval),
+        a different device in the same pool should still alert."""
+        manager = a_state_manager(tmp_path, resend_hours=24)
+        device1_issue = a_device_issue_for("rpool", "sda1")
+        device2_issue = a_device_issue_for("rpool", "sdb1")
+
+        # Alert for first device
+        manager.record_alert(device1_issue)
+
+        # First device should be suppressed
+        assert manager.should_alert(device1_issue) is False
+
+        # Second device should still alert (new device)
+        assert manager.should_alert(device2_issue) is True
+
+    @pytest.mark.os_agnostic
+    def test_device_alert_resends_after_interval(self, tmp_path: Path) -> None:
+        """When a device alert's resend interval passes,
+        should_alert returns True for that specific device."""
+        manager = a_state_manager(tmp_path, resend_hours=2)
+
+        # Simulate device alert 3 hours ago
+        manager.states["rpool:device:sda1"] = an_alert_state("rpool", "device", hours_ago=3, last_severity="CRITICAL")
+
+        device_issue = a_device_issue_for("rpool", "sda1")
+        result = manager.should_alert(device_issue)
+
+        assert result is True
+
+    @pytest.mark.os_agnostic
+    def test_same_device_different_pools_tracked_separately(self, tmp_path: Path) -> None:
+        """When the same device name exists in different pools,
+        each is tracked independently."""
+        manager = a_state_manager(tmp_path)
+        rpool_device = a_device_issue_for("rpool", "sda1")
+        data_device = a_device_issue_for("data", "sda1")
+
+        manager.record_alert(rpool_device)
+        manager.record_alert(data_device)
+
+        assert "rpool:device:sda1" in manager.states
+        assert "data:device:sda1" in manager.states
+        assert len(manager.states) == 2
+
+
+class TestClearingDeviceIssues:
+    """Clearing device issues can clear all devices or specific ones."""
+
+    @pytest.mark.os_agnostic
+    def test_clear_all_device_issues_for_pool(self, tmp_path: Path) -> None:
+        """When clearing device category without device_name,
+        all device issues for that pool are cleared."""
+        manager = a_state_manager(tmp_path)
+        manager.record_alert(a_device_issue_for("rpool", "sda1"))
+        manager.record_alert(a_device_issue_for("rpool", "sdb1"))
+        manager.record_alert(a_device_issue_for("rpool", "sdc1"))
+
+        result = manager.clear_issue("rpool", "device")
+
+        assert result is True
+        assert "rpool:device:sda1" not in manager.states
+        assert "rpool:device:sdb1" not in manager.states
+        assert "rpool:device:sdc1" not in manager.states
+
+    @pytest.mark.os_agnostic
+    def test_clear_specific_device_issue(self, tmp_path: Path) -> None:
+        """When clearing with device_name specified,
+        only that specific device issue is cleared."""
+        manager = a_state_manager(tmp_path)
+        manager.record_alert(a_device_issue_for("rpool", "sda1"))
+        manager.record_alert(a_device_issue_for("rpool", "sdb1"))
+
+        result = manager.clear_issue("rpool", "device", device_name="sda1")
+
+        assert result is True
+        assert "rpool:device:sda1" not in manager.states
+        assert "rpool:device:sdb1" in manager.states
+
+    @pytest.mark.os_agnostic
+    def test_clear_device_issues_does_not_affect_other_pools(self, tmp_path: Path) -> None:
+        """When clearing device issues for one pool,
+        device issues for other pools are preserved."""
+        manager = a_state_manager(tmp_path)
+        manager.record_alert(a_device_issue_for("rpool", "sda1"))
+        manager.record_alert(a_device_issue_for("data", "sdb1"))
+
+        manager.clear_issue("rpool", "device")
+
+        assert "rpool:device:sda1" not in manager.states
+        assert "data:device:sdb1" in manager.states
+
+    @pytest.mark.os_agnostic
+    def test_clear_device_issues_does_not_affect_other_categories(self, tmp_path: Path) -> None:
+        """When clearing device issues,
+        other category issues are preserved."""
+        manager = a_state_manager(tmp_path)
+        manager.record_alert(a_device_issue_for("rpool", "sda1"))
+        manager.record_alert(a_capacity_issue_for("rpool"))
+
+        manager.clear_issue("rpool", "device")
+
+        assert "rpool:device:sda1" not in manager.states
+        assert "rpool:capacity" in manager.states
+
+    @pytest.mark.os_agnostic
+    def test_clear_nonexistent_device_returns_false(self, tmp_path: Path) -> None:
+        """When clearing device issues that don't exist,
+        clear_issue returns False."""
+        manager = a_state_manager(tmp_path)
+
+        result = manager.clear_issue("rpool", "device")
+
+        assert result is False
+
+
+class TestDeviceIssuePersistence:
+    """Device-specific state persists correctly across saves/loads."""
+
+    @pytest.mark.os_agnostic
+    def test_device_issues_survive_save_load_cycle(self, tmp_path: Path) -> None:
+        """When saving and loading state with device issues,
+        the device-specific keys are preserved."""
+        state_file = tmp_path / "alert_state.json"
+
+        # Create manager and record device issues
+        manager1 = AlertStateManager(state_file, resend_interval_hours=24)
+        manager1.record_alert(a_device_issue_for("rpool", "sda1"))
+        manager1.record_alert(a_device_issue_for("rpool", "sdb1"))
+
+        # Create new manager instance (loads from file)
+        manager2 = AlertStateManager(state_file, resend_interval_hours=24)
+
+        assert "rpool:device:sda1" in manager2.states
+        assert "rpool:device:sdb1" in manager2.states
+        assert len(manager2.states) == 2

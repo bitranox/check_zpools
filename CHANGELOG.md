@@ -23,15 +23,23 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
     # [/ALIAS FOR check_zpools]
     ```
 
+### Fixed
+- **Device-Specific Alert Tracking**: Fixed bug where multiple faulted devices in the same pool shared alert state
+  - Previously, all device issues used `pool:device` as the alert key, causing:
+    - Only the first device to get alerted
+    - Other devices in the same pool to be suppressed as "duplicates"
+    - Resend interval to apply incorrectly across all devices
+  - Now uses `pool:device:device_name` as the key for device-specific tracking
+  - Each faulted device is tracked independently for suppression and resend intervals
+  - Recovery detection clears all device issues for a pool when the "device" category recovers
+
 ### Tests
-- Added 54 tests for alias management functionality covering:
-  - Alias block generation and removal
-  - User resolution (SUDO_USER, specified user, current user)
-  - Root privilege checking with specific `--user` flag error messages
-  - CLI command registration and options
-  - Edge cases (file at start/end, multiline content preservation)
-  - Unsupported platform handling (Windows, macOS)
-  - Click CLI runner integration tests
+- Added 54 tests for alias management functionality (marked `linux_only` to skip on macOS CI)
+- Added 12 tests for device-specific alert tracking covering:
+  - Multiple devices in same pool tracked separately
+  - Device-specific resend intervals
+  - Clearing all vs. specific device issues
+  - Persistence across save/load cycles
 
 ## [3.2.2] - 2025-11-26
 

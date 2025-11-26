@@ -248,14 +248,14 @@ class TestBuildExecCommand:
 class TestCreateAliasRootCheck:
     """Tests for root privilege verification in create_alias."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_requires_root_privileges(self) -> None:
         """Should raise PermissionError when not root."""
         with patch("os.geteuid", return_value=1000):
             with pytest.raises(PermissionError, match="root"):
                 create_alias()
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_user_flag_requires_root_with_specific_message(self) -> None:
         """Should show specific error when --user used without root."""
         with patch("os.geteuid", return_value=1000):
@@ -266,7 +266,7 @@ class TestCreateAliasRootCheck:
 class TestCreateAliasSuccess:
     """Tests for successful alias creation."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_creates_alias_in_bashrc(self, tmp_path: Path) -> None:
         """Should create alias block in bashrc file."""
         bashrc = tmp_path / ".bashrc"
@@ -292,7 +292,7 @@ class TestCreateAliasSuccess:
         assert ALIAS_MARKER_END in content
         assert "/usr/bin/check_zpools" in content
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_replaces_existing_alias(self, tmp_path: Path) -> None:
         """Should replace existing alias block with new one."""
         bashrc = tmp_path / ".bashrc"
@@ -319,7 +319,7 @@ class TestCreateAliasSuccess:
         assert "/old/path/check_zpools" not in content
         assert content.count(ALIAS_MARKER_START) == 1
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_creates_bashrc_if_missing(self, tmp_path: Path) -> None:
         """Should create bashrc file if it doesn't exist."""
         mock_pw = MagicMock()
@@ -348,7 +348,7 @@ class TestCreateAliasSuccess:
 class TestCreateAliasForSpecificUser:
     """Tests for creating alias for a specific user."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_creates_alias_for_specified_user(self, tmp_path: Path) -> None:
         """Should create alias in specified user's bashrc."""
         bashrc = tmp_path / ".bashrc"
@@ -380,14 +380,14 @@ class TestCreateAliasForSpecificUser:
 class TestDeleteAliasRootCheck:
     """Tests for root privilege verification in delete_alias."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_requires_root_privileges(self) -> None:
         """Should raise PermissionError when not root."""
         with patch("os.geteuid", return_value=1000):
             with pytest.raises(PermissionError, match="root"):
                 delete_alias()
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_user_flag_requires_root_with_specific_message(self) -> None:
         """Should show specific error when --user used without root."""
         with patch("os.geteuid", return_value=1000):
@@ -398,7 +398,7 @@ class TestDeleteAliasRootCheck:
 class TestDeleteAliasSuccess:
     """Tests for successful alias removal."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_removes_alias_from_bashrc(self, tmp_path: Path) -> None:
         """Should remove alias block from bashrc file."""
         bashrc = tmp_path / ".bashrc"
@@ -422,7 +422,7 @@ class TestDeleteAliasSuccess:
         assert "# config" in content
         assert "# more config" in content
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_handles_no_existing_alias(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Should print message when no alias exists."""
         bashrc = tmp_path / ".bashrc"
@@ -442,7 +442,7 @@ class TestDeleteAliasSuccess:
         captured = capsys.readouterr()
         assert "No" in captured.out and "alias" in captured.out
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_handles_missing_bashrc(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Should print message when bashrc doesn't exist."""
         mock_pw = MagicMock()
@@ -509,7 +509,7 @@ class TestAliasDeleteCLI:
 class TestAliasCreateCommandHandler:
     """Tests for alias_create_command function."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_exits_with_code_1_on_permission_error(self) -> None:
         """Should exit with code 1 when not root."""
         from check_zpools.cli_commands.commands.alias_create import alias_create_command
@@ -525,7 +525,7 @@ class TestAliasCreateCommandHandler:
 
         assert exc_info.value.code == 1
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_exits_with_code_1_on_user_not_found(self) -> None:
         """Should exit with code 1 when user not found."""
         from check_zpools.cli_commands.commands.alias_create import alias_create_command
@@ -546,7 +546,7 @@ class TestAliasCreateCommandHandler:
 class TestAliasDeleteCommandHandler:
     """Tests for alias_delete_command function."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_exits_with_code_1_on_permission_error(self) -> None:
         """Should exit with code 1 when not root."""
         from check_zpools.cli_commands.commands.alias_delete import alias_delete_command
@@ -562,7 +562,7 @@ class TestAliasDeleteCommandHandler:
 
         assert exc_info.value.code == 1
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_exits_with_code_1_on_user_not_found(self) -> None:
         """Should exit with code 1 when user not found."""
         from check_zpools.cli_commands.commands.alias_delete import alias_delete_command
@@ -640,7 +640,7 @@ function greet() {{
 class TestUserInfoEdgeCases:
     """Tests for edge cases in user info resolution."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_falls_back_to_current_user_without_sudo_user(self) -> None:
         """Should use current user when SUDO_USER not set."""
         mock_pw = MagicMock()
@@ -663,7 +663,7 @@ class TestUserInfoEdgeCases:
 class TestCreateAliasOutputMessages:
     """Tests for output messages during alias creation."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_prints_success_message(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Should print success message with details."""
         bashrc = tmp_path / ".bashrc"
@@ -694,7 +694,7 @@ class TestCreateAliasOutputMessages:
 class TestDeleteAliasOutputMessages:
     """Tests for output messages during alias deletion."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_prints_success_message(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Should print success message with details."""
         bashrc = tmp_path / ".bashrc"
@@ -726,7 +726,7 @@ class TestDeleteAliasOutputMessages:
 class TestAliasCreateCLIRunner:
     """Tests for alias-create command via Click test runner."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_help_shows_user_option(self, cli_runner: CliRunner) -> None:
         """Help output should document --user option."""
         from check_zpools.cli import cli
@@ -736,7 +736,7 @@ class TestAliasCreateCLIRunner:
         assert "--user" in result.output
         assert "username" in result.output.lower()
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_requires_root_via_cli(self, cli_runner: CliRunner) -> None:
         """Should fail when invoked without root."""
         from check_zpools.cli import cli
@@ -751,7 +751,7 @@ class TestAliasCreateCLIRunner:
 class TestAliasDeleteCLIRunner:
     """Tests for alias-delete command via Click test runner."""
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_help_shows_user_option(self, cli_runner: CliRunner) -> None:
         """Help output should document --user option."""
         from check_zpools.cli import cli
@@ -761,7 +761,7 @@ class TestAliasDeleteCLIRunner:
         assert "--user" in result.output
         assert "username" in result.output.lower()
 
-    @pytest.mark.posix_only
+    @pytest.mark.linux_only
     def test_requires_root_via_cli(self, cli_runner: CliRunner) -> None:
         """Should fail when invoked without root."""
         from check_zpools.cli import cli
