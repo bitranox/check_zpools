@@ -28,10 +28,16 @@ from __future__ import annotations
 
 import logging
 import os
-import pwd
 import re
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
+
+# pwd module is only available on Unix-like systems
+if sys.platform != "win32":
+    import pwd
+else:
+    pwd = None  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     pass
@@ -100,14 +106,14 @@ def _get_user_info(username: str | None) -> tuple[str, Path]:
         if sudo_user:
             username = sudo_user
         else:
-            username = pwd.getpwuid(os.getuid()).pw_name  # type: ignore[attr-defined]
+            username = pwd.getpwuid(os.getuid()).pw_name  # type: ignore[union-attr, attr-defined]
 
     # At this point username is guaranteed to be str (either from parameter, SUDO_USER, or getpwuid)
     # Cast for pyright on Windows where pwd functions have Unknown return types
     resolved_username: str = str(username)
 
     try:
-        pw_entry = pwd.getpwnam(resolved_username)  # type: ignore[attr-defined]
+        pw_entry = pwd.getpwnam(resolved_username)  # type: ignore[union-attr, attr-defined]
         return (resolved_username, Path(pw_entry.pw_dir))
     except KeyError as exc:
         raise KeyError(f"User not found: {username}") from exc
