@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [3.3.0] - 2025-11-26
+
+### Added
+- **Bash Alias Management**: New commands to create shell function aliases for venv/uvx installations
+  - `alias-create`: Creates a shell function in `~/.bashrc` that forwards calls to the venv-installed executable
+  - `alias-delete`: Removes the shell function alias from `~/.bashrc`
+  - Both commands support `--user <username>` to manage aliases for specific users
+  - Automatically detects installation method (venv, uvx) and configures the correct command path
+  - Uses marked blocks (`# [ALIAS FOR check_zpools]`) for safe identification and removal
+  - **Why this matters**: CLI tools installed in virtual environments or via uvx are not available system-wide. These commands enable the `check_zpools` command without activating the venv or using the full uvx path.
+  - **Example output in ~/.bashrc**:
+    ```bash
+    # [ALIAS FOR check_zpools]
+    check_zpools() {
+        /path/to/venv/bin/check_zpools "$@"
+    }
+    # [/ALIAS FOR check_zpools]
+    ```
+
+### Tests
+- Added 52 tests for alias management functionality covering:
+  - Alias block generation and removal
+  - User resolution (SUDO_USER, specified user, current user)
+  - Root privilege checking with specific `--user` flag error messages
+  - CLI command registration and options
+  - Edge cases (file at start/end, multiline content preservation)
+  - Windows platform handling (NotImplementedError)
+  - Click CLI runner integration tests
+
 ## [3.2.2] - 2025-11-26
 
 ### Fixed

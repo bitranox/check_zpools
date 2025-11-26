@@ -55,6 +55,59 @@ uv pip install check_zpools
 For alternative install paths (pip, pipx, uv, uvx source builds, etc.), see
 [INSTALL.md](INSTALL.md). All supported methods register the `check_zpools` command on your PATH.
 
+## Isolated Installation for Production Servers
+
+For production servers, we recommend an isolated Python installation that survives OS upgrades and package updates.
+
+**Why?**
+- OS-managed Python versions change during system updates
+- Virtual environments created with the system Python break when Python is upgraded
+- An isolated installation in `/opt` remains stable across years of server maintenance
+
+**Prerequisites:**
+- Install Python 3.14 to `/opt/python-3.14.0` (or your preferred location)
+
+**Installation Script:**
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Configuration
+PYTHONINTERPRETER="/opt/python-3.14.0/bin/python"
+VENV_DIR="/opt/check_zpools/python-3.14.0"
+
+# Create isolated virtual environment
+sudo "${PYTHONINTERPRETER}" -m venv "${VENV_DIR}"
+sudo "${VENV_DIR}/bin/python" -m pip install --upgrade pip
+sudo "${VENV_DIR}/bin/python" -m pip install uv
+
+# Clean up any previous installation (safe to run on fresh install)
+sudo "${VENV_DIR}/bin/uvx" check_zpools@latest service-uninstall || true
+sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-delete || true
+# Optional: Delete alias for additional users
+# sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-delete --user <username>
+
+
+# Deploy configuration and install service
+sudo "${VENV_DIR}/bin/uvx" check_zpools@latest config-deploy --target app
+sudo "${VENV_DIR}/bin/uvx" check_zpools@latest service-install --uvx-version @latest
+
+# Create bash alias for root user (the user running sudo)
+sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-create
+
+# Optional: Create alias for additional users
+# sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-create --user <username>
+```
+
+**Notes:**
+- Use `@latest` to automatically get the newest version on each invocation
+- Omit `@latest` (use `check_zpools` instead) to pin to a specific cached version
+- The `|| true` after uninstall commands prevents errors on fresh installations
+- After alias creation, activate in your current shell: `source ~/.bashrc`
+- To remove an alias from your current shell: `unset -f check_zpools`
+
+
 ### Python 3.13+ Baseline
 
 - The project targets **Python 3.13 and newer only**.
@@ -347,6 +400,112 @@ Active Alert States:
 - **Daemon configuration**: Check interval and alert resend (email silencing) period
 - **Pool status**: Number of pools monitored, faulted device count, active issues
 - **Alert states**: For each tracked issue, shows alerts sent and time until next email
+
+---
+
+### Bash Alias Management
+
+> **Note:** Bash alias management is only available on Linux and macOS. Not supported on Windows.
+
+CLI tools installed inside a virtual environment (whether created normally or via uv/uvx) do not register their commands system-wide. The alias commands create a shell function in `.bashrc` that forwards calls to the venv-installed executable.
+
+#### `alias-create` - Create Bash Alias
+
+Creates a shell function alias in the user's `.bashrc` file, enabling the `check_zpools` command to be available without activating the virtual environment.
+
+**Usage:**
+```bash
+sudo check_zpools alias-create [OPTIONS]
+```
+
+**Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--user` | TEXT | None | Target username (defaults to sudo user or current user) |
+
+**Examples:**
+```bash
+# Create alias for the user who ran sudo
+sudo check_zpools alias-create
+
+# Create alias for a specific user
+sudo check_zpools alias-create --user john
+```
+
+**What it does:**
+
+Creates a marked block in `~/.bashrc`:
+
+```bash
+# [ALIAS FOR check_zpools]
+check_zpools() {
+    /path/to/venv/bin/check_zpools "$@"
+}
+# [/ALIAS FOR check_zpools]
+```
+
+For uvx installations, the command becomes:
+```bash
+check_zpools() {
+    /home/user/.local/bin/uvx check_zpools@2.0.0 "$@"
+}
+```
+
+**After creation:**
+```bash
+# Activate in current shell
+source ~/.bashrc
+
+# Or open a new terminal session
+```
+
+**Notes:**
+- Requires root privileges (use `sudo`)
+- The `--user` flag requires root privileges
+- Re-running replaces any existing alias (idempotent)
+- Uses marked blocks for safe identification and removal
+- Automatically detects installation method (venv, uvx, etc.)
+
+---
+
+#### `alias-delete` - Remove Bash Alias
+
+Removes the shell function alias from the user's `.bashrc` file.
+
+**Usage:**
+```bash
+sudo check_zpools alias-delete [OPTIONS]
+```
+
+**Options:**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `--user` | TEXT | None | Target username (defaults to sudo user or current user) |
+
+**Examples:**
+```bash
+# Remove alias for the user who ran sudo
+sudo check_zpools alias-delete
+
+# Remove alias for a specific user
+sudo check_zpools alias-delete --user john
+```
+
+**After removal:**
+```bash
+# Remove from current shell
+unset -f check_zpools
+
+# Or open a new terminal session
+```
+
+**Notes:**
+- Requires root privileges (use `sudo`)
+- The `--user` flag requires root privileges
+- Only removes the marked block, preserves all other `.bashrc` content
+- Safe to run even if no alias exists (no-op with message)
 
 ---
 

@@ -29,6 +29,8 @@ from click.core import ParameterSource
 from . import __init__conf__
 from .behaviors import emit_greeting, noop_main, raise_intentional_failure
 from .cli_commands.commands import (
+    alias_create_command,
+    alias_delete_command,
     check_command,
     config_deploy_command,
     config_show_command,
@@ -270,6 +272,30 @@ def cli_uninstall_service(no_stop: bool, no_disable: bool) -> None:
 def cli_service_status() -> None:
     """Show status of check_zpools systemd service."""
     service_status_command()
+
+
+@cli.command("alias-create", context_settings=CLICK_CONTEXT_SETTINGS)
+@click.option(
+    "--user",
+    type=str,
+    default=None,
+    help="Target username for alias creation (defaults to sudo user or current user)",
+)
+def cli_alias_create(user: Optional[str]) -> None:
+    """Create bash alias for check_zpools CLI (requires root)."""
+    alias_create_command(user)
+
+
+@cli.command("alias-delete", context_settings=CLICK_CONTEXT_SETTINGS)
+@click.option(
+    "--user",
+    type=str,
+    default=None,
+    help="Target username for alias removal (defaults to sudo user or current user)",
+)
+def cli_alias_delete(user: Optional[str]) -> None:
+    """Remove bash alias for check_zpools CLI (requires root)."""
+    alias_delete_command(user)
 
 
 @cli.command("check", context_settings=CLICK_CONTEXT_SETTINGS)
