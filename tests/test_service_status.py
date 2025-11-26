@@ -200,8 +200,8 @@ class TestLoadAlertStateWithInvalidFile:
 class TestGetServiceStartTimeWithRunningService:
     """Tests for service start time parsing when service is running."""
 
-    def test_valid_timestamp_returns_datetime(self) -> None:
-        """Valid systemctl timestamp should be parsed to datetime."""
+    def test_valid_timestamp_with_utc_returns_datetime(self) -> None:
+        """Valid systemctl timestamp with UTC should be parsed to datetime."""
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "ActiveEnterTimestamp=Wed 2025-11-26 10:30:00 UTC"
@@ -215,6 +215,23 @@ class TestGetServiceStartTimeWithRunningService:
         assert result.day == 26
         assert result.hour == 10
         assert result.minute == 30
+
+    def test_valid_timestamp_with_cet_returns_datetime(self) -> None:
+        """Valid systemctl timestamp with CET timezone should be parsed."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "ActiveEnterTimestamp=Wed 2025-11-26 12:14:25 CET"
+
+        with patch("check_zpools.service_install._run_systemctl", return_value=mock_result):
+            result = _get_service_start_time()
+
+        assert result is not None
+        assert result.year == 2025
+        assert result.month == 11
+        assert result.day == 26
+        assert result.hour == 12
+        assert result.minute == 14
+        assert result.second == 25
 
     def test_na_timestamp_returns_none(self) -> None:
         """'n/a' timestamp (service never started) should return None."""

@@ -789,7 +789,7 @@ def _get_service_start_time() -> datetime | None:
     Returns
     -------
     datetime | None
-        Service start time in UTC, or None if not available.
+        Service start time in local timezone, or None if not available.
     """
     try:
         result = _run_systemctl(
@@ -797,14 +797,21 @@ def _get_service_start_time() -> datetime | None:
             check=False,
         )
         if result.returncode == 0 and result.stdout:
-            # Output: ActiveEnterTimestamp=Wed 2025-11-26 10:30:00 UTC
+            # Output: ActiveEnterTimestamp=Wed 2025-11-26 10:30:00 CET
             match = re.search(r"ActiveEnterTimestamp=(.+)", result.stdout.strip())
             if match and match.group(1) and match.group(1) != "n/a":
                 timestamp_str = match.group(1).strip()
-                # Parse systemd timestamp format
+                # Parse systemd timestamp - strip timezone name and parse datetime part
+                # Format: "Wed 2025-11-26 10:30:00 CET" -> parse "Wed 2025-11-26 10:30:00"
                 try:
-                    # Try parsing with timezone
-                    return datetime.strptime(timestamp_str, "%a %Y-%m-%d %H:%M:%S %Z").replace(tzinfo=UTC)
+                    # Remove the timezone abbreviation (last word) for parsing
+                    parts = timestamp_str.rsplit(" ", 1)
+                    if len(parts) == 2:
+                        datetime_part = parts[0]
+                        # Parse without timezone, result is naive datetime in local time
+                        parsed = datetime.strptime(datetime_part, "%a %Y-%m-%d %H:%M:%S")
+                        # Make it timezone-aware using local timezone
+                        return parsed.astimezone()
                 except ValueError:
                     # Timestamp format didn't match, return None
                     logger.debug("Could not parse systemd timestamp: %s", timestamp_str)
@@ -941,8 +948,12 @@ def show_service_status() -> None:
     if status["running"]:
         start_time = _get_service_start_time()
         if start_time:
-            uptime = datetime.now(UTC) - start_time
-            print(f"  • Started:  {start_time.strftime('%Y-%m-%d %H:%M:%S UTC')} (uptime: {_format_duration(uptime)})")
+            # Use timezone-aware now() for proper comparison
+            now = datetime.now(start_time.tzinfo) if start_time.tzinfo else datetime.now()
+            uptime = now - start_time
+            # Display in local timezone
+            tz_name = start_time.strftime("%Z") or "local"
+            print(f"  • Started:  {start_time.strftime('%Y-%m-%d %H:%M:%S')} {tz_name} (uptime: {_format_duration(uptime)})")
 
     # Daemon configuration
     daemon_config = _get_daemon_config()

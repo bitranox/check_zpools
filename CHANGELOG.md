@@ -3,6 +3,14 @@ a# Changelog
 All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
+## [3.2.1] - 2025-11-26
+
+### Fixed
+- **Service uptime calculation**: Fixed timezone parsing for systemd timestamps
+  - Now correctly handles all timezone abbreviations (CET, EST, UTC, etc.)
+  - Previously showed "0s" uptime when timezone wasn't UTC
+  - Displays timezone in output (e.g., "CET" instead of always "UTC")
+
 ## [3.2.0] - 2025-11-26
 
 ### Added

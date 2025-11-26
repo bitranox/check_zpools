@@ -18,6 +18,7 @@
 ## Features
 
 - **ZFS Pool Monitoring**: Real-time health, capacity, error, and scrub status tracking
+- **Device-Level Monitoring**: Detect FAULTED/DEGRADED devices even when pool remains ONLINE (e.g., mirror with failed disk)
 - **Intelligent Alerting**: Email notifications with deduplication and configurable resend intervals
 - **Daemon Mode**: Continuous monitoring with graceful shutdown and error recovery
 - **Rich CLI**: Beautiful table output and JSON export via rich-click
@@ -1293,7 +1294,6 @@ We're always looking to improve `check_zpools`! Here are planned features and en
 - **Remote ZFS pools** monitoring via SSH - Monitor ZFS pools on remote systems without local ZFS installation
 - **Dataset-level monitoring** - Track individual dataset health, quotas, and usage in addition to pools
 - **Resilver/scrub progress tracking** - Alert when resilver operations are stuck or taking too long
-- **Device-level monitoring** - Track individual disk health within pools (vdev status)
 - **Fragmentation tracking** - Alert on high fragmentation levels that may impact performance
 - **SMART data integration** - Correlate ZFS errors with disk SMART status for predictive failure detection
 - **Pool I/O statistics** - Track read/write performance trends and detect I/O bottlenecks
