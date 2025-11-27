@@ -13,15 +13,15 @@ from ...alias_manager import delete_alias
 logger = logging.getLogger(__name__)
 
 
-def alias_delete_command(user: Optional[str]) -> None:
+def alias_delete_command(user: Optional[str], all_users: bool = False) -> None:
     """Execute alias-delete command logic."""
     with lib_log_rich.runtime.bind(
         job_id="cli-alias-delete",
-        extra={"command": "alias-delete", "user": user},
+        extra={"command": "alias-delete", "user": user, "all_users": all_users},
     ):
         try:
-            logger.info("Removing bash alias", extra={"user": user})
-            delete_alias(username=user)
+            logger.info("Removing bash alias", extra={"user": user, "all_users": all_users})
+            delete_alias(username=user, all_users=all_users)
         except PermissionError as exc:
             logger.error("Permission denied during alias removal", extra={"error": str(exc)})
             click.echo(f"\n{exc}", err=True)

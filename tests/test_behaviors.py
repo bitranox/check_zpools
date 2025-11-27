@@ -764,7 +764,7 @@ class TestDaemonComponentInitialization:
         config = {
             "zfs": {},
             "alerts": {},
-            "daemon": {"check_interval_seconds": 300, "alert_resend_hours": 24},
+            "daemon": {"check_interval_seconds": 300, "alert_resend_interval_hours": 24},
         }
 
         client, monitor, alerter, state_manager, daemon_config = behaviors._initialize_daemon_components(config)
@@ -773,7 +773,49 @@ class TestDaemonComponentInitialization:
         assert monitor is mock_monitor, "Must return monitor"
         assert alerter is mock_alerter, "Must return alerter"
         assert state_manager is mock_state, "Must return state manager"
-        assert daemon_config == {"check_interval_seconds": 300, "alert_resend_hours": 24}, "Must return daemon config"
+        assert daemon_config == {"check_interval_seconds": 300, "alert_resend_interval_hours": 24}, "Must return daemon config"
+
+    @patch("check_zpools.behaviors.ZFSClient")
+    @patch("check_zpools.behaviors.PoolMonitor")
+    @patch("check_zpools.behaviors.load_email_config_from_dict")
+    @patch("check_zpools.behaviors.EmailAlerter")
+    @patch("check_zpools.behaviors.AlertStateManager")
+    def test_uses_alert_resend_interval_hours_config_key(
+        self,
+        mock_state_class: MagicMock,
+        mock_alerter_class: MagicMock,
+        mock_load_email: MagicMock,
+        mock_monitor_class: MagicMock,
+        mock_client_class: MagicMock,
+    ) -> None:
+        """When initializing state manager, uses alert_resend_interval_hours config key.
+
+        Given: Config with alert_resend_interval_hours set to 6
+        When: Initializing daemon components
+        Then: AlertStateManager is created with resend_interval=6
+        """
+        # Setup mocks
+        mock_client = MagicMock()
+        mock_client.check_zpool_available.return_value = True
+        mock_client_class.return_value = mock_client
+
+        mock_monitor_class.return_value = MagicMock()
+        mock_load_email.return_value = MagicMock()
+        mock_alerter_class.return_value = MagicMock()
+        mock_state_class.return_value = MagicMock()
+
+        config = {
+            "zfs": {},
+            "alerts": {},
+            "daemon": {"alert_resend_interval_hours": 6},
+        }
+
+        behaviors._initialize_daemon_components(config)
+
+        # Verify AlertStateManager was called with correct resend interval
+        mock_state_class.assert_called_once()
+        call_args = mock_state_class.call_args
+        assert call_args[0][1] == 6, "Must pass alert_resend_interval_hours to AlertStateManager"
 
 
 # =============================================================================

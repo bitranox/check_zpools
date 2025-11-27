@@ -84,7 +84,7 @@ sudo "${VENV_DIR}/bin/python" -m pip install uv
 
 # Clean up any previous installation (safe to run on fresh install)
 sudo "${VENV_DIR}/bin/uvx" check_zpools@latest service-uninstall || true
-sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-delete || true
+sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-delete --all-users || true
 # Optional: Delete alias for additional users
 # sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-delete --user <username>
 
@@ -94,7 +94,7 @@ sudo "${VENV_DIR}/bin/uvx" check_zpools@latest config-deploy --target app
 sudo "${VENV_DIR}/bin/uvx" check_zpools@latest service-install --uvx-version @latest
 
 # Create bash alias for root user (the user running sudo)
-sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-create
+sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-create --all-users
 
 # Optional: Create alias for additional users
 # sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-create --user <username>
@@ -411,7 +411,7 @@ CLI tools installed inside a virtual environment (whether created normally or vi
 
 #### `alias-create` - Create Bash Alias
 
-Creates a shell function alias in the user's `.bashrc` file, enabling the `check_zpools` command to be available without activating the virtual environment.
+Creates a shell function alias in the user's `.bashrc` file or system-wide in `/etc/bash.bashrc`, enabling the `check_zpools` command to be available without activating the virtual environment.
 
 **Usage:**
 ```bash
@@ -423,6 +423,7 @@ sudo check_zpools alias-create [OPTIONS]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--user` | TEXT | None | Target username (defaults to sudo user or current user) |
+| `--all-users` | FLAG | False | Create alias in `/etc/bash.bashrc` for all users |
 
 **Examples:**
 ```bash
@@ -431,11 +432,14 @@ sudo check_zpools alias-create
 
 # Create alias for a specific user
 sudo check_zpools alias-create --user john
+
+# Create alias for all users (system-wide)
+sudo check_zpools alias-create --all-users
 ```
 
 **What it does:**
 
-Creates a marked block in `~/.bashrc`:
+Creates a marked block in `~/.bashrc` (or `/etc/bash.bashrc` with `--all-users`):
 
 ```bash
 # [ALIAS FOR check_zpools]
@@ -454,8 +458,11 @@ check_zpools() {
 
 **After creation:**
 ```bash
-# Activate in current shell
+# Activate in current shell (user-specific)
 source ~/.bashrc
+
+# Activate in current shell (system-wide)
+source /etc/bash.bashrc
 
 # Or open a new terminal session
 ```
@@ -463,6 +470,7 @@ source ~/.bashrc
 **Notes:**
 - Requires root privileges (use `sudo`)
 - The `--user` flag requires root privileges
+- The `--all-users` flag creates alias in `/etc/bash.bashrc` (system-wide)
 - Re-running replaces any existing alias (idempotent)
 - Uses marked blocks for safe identification and removal
 - Automatically detects installation method (venv, uvx, etc.)
@@ -471,7 +479,7 @@ source ~/.bashrc
 
 #### `alias-delete` - Remove Bash Alias
 
-Removes the shell function alias from the user's `.bashrc` file.
+Removes the shell function alias from the user's `.bashrc` file or system-wide from `/etc/bash.bashrc`.
 
 **Usage:**
 ```bash
@@ -483,6 +491,7 @@ sudo check_zpools alias-delete [OPTIONS]
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `--user` | TEXT | None | Target username (defaults to sudo user or current user) |
+| `--all-users` | FLAG | False | Remove alias from `/etc/bash.bashrc` (system-wide) |
 
 **Examples:**
 ```bash
@@ -491,6 +500,9 @@ sudo check_zpools alias-delete
 
 # Remove alias for a specific user
 sudo check_zpools alias-delete --user john
+
+# Remove alias for all users (system-wide)
+sudo check_zpools alias-delete --all-users
 ```
 
 **After removal:**
@@ -504,6 +516,7 @@ unset -f check_zpools
 **Notes:**
 - Requires root privileges (use `sudo`)
 - The `--user` flag requires root privileges
+- The `--all-users` flag removes alias from `/etc/bash.bashrc` (system-wide)
 - Only removes the marked block, preserves all other `.bashrc` content
 - Safe to run even if no alias exists (no-op with message)
 

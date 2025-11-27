@@ -13,15 +13,15 @@ from ...alias_manager import create_alias
 logger = logging.getLogger(__name__)
 
 
-def alias_create_command(user: Optional[str]) -> None:
+def alias_create_command(user: Optional[str], all_users: bool = False) -> None:
     """Execute alias-create command logic."""
     with lib_log_rich.runtime.bind(
         job_id="cli-alias-create",
-        extra={"command": "alias-create", "user": user},
+        extra={"command": "alias-create", "user": user, "all_users": all_users},
     ):
         try:
-            logger.info("Creating bash alias", extra={"user": user})
-            create_alias(username=user)
+            logger.info("Creating bash alias", extra={"user": user, "all_users": all_users})
+            create_alias(username=user, all_users=all_users)
         except PermissionError as exc:
             logger.error("Permission denied during alias creation", extra={"error": str(exc)})
             click.echo(f"\n{exc}", err=True)

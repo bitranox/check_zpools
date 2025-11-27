@@ -262,8 +262,8 @@ def _write_bashrc(path: Path, content: str) -> None:
     logger.debug(f"Updated bashrc: {path}")
 
 
-def create_alias(username: str | None = None) -> None:
-    """Create shell function alias in user's bashrc.
+def create_alias(username: str | None = None, all_users: bool = False) -> None:
+    """Create shell function alias in user's bashrc or system-wide bashrc.
 
     Creates a marked block in the appropriate bashrc file containing a shell
     function that forwards all arguments to the check_zpools executable.
@@ -273,10 +273,14 @@ def create_alias(username: str | None = None) -> None:
     username:
         Target username for alias creation. If None, uses the user who
         invoked sudo (via SUDO_USER env var) or the current user.
+        Ignored if all_users is True.
+    all_users:
+        If True, create alias in /etc/bash.bashrc for all users instead
+        of a specific user's ~/.bashrc.
 
     Side Effects
         - Requires root privileges
-        - Modifies ~/.bashrc for the target user
+        - Modifies ~/.bashrc for the target user OR /etc/bash.bashrc if all_users
         - Creates bashrc if it doesn't exist
         - Removes existing alias block before adding new one
 
@@ -294,13 +298,22 @@ def create_alias(username: str | None = None) -> None:
     Create alias for specific user:
 
     >>> create_alias(username="john")  # doctest: +SKIP
+
+    Create alias for all users (system-wide):
+
+    >>> create_alias(all_users=True)  # doctest: +SKIP
     """
     logger.info("Creating bash alias for check_zpools")
-    _check_root_privileges(username)
+    _check_root_privileges(username if not all_users else None)
 
-    # Get target bashrc path
-    bashrc_path, resolved_username = _get_bashrc_path_for_user(username)
-    logger.info(f"Target user: {resolved_username}, bashrc: {bashrc_path}")
+    # Determine target bashrc path
+    if all_users:
+        bashrc_path = SYSTEM_BASHRC
+        resolved_username = "all users"
+        logger.info(f"Target: system-wide, bashrc: {bashrc_path}")
+    else:
+        bashrc_path, resolved_username = _get_bashrc_path_for_user(username)
+        logger.info(f"Target user: {resolved_username}, bashrc: {bashrc_path}")
 
     # Build execution command
     exec_command = _build_exec_command()
@@ -329,24 +342,26 @@ def create_alias(username: str | None = None) -> None:
     # Write updated content
     _write_bashrc(bashrc_path, content)
 
-    _print_create_success(resolved_username, bashrc_path, exec_command)
+    _print_create_success(resolved_username, bashrc_path, exec_command, all_users)
 
 
-def _print_create_success(username: str, bashrc_path: Path, exec_command: str) -> None:
+def _print_create_success(username: str, bashrc_path: Path, exec_command: str, all_users: bool = False) -> None:
     """Print success message after alias creation.
 
     Parameters
     ----------
     username:
-        Username the alias was created for.
+        Username the alias was created for, or "all users" for system-wide.
     bashrc_path:
         Path to the modified bashrc file.
     exec_command:
         The executable command configured.
+    all_users:
+        If True, alias was created for all users in /etc/bash.bashrc.
     """
     shell_command = __init__conf__.shell_command
     print(f"\n✓ Alias created for '{shell_command}'\n")
-    print(f"  User:     {username}")
+    print(f"  Target:   {username}")
     print(f"  File:     {bashrc_path}")
     print(f"  Command:  {exec_command}")
     print("\nTo activate the alias in current shell:")
@@ -354,8 +369,8 @@ def _print_create_success(username: str, bashrc_path: Path, exec_command: str) -
     print("\nOr open a new terminal session.")
 
 
-def delete_alias(username: str | None = None) -> None:
-    """Remove shell function alias from user's bashrc.
+def delete_alias(username: str | None = None, all_users: bool = False) -> None:
+    """Remove shell function alias from user's bashrc or system-wide bashrc.
 
     Removes the marked block containing the check_zpools shell function
     from the appropriate bashrc file.
@@ -365,10 +380,13 @@ def delete_alias(username: str | None = None) -> None:
     username:
         Target username for alias removal. If None, uses the user who
         invoked sudo (via SUDO_USER env var) or the current user.
+        Ignored if all_users is True.
+    all_users:
+        If True, remove alias from /etc/bash.bashrc (system-wide).
 
     Side Effects
         - Requires root privileges
-        - Modifies ~/.bashrc for the target user
+        - Modifies ~/.bashrc for the target user OR /etc/bash.bashrc if all_users
         - Only removes our marked block, preserves other content
 
     Raises
@@ -384,13 +402,22 @@ def delete_alias(username: str | None = None) -> None:
     Remove alias for specific user:
 
     >>> delete_alias(username="john")  # doctest: +SKIP
+
+    Remove alias for all users (system-wide):
+
+    >>> delete_alias(all_users=True)  # doctest: +SKIP
     """
     logger.info("Removing bash alias for check_zpools")
-    _check_root_privileges(username)
+    _check_root_privileges(username if not all_users else None)
 
-    # Get target bashrc path
-    bashrc_path, resolved_username = _get_bashrc_path_for_user(username)
-    logger.info(f"Target user: {resolved_username}, bashrc: {bashrc_path}")
+    # Determine target bashrc path
+    if all_users:
+        bashrc_path = SYSTEM_BASHRC
+        resolved_username = "all users"
+        logger.info(f"Target: system-wide, bashrc: {bashrc_path}")
+    else:
+        bashrc_path, resolved_username = _get_bashrc_path_for_user(username)
+        logger.info(f"Target user: {resolved_username}, bashrc: {bashrc_path}")
 
     # Check if bashrc exists
     if not bashrc_path.exists():

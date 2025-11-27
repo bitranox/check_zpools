@@ -308,7 +308,7 @@ def _initialize_daemon_components(
 
     # Initialize state management
     state_file = _get_state_file_path(config)
-    resend_interval = config.get("daemon", {}).get("alert_resend_hours", 24)
+    resend_interval = config.get("daemon", {}).get("alert_resend_interval_hours", 24)
     state_manager = AlertStateManager(state_file, resend_interval)
 
     daemon_config = config.get("daemon", {})

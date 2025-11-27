@@ -807,3 +807,202 @@ class TestUnsupportedPlatformHandling:
         with patch("platform.system", return_value="Darwin"):
             with pytest.raises(NotImplementedError, match="macOS"):
                 delete_alias()
+
+
+# ============================================================================
+# Tests for --all-users (system-wide) alias management
+# ============================================================================
+
+
+class TestCreateAliasAllUsers:
+    """Tests for creating system-wide alias in /etc/bash.bashrc."""
+
+    @pytest.mark.linux_only
+    def test_creates_alias_in_system_bashrc(self, tmp_path: Path) -> None:
+        """Should create alias block in /etc/bash.bashrc when all_users=True."""
+        system_bashrc = tmp_path / "bash.bashrc"
+        system_bashrc.write_text("# existing system content\n")
+
+        with (
+            patch("os.geteuid", return_value=0),
+            patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
+            patch(
+                "check_zpools.service_install._find_executable",
+                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+            ),
+        ):
+            create_alias(all_users=True)
+
+        content = system_bashrc.read_text()
+        assert ALIAS_MARKER_START in content
+        assert ALIAS_MARKER_END in content
+        assert "/usr/bin/check_zpools" in content
+        assert "# existing system content" in content
+
+    @pytest.mark.linux_only
+    def test_all_users_ignores_username_parameter(self, tmp_path: Path) -> None:
+        """When all_users=True, username parameter should be ignored."""
+        system_bashrc = tmp_path / "bash.bashrc"
+        system_bashrc.write_text("")
+
+        with (
+            patch("os.geteuid", return_value=0),
+            patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
+            patch(
+                "check_zpools.service_install._find_executable",
+                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+            ),
+        ):
+            # Should not raise KeyError even with invalid username
+            create_alias(username="nonexistent_user", all_users=True)
+
+        content = system_bashrc.read_text()
+        assert ALIAS_MARKER_START in content
+
+    @pytest.mark.linux_only
+    def test_all_users_requires_root(self) -> None:
+        """Should raise PermissionError when not root with all_users=True."""
+        with patch("os.geteuid", return_value=1000):
+            with pytest.raises(PermissionError, match="root"):
+                create_alias(all_users=True)
+
+    @pytest.mark.linux_only
+    def test_all_users_success_message(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        """Should print correct success message for all users."""
+        system_bashrc = tmp_path / "bash.bashrc"
+        system_bashrc.write_text("")
+
+        with (
+            patch("os.geteuid", return_value=0),
+            patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
+            patch(
+                "check_zpools.service_install._find_executable",
+                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+            ),
+        ):
+            create_alias(all_users=True)
+
+        captured = capsys.readouterr()
+        assert "Alias created" in captured.out
+        assert "all users" in captured.out
+        assert "source" in captured.out
+
+
+class TestDeleteAliasAllUsers:
+    """Tests for removing system-wide alias from /etc/bash.bashrc."""
+
+    @pytest.mark.linux_only
+    def test_removes_alias_from_system_bashrc(self, tmp_path: Path) -> None:
+        """Should remove alias block from /etc/bash.bashrc when all_users=True."""
+        system_bashrc = tmp_path / "bash.bashrc"
+        alias_block = _generate_alias_block("/usr/bin/check_zpools")
+        system_bashrc.write_text(f"# system config\n{alias_block}# more config\n")
+
+        with (
+            patch("os.geteuid", return_value=0),
+            patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
+        ):
+            delete_alias(all_users=True)
+
+        content = system_bashrc.read_text()
+        assert ALIAS_MARKER_START not in content
+        assert ALIAS_MARKER_END not in content
+        assert "# system config" in content
+        assert "# more config" in content
+
+    @pytest.mark.linux_only
+    def test_all_users_delete_ignores_username_parameter(self, tmp_path: Path) -> None:
+        """When all_users=True, username parameter should be ignored."""
+        system_bashrc = tmp_path / "bash.bashrc"
+        alias_block = _generate_alias_block("/usr/bin/check_zpools")
+        system_bashrc.write_text(alias_block)
+
+        with (
+            patch("os.geteuid", return_value=0),
+            patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
+        ):
+            # Should not raise KeyError even with invalid username
+            delete_alias(username="nonexistent_user", all_users=True)
+
+        content = system_bashrc.read_text()
+        assert ALIAS_MARKER_START not in content
+
+    @pytest.mark.linux_only
+    def test_all_users_delete_requires_root(self) -> None:
+        """Should raise PermissionError when not root with all_users=True."""
+        with patch("os.geteuid", return_value=1000):
+            with pytest.raises(PermissionError, match="root"):
+                delete_alias(all_users=True)
+
+    @pytest.mark.linux_only
+    def test_all_users_delete_handles_no_alias(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        """Should print message when no alias exists in system bashrc."""
+        system_bashrc = tmp_path / "bash.bashrc"
+        system_bashrc.write_text("# just system config\n")
+
+        with (
+            patch("os.geteuid", return_value=0),
+            patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
+        ):
+            delete_alias(all_users=True)
+
+        captured = capsys.readouterr()
+        assert "No" in captured.out and "alias" in captured.out
+
+    @pytest.mark.linux_only
+    def test_all_users_delete_handles_missing_file(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        """Should print message when /etc/bash.bashrc doesn't exist."""
+        system_bashrc = tmp_path / "nonexistent_bash.bashrc"
+
+        with (
+            patch("os.geteuid", return_value=0),
+            patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
+        ):
+            delete_alias(all_users=True)
+
+        captured = capsys.readouterr()
+        assert "not found" in captured.out
+
+
+class TestAliasCreateAllUsersCLI:
+    """Tests for alias-create --all-users CLI option."""
+
+    def test_all_users_option_available(self) -> None:
+        """--all-users option should be available."""
+        from check_zpools.cli import cli
+
+        cmd = cli.commands["alias-create"]
+        param_names = [p.name for p in cmd.params]
+        assert "all_users" in param_names
+
+    @pytest.mark.linux_only
+    def test_help_shows_all_users_option(self, cli_runner: CliRunner) -> None:
+        """Help output should document --all-users option."""
+        from check_zpools.cli import cli
+
+        result = cli_runner.invoke(cli, ["alias-create", "--help"])
+        assert result.exit_code == 0
+        assert "--all-users" in result.output
+        assert "/etc/bash.bashrc" in result.output
+
+
+class TestAliasDeleteAllUsersCLI:
+    """Tests for alias-delete --all-users CLI option."""
+
+    def test_all_users_option_available(self) -> None:
+        """--all-users option should be available."""
+        from check_zpools.cli import cli
+
+        cmd = cli.commands["alias-delete"]
+        param_names = [p.name for p in cmd.params]
+        assert "all_users" in param_names
+
+    @pytest.mark.linux_only
+    def test_help_shows_all_users_option(self, cli_runner: CliRunner) -> None:
+        """Help output should document --all-users option."""
+        from check_zpools.cli import cli
+
+        result = cli_runner.invoke(cli, ["alias-delete", "--help"])
+        assert result.exit_code == 0
+        assert "--all-users" in result.output
+        assert "/etc/bash.bashrc" in result.output

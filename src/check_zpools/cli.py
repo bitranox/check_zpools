@@ -281,9 +281,15 @@ def cli_service_status() -> None:
     default=None,
     help="Target username for alias creation (defaults to sudo user or current user)",
 )
-def cli_alias_create(user: Optional[str]) -> None:
+@click.option(
+    "--all-users",
+    is_flag=True,
+    default=False,
+    help="Create alias in /etc/bash.bashrc for all users (requires root)",
+)
+def cli_alias_create(user: Optional[str], all_users: bool) -> None:
     """Create bash alias for check_zpools CLI (requires root)."""
-    alias_create_command(user)
+    alias_create_command(user, all_users)
 
 
 @cli.command("alias-delete", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -293,9 +299,15 @@ def cli_alias_create(user: Optional[str]) -> None:
     default=None,
     help="Target username for alias removal (defaults to sudo user or current user)",
 )
-def cli_alias_delete(user: Optional[str]) -> None:
+@click.option(
+    "--all-users",
+    is_flag=True,
+    default=False,
+    help="Remove alias from /etc/bash.bashrc (system-wide, requires root)",
+)
+def cli_alias_delete(user: Optional[str], all_users: bool) -> None:
     """Remove bash alias for check_zpools CLI (requires root)."""
-    alias_delete_command(user)
+    alias_delete_command(user, all_users)
 
 
 @cli.command("check", context_settings=CLICK_CONTEXT_SETTINGS)

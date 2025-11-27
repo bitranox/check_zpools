@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [3.5.0] - 2025-11-27
+
+### Added
+- **System-Wide Alias Support**: `alias-create` and `alias-delete` commands now support `--all-users` flag
+  - Creates/removes alias in `/etc/bash.bashrc` instead of user's `~/.bashrc`
+  - Allows all users on the system to use the `check_zpools` command
+  - Requires root privileges
+  - After creation, users need to run `source /etc/bash.bashrc` or open a new terminal
+  - **Why this matters**: Simplifies deployment in multi-user environments where all administrators need access to the tool
+
+### Fixed
+- **Daemon Alert Resend (Critical Bug)**: Fixed daemon ignoring configured `alert_resend_interval_hours`
+  - **Root cause**: Code in `behaviors.py` used wrong config key `alert_resend_hours` instead of `alert_resend_interval_hours`
+  - **Impact**: Daemon always used default 24-hour resend interval instead of configured value (default: 2 hours)
+  - **Symptom**: Repeat alerts for persistent issues sent after 24 hours instead of configured interval
+  - **Solution**: Corrected config key to match `defaultconfig.toml` definition
+  - **Why this matters**: Email notifications for ongoing issues are now sent at the configured interval
+
+### Tests
+- Added test to verify correct config key is used for alert resend interval
+- Added 12 tests for `--all-users` alias functionality
+
 ## [3.3.0] - 2025-11-26
 
 ### Added
