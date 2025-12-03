@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [3.6.0] - 2025-12-03
+
+### Changed
+- **Logging Setup**: Simplified `attach_std_logging()` call by using library defaults
+  - Removed explicit `logger_level="DEBUG"` and `propagate=False` parameters
+  - lib_log_rich now handles log level management internally
+  - **Why this matters**: Cleaner code with less configuration, letting the library manage defaults
+
 ## [3.5.0] - 2025-11-27
 
 ### Added

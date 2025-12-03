@@ -113,16 +113,7 @@ def init_logging() -> None:
 
         _runtime_config = _build_runtime_config()
         lib_log_rich.runtime.init(_runtime_config)
-
-        # Set stdlib root logger to the minimum lib_log_rich level
-        # This ensures stdlib doesn't filter out events before they reach lib_log_rich
-        # This ensures the root logger captures all log messages and doesn't filter
-        # before lib_log_rich handlers can apply their own level thresholds
-        # (console, journald, graylog each filter independently based on their config)
-        lib_log_rich.runtime.attach_std_logging(
-            logger_level=lib_log_rich.get_minimum_log_level(),
-            propagate=False,
-        )
+        lib_log_rich.runtime.attach_std_logging()
 
 
 __all__ = [
