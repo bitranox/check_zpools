@@ -40,7 +40,7 @@ from .alerting import EmailAlerter
 from .config import get_config
 from .daemon import ZPoolDaemon
 from .mail import load_email_config_from_dict
-from .models import CheckResult
+from .models import AlertConfig, CheckResult, DaemonConfig
 from .monitor import MonitorConfig, PoolMonitor
 from .zfs_client import ZFSClient, ZFSNotAvailableError
 from .zfs_parser import ZFSParser
@@ -278,7 +278,7 @@ def _load_config_with_logging(config: dict[str, Any] | None) -> dict[str, Any]:
 
 def _initialize_daemon_components(
     config: dict[str, Any],
-) -> tuple[ZFSClient, PoolMonitor, EmailAlerter, AlertStateManager, dict[str, Any]]:
+) -> tuple[ZFSClient, PoolMonitor, EmailAlerter, AlertStateManager, DaemonConfig]:
     """Initialize all daemon components.
 
     Why
@@ -296,7 +296,7 @@ def _initialize_daemon_components(
 
     # Initialize alerting with threshold values from monitor config
     email_config = load_email_config_from_dict(config)
-    alert_config = config.get("alerts", {})
+    alert_config = AlertConfig(**config.get("alerts", {}))
     alerter = EmailAlerter(
         email_config,
         alert_config,
@@ -311,7 +311,7 @@ def _initialize_daemon_components(
     resend_interval = config.get("daemon", {}).get("alert_resend_interval_hours", 24)
     state_manager = AlertStateManager(state_file, resend_interval)
 
-    daemon_config = config.get("daemon", {})
+    daemon_config = DaemonConfig(**config.get("daemon", {}))
 
     return client, monitor, alerter, state_manager, daemon_config
 

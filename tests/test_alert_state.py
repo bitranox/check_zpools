@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 from check_zpools.alert_state import AlertState, AlertStateManager
-from check_zpools.models import PoolIssue, Severity
+from check_zpools.models import IssueCategory, IssueDetails, PoolIssue, Severity
 
 
 # ============================================================================
@@ -33,9 +33,9 @@ def a_capacity_issue_for(pool_name: str) -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.WARNING,
-        category="capacity",
+        category=IssueCategory.CAPACITY,
         message=f"Pool {pool_name} capacity at 85%",
-        details={"capacity_percent": 85},
+        details=IssueDetails(capacity_percent=85),
     )
 
 
@@ -44,9 +44,9 @@ def an_error_issue_for(pool_name: str) -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.WARNING,
-        category="errors",
+        category=IssueCategory.ERRORS,
         message=f"Pool {pool_name} has read errors",
-        details={},
+        details=IssueDetails(),
     )
 
 
@@ -55,9 +55,9 @@ def a_health_issue_for(pool_name: str) -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.CRITICAL,
-        category="health",
+        category=IssueCategory.HEALTH,
         message=f"Pool {pool_name} is degraded",
-        details={},
+        details=IssueDetails(),
     )
 
 
@@ -654,9 +654,9 @@ class TestStateChangeDetection:
         warning_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool degraded",
-            details={},
+            details=IssueDetails(),
         )
         manager.record_alert(warning_issue)
 
@@ -664,9 +664,9 @@ class TestStateChangeDetection:
         critical_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool faulted",
-            details={},
+            details=IssueDetails(),
         )
 
         result = manager.should_alert(critical_issue)
@@ -683,9 +683,9 @@ class TestStateChangeDetection:
         critical_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool faulted",
-            details={},
+            details=IssueDetails(),
         )
         manager.record_alert(critical_issue)
 
@@ -693,9 +693,9 @@ class TestStateChangeDetection:
         warning_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool degraded",
-            details={},
+            details=IssueDetails(),
         )
 
         result = manager.should_alert(warning_issue)
@@ -712,9 +712,9 @@ class TestStateChangeDetection:
         warning_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
-            category="capacity",
+            category=IssueCategory.CAPACITY,
             message="Pool at 85%",
-            details={},
+            details=IssueDetails(),
         )
         manager.record_alert(warning_issue)
 
@@ -722,9 +722,9 @@ class TestStateChangeDetection:
         same_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
-            category="capacity",
+            category=IssueCategory.CAPACITY,
             message="Pool at 86%",  # Message changed but severity same
-            details={},
+            details=IssueDetails(),
         )
 
         result = manager.should_alert(same_issue)
@@ -740,9 +740,9 @@ class TestStateChangeDetection:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool faulted",
-            details={},
+            details=IssueDetails(),
         )
 
         manager.record_alert(issue)
@@ -763,9 +763,9 @@ class TestStateChangeDetection:
         critical_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool faulted",
-            details={},
+            details=IssueDetails(),
         )
 
         result = manager.should_alert(critical_issue)
@@ -783,9 +783,9 @@ def a_device_issue_for(pool_name: str, device_name: str, severity: Severity = Se
     return PoolIssue(
         pool_name=pool_name,
         severity=severity,
-        category="device",
+        category=IssueCategory.DEVICE,
         message=f"Device {device_name} is FAULTED",
-        details={"device_name": device_name, "device_state": "FAULTED"},
+        details=IssueDetails(device_name=device_name, device_state="FAULTED"),
     )
 
 

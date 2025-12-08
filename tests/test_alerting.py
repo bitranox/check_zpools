@@ -38,7 +38,7 @@ import pytest
 
 from check_zpools.alerting import EmailAlerter
 from check_zpools.mail import EmailConfig
-from check_zpools.models import PoolHealth, PoolIssue, PoolStatus, Severity
+from check_zpools.models import AlertConfig, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
 
 
 # ============================================================================
@@ -54,9 +54,9 @@ def a_capacity_issue(pool_name: str = "rpool", severity: Severity = Severity.WAR
     return PoolIssue(
         pool_name=pool_name,
         severity=severity,
-        category="capacity",
+        category=IssueCategory.CAPACITY,
         message="Pool capacity at 85.5%",
-        details={"threshold": 80, "actual": 85.5},
+        details=IssueDetails(threshold=80, actual="85.5"),
     )
 
 
@@ -65,9 +65,9 @@ def an_error_issue(pool_name: str = "rpool") -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.WARNING,
-        category="errors",
+        category=IssueCategory.ERRORS,
         message="Read errors detected",
-        details={},
+        details=IssueDetails(),
     )
 
 
@@ -76,9 +76,9 @@ def a_scrub_issue(pool_name: str = "rpool") -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.INFO,
-        category="scrub",
+        category=IssueCategory.SCRUB,
         message="Scrub overdue",
-        details={},
+        details=IssueDetails(),
     )
 
 
@@ -87,9 +87,9 @@ def a_health_issue(pool_name: str = "rpool") -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.CRITICAL,
-        category="health",
+        category=IssueCategory.HEALTH,
         message="Pool degraded",
-        details={},
+        details=IssueDetails(),
     )
 
 
@@ -114,18 +114,18 @@ def email_config() -> EmailConfig:
 
 
 @pytest.fixture
-def alert_config() -> dict:
+def alert_config() -> AlertConfig:
     """Create test alert configuration."""
-    return {
-        "subject_prefix": "[ZFS Test]",
-        "alert_recipients": ["admin@example.com"],
-        "send_ok_emails": False,
-        "send_recovery_emails": True,
-    }
+    return AlertConfig(
+        subject_prefix="[ZFS Test]",
+        alert_recipients=["admin@example.com"],
+        send_ok_emails=False,
+        send_recovery_emails=True,
+    )
 
 
 @pytest.fixture
-def alerter(email_config: EmailConfig, alert_config: dict) -> EmailAlerter:
+def alerter(email_config: EmailConfig, alert_config: AlertConfig) -> EmailAlerter:
     """Create EmailAlerter instance."""
     return EmailAlerter(email_config, alert_config)
 
@@ -155,9 +155,9 @@ def sample_issue() -> PoolIssue:
     return PoolIssue(
         pool_name="rpool",
         severity=Severity.WARNING,
-        category="capacity",
+        category=IssueCategory.CAPACITY,
         message="Pool capacity at 85.5%",
-        details={"threshold": 80, "actual": 85.5},
+        details=IssueDetails(threshold=80, actual="85.5"),
     )
 
 
@@ -165,7 +165,7 @@ def sample_issue() -> PoolIssue:
 class TestEmailAlerterInitializationStoresConfiguration:
     """Email alerter initialization stores all provided configuration."""
 
-    def test_stores_email_config_reference(self, email_config: EmailConfig, alert_config: dict) -> None:
+    def test_stores_email_config_reference(self, email_config: EmailConfig, alert_config: AlertConfig) -> None:
         """When initializing with email config, stores reference.
 
         Given: Email configuration with SMTP settings
@@ -176,7 +176,7 @@ class TestEmailAlerterInitializationStoresConfiguration:
 
         assert alerter.email_config == email_config
 
-    def test_applies_custom_subject_prefix_from_config(self, email_config: EmailConfig, alert_config: dict) -> None:
+    def test_applies_custom_subject_prefix_from_config(self, email_config: EmailConfig, alert_config: AlertConfig) -> None:
         """When config specifies subject_prefix, uses that prefix.
 
         Given: Alert config with custom prefix "[ZFS Test]"
@@ -187,7 +187,7 @@ class TestEmailAlerterInitializationStoresConfiguration:
 
         assert alerter.subject_prefix == "[ZFS Test]"
 
-    def test_stores_alert_recipients_from_config(self, email_config: EmailConfig, alert_config: dict) -> None:
+    def test_stores_alert_recipients_from_config(self, email_config: EmailConfig, alert_config: AlertConfig) -> None:
         """When config specifies alert_recipients, stores recipient list.
 
         Given: Alert config with recipient list
@@ -205,7 +205,7 @@ class TestEmailAlerterInitializationStoresConfiguration:
         When: Creating alerter
         Then: Alerter uses default prefix "[ZFS Alert]"
         """
-        alerter = EmailAlerter(email_config, {})
+        alerter = EmailAlerter(email_config, AlertConfig())
 
         assert alerter.subject_prefix == "[ZFS Alert]"
 
@@ -297,9 +297,9 @@ class TestAlertBodyIncludesRecommendedActionsByCategory:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
-            category="capacity",
+            category=IssueCategory.CAPACITY,
             message="High capacity",
-            details={},
+            details=IssueDetails(),
         )
 
         body = alerter._format_body(issue, sample_pool)
@@ -317,9 +317,9 @@ class TestAlertBodyIncludesRecommendedActionsByCategory:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
-            category="errors",
+            category=IssueCategory.ERRORS,
             message="Read errors detected",
-            details={},
+            details=IssueDetails(),
         )
 
         body = alerter._format_body(issue, sample_pool)
@@ -337,9 +337,9 @@ class TestAlertBodyIncludesRecommendedActionsByCategory:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.INFO,
-            category="scrub",
+            category=IssueCategory.SCRUB,
             message="Scrub overdue",
-            details={},
+            details=IssueDetails(),
         )
 
         body = alerter._format_body(issue, sample_pool)
@@ -356,9 +356,9 @@ class TestAlertBodyIncludesRecommendedActionsByCategory:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool degraded",
-            details={},
+            details=IssueDetails(),
         )
 
         body = alerter._format_body(issue, sample_pool)
@@ -426,7 +426,7 @@ class TestAlertSendingCallsSMTPWithFormattedContent:
         When: Attempting to send alert
         Then: Returns False immediately
         """
-        alerter = EmailAlerter(email_config, {"alert_recipients": []})
+        alerter = EmailAlerter(email_config, AlertConfig(alert_recipients=[]))
 
         result = alerter.send_alert(sample_issue, sample_pool)
 
@@ -506,7 +506,7 @@ class TestRecoverySendingRespectsConfiguration:
         """
         alerter = EmailAlerter(
             email_config,
-            {"send_recovery_emails": False, "alert_recipients": ["admin@example.com"]},
+            AlertConfig(send_recovery_emails=False, alert_recipients=["admin@example.com"]),
         )
 
         result = alerter.send_recovery("rpool", "capacity")
@@ -534,7 +534,7 @@ class TestRecoverySendingRespectsConfiguration:
         When: Attempting to send recovery
         Then: Returns False immediately
         """
-        alerter = EmailAlerter(email_config, {"alert_recipients": []})
+        alerter = EmailAlerter(email_config, AlertConfig(alert_recipients=[]))
 
         result = alerter.send_recovery("rpool", "capacity")
 
@@ -658,10 +658,10 @@ def an_alerter_with_severity_config(alert_on_severities: list[str]) -> EmailAler
         smtp_password="pass",
         use_starttls=True,
     )
-    alert_config = {
-        "alert_recipients": ["admin@example.com"],
-        "alert_on_severities": alert_on_severities,
-    }
+    alert_config = AlertConfig(
+        alert_recipients=["admin@example.com"],
+        alert_on_severities=alert_on_severities,
+    )
     return EmailAlerter(email_config, alert_config)
 
 
@@ -683,9 +683,9 @@ class TestSeverityFilteringControlsWhichAlertsAreSent:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool faulted",
-            details={},
+            details=IssueDetails(),
         )
         pool = configurable_pool_status("rpool")
 
@@ -708,9 +708,9 @@ class TestSeverityFilteringControlsWhichAlertsAreSent:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
-            category="capacity",
+            category=IssueCategory.CAPACITY,
             message="Pool at 85%",
-            details={},
+            details=IssueDetails(),
         )
         pool = configurable_pool_status("rpool", capacity=85.0)
 
@@ -733,9 +733,9 @@ class TestSeverityFilteringControlsWhichAlertsAreSent:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.WARNING,
-            category="capacity",
+            category=IssueCategory.CAPACITY,
             message="Pool at 85%",
-            details={},
+            details=IssueDetails(),
         )
         pool = configurable_pool_status("rpool", capacity=85.0)
 
@@ -758,9 +758,9 @@ class TestSeverityFilteringControlsWhichAlertsAreSent:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.INFO,
-            category="scrub",
+            category=IssueCategory.SCRUB,
             message="Scrub completed",
-            details={},
+            details=IssueDetails(),
         )
         pool = configurable_pool_status("rpool")
 
@@ -783,9 +783,9 @@ class TestSeverityFilteringControlsWhichAlertsAreSent:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.INFO,
-            category="scrub",
+            category=IssueCategory.SCRUB,
             message="Scrub completed",
-            details={},
+            details=IssueDetails(),
         )
         pool = configurable_pool_status("rpool")
 
@@ -808,9 +808,9 @@ class TestSeverityFilteringControlsWhichAlertsAreSent:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool faulted",
-            details={},
+            details=IssueDetails(),
         )
         pool = configurable_pool_status("rpool")
 

@@ -30,7 +30,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from .models import CheckResult, DeviceStatus, PoolHealth, PoolIssue, PoolStatus, Severity  # noqa: F401 - PoolHealth, DeviceStatus used in doctests  # pyright: ignore[reportUnusedImport]
+from .models import CheckResult, DeviceState, DeviceStatus, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity  # noqa: F401 - PoolHealth, DeviceStatus used in doctests  # pyright: ignore[reportUnusedImport]
 
 logger = logging.getLogger(__name__)
 
@@ -275,12 +275,12 @@ class PoolMonitor:
         return PoolIssue(
             pool_name=pool.name,
             severity=severity,
-            category="health",
+            category=IssueCategory.HEALTH,
             message=f"Pool is {pool.health.value} (expected: ONLINE)",
-            details={
-                "current_state": pool.health.value,
-                "expected_state": "ONLINE",
-            },
+            details=IssueDetails(
+                current_state=pool.health.value,
+                expected_state="ONLINE",
+            ),
         )
 
     def _check_faulted_devices(self, pool: PoolStatus) -> list[PoolIssue]:
@@ -312,16 +312,16 @@ class PoolMonitor:
                 PoolIssue(
                     pool_name=pool.name,
                     severity=severity,
-                    category="device",
+                    category=IssueCategory.DEVICE,
                     message=message,
-                    details={
-                        "device_name": device.name,
-                        "device_state": device.state,
-                        "device_type": device.vdev_type,
-                        "read_errors": device.read_errors,
-                        "write_errors": device.write_errors,
-                        "checksum_errors": device.checksum_errors,
-                    },
+                    details=IssueDetails(
+                        device_name=device.name,
+                        device_state=device.state.value,
+                        device_type=device.vdev_type,
+                        read_errors=device.read_errors,
+                        write_errors=device.write_errors,
+                        checksum_errors=device.checksum_errors,
+                    ),
                 )
             )
 
@@ -340,7 +340,7 @@ class PoolMonitor:
         Severity:
             CRITICAL for FAULTED/UNAVAIL, WARNING for DEGRADED/errors
         """
-        if device.is_faulted() or device.state.upper() in ("UNAVAIL", "REMOVED"):
+        if device.is_faulted() or device.state in (DeviceState.UNAVAIL, DeviceState.REMOVED):
             return Severity.CRITICAL
         return Severity.WARNING
 
@@ -357,7 +357,7 @@ class PoolMonitor:
         str:
             Descriptive message about the device problem
         """
-        parts = [f"Device {device.name} is {device.state}"]
+        parts = [f"Device {device.name} is {device.state.value}"]
 
         if device.has_errors():
             error_parts = []
@@ -388,30 +388,30 @@ class PoolMonitor:
             return PoolIssue(
                 pool_name=pool.name,
                 severity=Severity.CRITICAL,
-                category="capacity",
+                category=IssueCategory.CAPACITY,
                 message=f"Pool at {pool.capacity_percent:.1f}% capacity (critical threshold: {self.config.capacity_critical_percent}%)",
-                details={
-                    "capacity_percent": pool.capacity_percent,
-                    "threshold": self.config.capacity_critical_percent,
-                    "size_bytes": pool.size_bytes,
-                    "allocated_bytes": pool.allocated_bytes,
-                    "free_bytes": pool.free_bytes,
-                },
+                details=IssueDetails(
+                    capacity_percent=pool.capacity_percent,
+                    threshold=self.config.capacity_critical_percent,
+                    size_bytes=pool.size_bytes,
+                    allocated_bytes=pool.allocated_bytes,
+                    free_bytes=pool.free_bytes,
+                ),
             )
 
         if pool.capacity_percent >= self.config.capacity_warning_percent:
             return PoolIssue(
                 pool_name=pool.name,
                 severity=Severity.WARNING,
-                category="capacity",
+                category=IssueCategory.CAPACITY,
                 message=f"Pool at {pool.capacity_percent:.1f}% capacity (warning threshold: {self.config.capacity_warning_percent}%)",
-                details={
-                    "capacity_percent": pool.capacity_percent,
-                    "threshold": self.config.capacity_warning_percent,
-                    "size_bytes": pool.size_bytes,
-                    "allocated_bytes": pool.allocated_bytes,
-                    "free_bytes": pool.free_bytes,
-                },
+                details=IssueDetails(
+                    capacity_percent=pool.capacity_percent,
+                    threshold=self.config.capacity_warning_percent,
+                    size_bytes=pool.size_bytes,
+                    allocated_bytes=pool.allocated_bytes,
+                    free_bytes=pool.free_bytes,
+                ),
             )
 
         return None
@@ -441,15 +441,21 @@ class PoolMonitor:
         if extra_note:
             message += f" {extra_note}"
 
+        # Build details with the appropriate error field based on error_type
+        details = IssueDetails(threshold=threshold)
+        if error_type == "read":
+            details = IssueDetails(read_errors=count, threshold=threshold)
+        elif error_type == "write":
+            details = IssueDetails(write_errors=count, threshold=threshold)
+        elif error_type == "checksum":
+            details = IssueDetails(checksum_errors=count, threshold=threshold)
+
         return PoolIssue(
             pool_name=pool_name,
             severity=Severity.WARNING,
-            category="errors",
+            category=IssueCategory.ERRORS,
             message=message,
-            details={
-                f"{error_type}_errors": count,
-                "threshold": threshold,
-            },
+            details=details,
         )
 
     def _check_error_threshold(self, count: int, threshold: int) -> bool:
@@ -518,12 +524,12 @@ class PoolMonitor:
             return PoolIssue(
                 pool_name=pool.name,
                 severity=Severity.WARNING,
-                category="scrub",
+                category=IssueCategory.SCRUB,
                 message=f"Last scrub found {pool.scrub_errors} errors",
-                details={
-                    "scrub_errors": pool.scrub_errors,
-                    "last_scrub": pool.last_scrub.isoformat() if pool.last_scrub else None,
-                },
+                details=IssueDetails(
+                    scrub_errors=pool.scrub_errors,
+                    last_scrub=pool.last_scrub.isoformat() if pool.last_scrub else None,
+                ),
             )
 
         # Check scrub age (only if scrub_max_age_days > 0)
@@ -532,9 +538,9 @@ class PoolMonitor:
                 return PoolIssue(
                     pool_name=pool.name,
                     severity=Severity.INFO,
-                    category="scrub",
+                    category=IssueCategory.SCRUB,
                     message="Pool has never been scrubbed",
-                    details={"last_scrub": None},
+                    details=IssueDetails(last_scrub=None),
                 )
 
             # Calculate age
@@ -546,13 +552,13 @@ class PoolMonitor:
                 return PoolIssue(
                     pool_name=pool.name,
                     severity=Severity.INFO,
-                    category="scrub",
+                    category=IssueCategory.SCRUB,
                     message=f"Pool scrub is {age_days} days old (max age: {self.config.scrub_max_age_days} days)",
-                    details={
-                        "last_scrub": pool.last_scrub.isoformat(),
-                        "age_days": age_days,
-                        "max_age_days": self.config.scrub_max_age_days,
-                    },
+                    details=IssueDetails(
+                        last_scrub=pool.last_scrub.isoformat(),
+                        age_days=age_days,
+                        max_age_days=self.config.scrub_max_age_days,
+                    ),
                 )
 
         return None

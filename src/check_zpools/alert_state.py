@@ -33,7 +33,7 @@ from typing import Any
 
 from pydantic import BaseModel, field_serializer
 
-from .models import PoolIssue
+from .models import IssueCategory, PoolIssue
 
 logger = logging.getLogger(__name__)
 
@@ -176,8 +176,9 @@ class AlertStateManager:
         str | None:
             Device name if this is a device issue with device_name in details, else None.
         """
-        if issue.category == "device" and issue.details:
-            return issue.details.get("device_name")
+        if issue.category == IssueCategory.DEVICE and issue.details:
+            # issue.details is always IssueDetails (typed field in PoolIssue)
+            return issue.details.device_name
         return None
 
     def should_alert(self, issue: PoolIssue) -> bool:
@@ -207,14 +208,15 @@ class AlertStateManager:
             True if alert should be sent, False to suppress.
         """
         device_name = self._extract_device_name(issue)
-        key = self._make_key(issue.pool_name, issue.category, device_name)
+        category_value = issue.category.value
+        key = self._make_key(issue.pool_name, category_value, device_name)
         state = self.states.get(key)
 
         if state is None:
             # New issue, should alert
             logger.debug(
                 "New issue detected",
-                extra={"pool": issue.pool_name, "category": issue.category},
+                extra={"pool": issue.pool_name, "category": category_value},
             )
             return True
 
@@ -222,7 +224,7 @@ class AlertStateManager:
             # Issue exists but never alerted (shouldn't happen, but safe)
             logger.warning(
                 "Issue has state but no alert timestamp",
-                extra={"pool": issue.pool_name, "category": issue.category},
+                extra={"pool": issue.pool_name, "category": category_value},
             )
             return True
 
@@ -233,7 +235,7 @@ class AlertStateManager:
                 "State change detected - sending immediate alert",
                 extra={
                     "pool": issue.pool_name,
-                    "category": issue.category,
+                    "category": category_value,
                     "old_severity": state.last_severity,
                     "new_severity": current_severity,
                 },
@@ -250,7 +252,7 @@ class AlertStateManager:
                 "Resending alert after interval",
                 extra={
                     "pool": issue.pool_name,
-                    "category": issue.category,
+                    "category": category_value,
                     "hours_since_last": elapsed.total_seconds() / 3600,
                 },
             )
@@ -259,7 +261,7 @@ class AlertStateManager:
                 "Suppressing duplicate alert",
                 extra={
                     "pool": issue.pool_name,
-                    "category": issue.category,
+                    "category": category_value,
                     "hours_since_last": elapsed.total_seconds() / 3600,
                 },
             )
@@ -286,7 +288,8 @@ class AlertStateManager:
             The issue for which an alert was sent.
         """
         device_name = self._extract_device_name(issue)
-        key = self._make_key(issue.pool_name, issue.category, device_name)
+        category_value = issue.category.value
+        key = self._make_key(issue.pool_name, category_value, device_name)
         now = datetime.now(UTC)
         current_severity = issue.severity.value
 
@@ -300,7 +303,7 @@ class AlertStateManager:
                 "Updated alert state",
                 extra={
                     "pool": issue.pool_name,
-                    "category": issue.category,
+                    "category": category_value,
                     "severity": current_severity,
                     "count": state.alert_count,
                 },
@@ -309,7 +312,7 @@ class AlertStateManager:
             # New issue - create state
             self.states[key] = AlertState(
                 pool_name=issue.pool_name,
-                issue_category=issue.category,
+                issue_category=category_value,
                 first_seen=now,
                 last_alerted=now,
                 alert_count=1,
@@ -319,14 +322,14 @@ class AlertStateManager:
                 "Created alert state",
                 extra={
                     "pool": issue.pool_name,
-                    "category": issue.category,
+                    "category": category_value,
                     "severity": current_severity,
                 },
             )
 
         self.save_state()
 
-    def clear_issue(self, pool_name: str, category: str, device_name: str | None = None) -> bool:
+    def clear_issue(self, pool_name: str, category: str | IssueCategory, device_name: str | None = None) -> bool:
         """Clear state when an issue is resolved.
 
         Why
@@ -356,16 +359,18 @@ class AlertStateManager:
             True if any state was cleared, False if no state existed.
         """
         # For device category without specific device, clear all device issues for this pool
-        if category == "device" and device_name is None:
+        # Accept both string "device" and IssueCategory.DEVICE enum value
+        category_str = category.value if isinstance(category, IssueCategory) else category
+        if category_str == IssueCategory.DEVICE.value and device_name is None:
             return self._clear_all_device_issues(pool_name)
 
-        key = self._make_key(pool_name, category, device_name)
+        key = self._make_key(pool_name, category_str, device_name)
         if key in self.states:
             del self.states[key]
             self.save_state()
             logger.info(
                 "Cleared resolved issue",
-                extra={"pool": pool_name, "category": category, "device": device_name},
+                extra={"pool": pool_name, "category": category_str, "device": device_name},
             )
             return True
         return False

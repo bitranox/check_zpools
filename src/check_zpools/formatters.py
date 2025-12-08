@@ -51,9 +51,9 @@ def format_check_result_json(result: CheckResult) -> str:
             {
                 "pool_name": issue.pool_name,
                 "severity": issue.severity.value,
-                "category": issue.category,
+                "category": issue.category.value,
                 "message": issue.message,
-                "details": issue.details,
+                "details": issue.details.model_dump(exclude_none=True),
             }
             for issue in result.issues
         ],
@@ -398,7 +398,7 @@ def _get_severity_color(severity: Severity) -> str:
     """
     if severity.is_critical():
         return "red"
-    elif severity.value == "WARNING":
+    elif severity.is_warning():
         return "yellow"
     else:
         return "green"
@@ -419,7 +419,7 @@ def get_exit_code_for_severity(severity: Severity) -> int:
     """
     if severity.is_critical():
         return 2
-    elif severity.value == "WARNING":
+    elif severity.is_warning():
         return 1
     else:
         return 0

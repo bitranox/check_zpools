@@ -242,19 +242,19 @@ class TestHelperMethods:
 
         capacity = parser._extract_capacity_from_vdev(root_vdev)
 
-        assert capacity["allocated_bytes"] == 100000000
-        assert capacity["size_bytes"] == 1000000000
-        assert capacity["free_bytes"] == 900000000
-        assert capacity["capacity_percent"] == 10.0
+        assert capacity.allocated_bytes == 100000000
+        assert capacity.size_bytes == 1000000000
+        assert capacity.free_bytes == 900000000
+        assert capacity.capacity_percent == 10.0
 
     def test_extract_capacity_empty_vdev(self, parser: ZFSParser) -> None:
         """Verify default values for empty vdev."""
         capacity = parser._extract_capacity_from_vdev({})
 
-        assert capacity["allocated_bytes"] == 0
-        assert capacity["size_bytes"] == 0
-        assert capacity["free_bytes"] == 0
-        assert capacity["capacity_percent"] == 0.0
+        assert capacity.allocated_bytes == 0
+        assert capacity.size_bytes == 0
+        assert capacity.free_bytes == 0
+        assert capacity.capacity_percent == 0.0
 
     def test_extract_errors_from_vdev(self, parser: ZFSParser) -> None:
         """Verify error extraction from vdev with integer values."""

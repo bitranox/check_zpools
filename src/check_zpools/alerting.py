@@ -25,11 +25,11 @@ import logging
 import socket
 import subprocess  # nosec B404 - subprocess used only for exception handling (TimeoutExpired)
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from . import __init__conf__
 from .mail import EmailConfig, send_email
-from .models import PoolIssue, PoolStatus, Severity
+from .models import AlertConfig, IssueCategory, PoolIssue, PoolStatus, Severity
 from .zfs_client import ZFSCommandError
 
 if TYPE_CHECKING:
@@ -107,18 +107,19 @@ class EmailAlerter:
     def __init__(
         self,
         email_config: EmailConfig,
-        alert_config: dict[str, Any],
+        alert_config: AlertConfig,
         capacity_warning_percent: int = 80,
         capacity_critical_percent: int = 90,
         scrub_max_age_days: int = 30,
         zfs_client: ZFSClient | None = None,
     ):
         self.email_config = email_config
-        self.subject_prefix = alert_config.get("subject_prefix", "[ZFS Alert]")
-        self.recipients = alert_config.get("alert_recipients", [])
-        self.include_ok_alerts = alert_config.get("send_ok_emails", False)
-        self.include_recovery_alerts = alert_config.get("send_recovery_emails", True)
-        self.alert_on_severities = set(severity.upper() for severity in alert_config.get("alert_on_severities", ["CRITICAL", "WARNING"]))
+        # Access typed fields directly from AlertConfig
+        self.subject_prefix = alert_config.subject_prefix
+        self.recipients = alert_config.alert_recipients
+        self.include_ok_alerts = alert_config.send_ok_emails
+        self.include_recovery_alerts = alert_config.send_recovery_emails
+        self.alert_on_severities = set(severity.upper() for severity in alert_config.alert_on_severities)
         self.capacity_warning_percent = capacity_warning_percent
         self.capacity_critical_percent = capacity_critical_percent
         self.scrub_max_age_days = scrub_max_age_days
@@ -373,16 +374,18 @@ class EmailAlerter:
             f"Host: {hostname}",
             "",
             "ISSUE DETECTED:",
-            f"  Category: {issue.category}",
+            f"  Category: {issue.category.value}",
             f"  Severity: {issue.severity.value}",
             f"  Message: {issue.message}",
         ]
 
-        # Add issue details if available
+        # Add issue details if available - IssueDetails is a Pydantic model
         if issue.details:
             lines.append("")
             lines.append("Details:")
-            for key, value in issue.details.items():
+            # issue.details is always IssueDetails (typed field in PoolIssue)
+            details_dict = issue.details.model_dump(exclude_none=True)
+            for key, value in details_dict.items():
                 lines.append(f"  {key}: {value}")
 
         return lines
@@ -447,28 +450,28 @@ class EmailAlerter:
             f"  1. Run 'zpool status {pool.name}' to investigate",
         ]
 
-        if issue.category == "capacity":
+        if issue.category == IssueCategory.CAPACITY:
             lines.extend(
                 [
                     "  2. Identify and remove unnecessary files",
                     "  3. Consider adding more storage capacity",
                 ]
             )
-        elif issue.category == "errors":
+        elif issue.category == IssueCategory.ERRORS:
             lines.extend(
                 [
                     "  2. Check system logs for hardware issues",
                     "  3. Consider running 'zpool scrub' if not in progress",
                 ]
             )
-        elif issue.category == "scrub":
+        elif issue.category == IssueCategory.SCRUB:
             lines.extend(
                 [
                     f"  2. Run 'zpool scrub {pool.name}' to start scrub",
                     "  3. Schedule regular scrubs via cron or systemd timer",
                 ]
             )
-        elif issue.category == "health":
+        elif issue.category == IssueCategory.HEALTH:
             lines.extend(
                 [
                     "  2. Check for failed or degraded devices",

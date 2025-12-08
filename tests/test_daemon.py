@@ -35,7 +35,7 @@ from unittest.mock import Mock
 import pytest
 
 from check_zpools.daemon import ZPoolDaemon
-from check_zpools.models import CheckResult, PoolIssue, PoolStatus, Severity
+from check_zpools.models import CheckResult, DaemonConfig, IssueCategory, IssueDetails, PoolIssue, PoolStatus, Severity
 
 
 # =============================================================================
@@ -71,9 +71,9 @@ def capacity_warning_issue() -> PoolIssue:
     return PoolIssue(
         pool_name="rpool",
         severity=Severity.WARNING,
-        category="capacity",
+        category=IssueCategory.CAPACITY,
         message="Pool at 85.0% capacity",
-        details={},
+        details=IssueDetails(),
     )
 
 
@@ -240,7 +240,7 @@ def mock_state_manager() -> Mock:
 
 
 @pytest.fixture
-def daemon_config() -> dict:
+def daemon_config() -> DaemonConfig:
     """Create test daemon configuration.
 
     Why
@@ -248,14 +248,14 @@ def daemon_config() -> dict:
         Disables optional features for focused testing.
 
     Returns
-        Dict with minimal daemon configuration.
+        DaemonConfig with minimal configuration for testing.
     """
-    return {
-        "check_interval_seconds": 1,  # Fast for testing
-        "pools_to_monitor": [],
-        "send_ok_emails": False,
-        "send_recovery_emails": True,
-    }
+    return DaemonConfig(
+        check_interval_seconds=1,  # Fast for testing
+        pools_to_monitor=[],
+        send_ok_emails=False,
+        send_recovery_emails=True,
+    )
 
 
 @pytest.fixture
@@ -264,7 +264,7 @@ def daemon(
     mock_monitor: Mock,
     mock_alerter: Mock,
     mock_state_manager: Mock,
-    daemon_config: dict,
+    daemon_config: DaemonConfig,
 ) -> ZPoolDaemon:
     """Create daemon instance with all mocks configured.
 
@@ -299,7 +299,7 @@ class TestDaemonInitializationStoresComponents:
         mock_monitor: Mock,
         mock_alerter: Mock,
         mock_state_manager: Mock,
-        daemon_config: dict,
+        daemon_config: DaemonConfig,
     ) -> None:
         """When initializing with ZFS client, stores reference.
 
@@ -323,7 +323,7 @@ class TestDaemonInitializationStoresComponents:
         mock_monitor: Mock,
         mock_alerter: Mock,
         mock_state_manager: Mock,
-        daemon_config: dict,
+        daemon_config: DaemonConfig,
     ) -> None:
         """When initializing with monitor, stores reference.
 
@@ -347,7 +347,7 @@ class TestDaemonInitializationStoresComponents:
         mock_monitor: Mock,
         mock_alerter: Mock,
         mock_state_manager: Mock,
-        daemon_config: dict,
+        daemon_config: DaemonConfig,
     ) -> None:
         """When initializing with alerter, stores reference.
 
@@ -371,7 +371,7 @@ class TestDaemonInitializationStoresComponents:
         mock_monitor: Mock,
         mock_alerter: Mock,
         mock_state_manager: Mock,
-        daemon_config: dict,
+        daemon_config: DaemonConfig,
     ) -> None:
         """When initializing with state manager, stores reference.
 
@@ -412,7 +412,7 @@ class TestDaemonInitializationAppliesConfiguration:
             monitor=mock_monitor,
             alerter=mock_alerter,
             state_manager=mock_state_manager,
-            config={"check_interval_seconds": 1},
+            config=DaemonConfig(check_interval_seconds=1),
         )
 
         assert daemon.check_interval == 1
@@ -435,7 +435,7 @@ class TestDaemonInitializationAppliesConfiguration:
             monitor=mock_monitor,
             alerter=mock_alerter,
             state_manager=mock_state_manager,
-            config={},
+            config=DaemonConfig(),
         )
 
         assert daemon.check_interval == 300
@@ -711,9 +711,9 @@ class TestAlertHandlingSuppressesDuplicates:
         ok_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.OK,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool healthy",
-            details={},
+            details=IssueDetails(),
         )
 
         mock_monitor.check_all_pools.return_value = CheckResult(

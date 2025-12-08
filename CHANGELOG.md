@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [3.6.1] - 2025-12-08
+
+### Changed
+- **Data Architecture Enforcement**: Refactored to use strict typed models throughout
+  - Added `DaemonConfig` Pydantic model for daemon configuration (replaces `dict[str, Any]`)
+  - Added `AlertConfig` Pydantic model for alerting configuration (replaces `dict[str, Any]`)
+  - Added `CapacityInfo` Pydantic model for ZFS capacity metrics
+  - Added `ScrubInfo` Pydantic model for ZFS scrub status
+  - Expanded `IssueDetails` with 20+ typed fields for all known issue detail types
+  - All `PoolIssue` creations now use `IssueDetails()` instead of raw dicts
+  - **Why this matters**: Stronger type safety, better IDE support, eliminates dict key access errors
+
+### Removed
+- **Compatibility Shim**: Removed `PoolIssue.__post_init__` dict-to-IssueDetails conversion
+  - All code now uses typed `IssueDetails` directly
+  - Enforces strict typing at compile time rather than runtime conversion
+
 ## [3.6.0] - 2025-12-03
 
 ### Changed

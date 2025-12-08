@@ -32,7 +32,7 @@ from typing import Any
 from . import __init__conf__
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
-from .models import CheckResult, PoolIssue, PoolStatus, Severity
+from .models import CheckResult, DaemonConfig, PoolIssue, PoolStatus, Severity
 from .monitor import PoolMonitor
 from .zfs_client import ZFSClient
 from .zfs_parser import ZFSParser
@@ -74,7 +74,7 @@ class ZPoolDaemon:
         monitor: PoolMonitor,
         alerter: EmailAlerter,
         state_manager: AlertStateManager,
-        config: dict[str, Any],
+        config: DaemonConfig,
     ):
         self.zfs_client = zfs_client
         self.monitor = monitor
@@ -82,11 +82,11 @@ class ZPoolDaemon:
         self.state_manager = state_manager
         self.parser = ZFSParser()
 
-        # Configuration
-        self.check_interval = config.get("check_interval_seconds", 300)
-        self.pools_to_monitor = config.get("pools_to_monitor", [])
-        self.send_ok_emails = config.get("send_ok_emails", False)
-        self.send_recovery_emails = config.get("send_recovery_emails", True)
+        # Configuration - access typed fields directly
+        self.check_interval = config.check_interval_seconds
+        self.pools_to_monitor = config.pools_to_monitor
+        self.send_ok_emails = config.send_ok_emails
+        self.send_recovery_emails = config.send_recovery_emails
 
         # Daemon state
         self.shutdown_event = threading.Event()

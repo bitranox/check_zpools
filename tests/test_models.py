@@ -13,80 +13,14 @@ They run identically on Windows, macOS, and Linux.
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timezone
 
-from check_zpools.models import CheckResult, PoolHealth, PoolIssue, PoolStatus, Severity
+import pytest
 
+from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
 
-# ============================================================================
-# Test Fixtures & Builder Helpers
-# ============================================================================
-
-
-def a_healthy_pool_named(name: str) -> PoolStatus:
-    """Create a healthy pool with realistic defaults.
-
-    This pool is ONLINE with comfortable capacity and no errors.
-    Use this when the pool's health is not the focus of your test.
-    """
-    return PoolStatus(
-        name=name,
-        health=PoolHealth.ONLINE,
-        capacity_percent=45.0,
-        size_bytes=1_000_000_000_000,  # 1 TB
-        allocated_bytes=450_000_000_000,  # 450 GB
-        free_bytes=550_000_000_000,  # 550 GB
-        read_errors=0,
-        write_errors=0,
-        checksum_errors=0,
-        last_scrub=datetime.now(timezone.utc),
-        scrub_errors=0,
-        scrub_in_progress=False,
-    )
-
-
-def a_pool_with(**overrides: object) -> PoolStatus:
-    """Create a pool with specific attributes overridden.
-
-    Use this when you need to test a specific pool characteristic.
-    All unspecified fields get sensible defaults.
-
-    Examples:
-        a_pool_with(read_errors=5)
-        a_pool_with(health=PoolHealth.DEGRADED, capacity_percent=92.5)
-    """
-    defaults: dict[str, object] = {
-        "name": "test-pool",
-        "health": PoolHealth.ONLINE,
-        "capacity_percent": 50.0,
-        "size_bytes": 1_000_000_000_000,
-        "allocated_bytes": 500_000_000_000,
-        "free_bytes": 500_000_000_000,
-        "read_errors": 0,
-        "write_errors": 0,
-        "checksum_errors": 0,
-        "last_scrub": None,
-        "scrub_errors": 0,
-        "scrub_in_progress": False,
-    }
-    return PoolStatus(**{**defaults, **overrides})  # type: ignore[arg-type]
-
-
-def an_issue_for_pool(
-    pool_name: str,
-    severity: Severity,
-    category: str,
-    message: str,
-) -> PoolIssue:
-    """Create a pool issue with the given attributes."""
-    return PoolIssue(
-        pool_name=pool_name,
-        severity=severity,
-        category=category,
-        message=message,
-        details={},
-    )
+# Import shared test helpers from conftest (centralized to avoid duplication)
+from conftest import a_healthy_pool_named, a_pool_with, an_issue_for_pool
 
 
 # ============================================================================
@@ -316,17 +250,17 @@ class TestPoolIssueCreation:
         issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="health",
+            category=IssueCategory.HEALTH,
             message="Pool is DEGRADED",
-            details={"expected": "ONLINE", "actual": "DEGRADED"},
+            details=IssueDetails(expected="ONLINE", actual="DEGRADED"),
         )
 
         assert issue.pool_name == "rpool"
         assert issue.severity == Severity.CRITICAL
-        assert issue.category == "health"
+        assert issue.category == IssueCategory.HEALTH
         assert issue.message == "Pool is DEGRADED"
-        assert issue.details["expected"] == "ONLINE"
-        assert issue.details["actual"] == "DEGRADED"
+        assert issue.details.expected == "ONLINE"
+        assert issue.details.actual == "DEGRADED"
 
 
 class TestPoolIssueImmutability:
@@ -335,7 +269,7 @@ class TestPoolIssueImmutability:
     @pytest.mark.os_agnostic
     def test_issue_pool_name_cannot_be_changed(self) -> None:
         """Once created, an issue's pool name is immutable."""
-        issue = an_issue_for_pool("rpool", Severity.WARNING, "capacity", "High usage")
+        issue = an_issue_for_pool("rpool", Severity.WARNING, IssueCategory.CAPACITY, "High usage")
 
         with pytest.raises(AttributeError):
             issue.pool_name = "other"  # type: ignore[misc]
@@ -343,7 +277,7 @@ class TestPoolIssueImmutability:
     @pytest.mark.os_agnostic
     def test_issue_severity_cannot_be_modified(self) -> None:
         """An issue's severity level is locked at creation."""
-        issue = an_issue_for_pool("rpool", Severity.WARNING, "capacity", "High usage")
+        issue = an_issue_for_pool("rpool", Severity.WARNING, IssueCategory.CAPACITY, "High usage")
 
         with pytest.raises(AttributeError):
             issue.severity = Severity.CRITICAL  # type: ignore[misc]
@@ -355,7 +289,7 @@ class TestPoolIssueStringRepresentation:
     @pytest.mark.os_agnostic
     def test_issue_string_contains_severity_pool_and_message(self) -> None:
         """The string representation shows: [SEVERITY] pool_name: message."""
-        issue = an_issue_for_pool("rpool", Severity.WARNING, "capacity", "Pool at 85% capacity")
+        issue = an_issue_for_pool("rpool", Severity.WARNING, IssueCategory.CAPACITY, "Pool at 85% capacity")
 
         issue_str = str(issue)
         assert issue_str == "[WARNING] rpool: Pool at 85% capacity"
@@ -363,7 +297,7 @@ class TestPoolIssueStringRepresentation:
     @pytest.mark.os_agnostic
     def test_critical_issue_string_shows_critical_severity(self) -> None:
         """A critical issue clearly shows CRITICAL in its string representation."""
-        issue = an_issue_for_pool("zpool", Severity.CRITICAL, "health", "Pool is FAULTED")
+        issue = an_issue_for_pool("zpool", Severity.CRITICAL, IssueCategory.HEALTH, "Pool is FAULTED")
 
         assert "[CRITICAL]" in str(issue)
         assert "zpool" in str(issue)
@@ -434,7 +368,7 @@ class TestCheckResultIssueQueries:
     @pytest.mark.os_agnostic
     def test_check_result_with_any_issue_reports_it(self) -> None:
         """When even one issue exists, has_issues() returns True."""
-        issue = an_issue_for_pool("rpool", Severity.WARNING, "capacity", "High usage")
+        issue = an_issue_for_pool("rpool", Severity.WARNING, IssueCategory.CAPACITY, "High usage")
         result = CheckResult(
             timestamp=datetime.now(timezone.utc),
             pools=[],
@@ -451,9 +385,9 @@ class TestCheckResultIssueFiltering:
     @pytest.mark.os_agnostic
     def test_critical_issues_returns_only_critical_severity(self) -> None:
         """critical_issues() filters to only CRITICAL severity issues."""
-        issue1 = an_issue_for_pool("pool1", Severity.WARNING, "capacity", "High")
-        issue2 = an_issue_for_pool("pool2", Severity.CRITICAL, "health", "Faulted")
-        issue3 = an_issue_for_pool("pool3", Severity.INFO, "scrub", "Old scrub")
+        issue1 = an_issue_for_pool("pool1", Severity.WARNING, IssueCategory.CAPACITY, "High")
+        issue2 = an_issue_for_pool("pool2", Severity.CRITICAL, IssueCategory.HEALTH, "Faulted")
+        issue3 = an_issue_for_pool("pool3", Severity.INFO, IssueCategory.SCRUB, "Old scrub")
 
         result = CheckResult(
             timestamp=datetime.now(timezone.utc),
@@ -471,9 +405,9 @@ class TestCheckResultIssueFiltering:
     @pytest.mark.os_agnostic
     def test_warning_issues_returns_only_warning_severity(self) -> None:
         """warning_issues() filters to only WARNING severity issues."""
-        issue1 = an_issue_for_pool("pool1", Severity.WARNING, "capacity", "High")
-        issue2 = an_issue_for_pool("pool2", Severity.CRITICAL, "health", "Faulted")
-        issue3 = an_issue_for_pool("pool3", Severity.WARNING, "errors", "I/O errors")
+        issue1 = an_issue_for_pool("pool1", Severity.WARNING, IssueCategory.CAPACITY, "High")
+        issue2 = an_issue_for_pool("pool2", Severity.CRITICAL, IssueCategory.HEALTH, "Faulted")
+        issue3 = an_issue_for_pool("pool3", Severity.WARNING, IssueCategory.ERRORS, "I/O errors")
 
         result = CheckResult(
             timestamp=datetime.now(timezone.utc),
@@ -491,7 +425,7 @@ class TestCheckResultIssueFiltering:
     @pytest.mark.os_agnostic
     def test_filtering_with_no_matching_issues_returns_empty_list(self) -> None:
         """When no issues match the filter, an empty list is returned."""
-        issue = an_issue_for_pool("pool1", Severity.INFO, "scrub", "Old")
+        issue = an_issue_for_pool("pool1", Severity.INFO, IssueCategory.SCRUB, "Old")
 
         result = CheckResult(
             timestamp=datetime.now(timezone.utc),
@@ -630,7 +564,7 @@ class TestCheckResultEdgeCases:
     @pytest.mark.os_agnostic
     def test_check_result_with_many_issues_preserves_all(self) -> None:
         """A check result can contain many issues."""
-        issues = [an_issue_for_pool(f"pool{i}", Severity.WARNING, "test", f"Issue {i}") for i in range(10)]
+        issues = [an_issue_for_pool(f"pool{i}", Severity.WARNING, IssueCategory.CAPACITY, f"Issue {i}") for i in range(10)]
 
         result = CheckResult(
             timestamp=datetime.now(timezone.utc),

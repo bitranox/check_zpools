@@ -34,7 +34,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from check_zpools import behaviors
-from check_zpools.models import CheckResult, PoolStatus
+from check_zpools.models import CheckResult, DaemonConfig, PoolStatus
 
 
 # =============================================================================
@@ -773,7 +773,8 @@ class TestDaemonComponentInitialization:
         assert monitor is mock_monitor, "Must return monitor"
         assert alerter is mock_alerter, "Must return alerter"
         assert state_manager is mock_state, "Must return state manager"
-        assert daemon_config == {"check_interval_seconds": 300, "alert_resend_interval_hours": 24}, "Must return daemon config"
+        assert isinstance(daemon_config, DaemonConfig), "Must return DaemonConfig"
+        assert daemon_config.check_interval_seconds == 300, "Must have correct check interval"
 
     @patch("check_zpools.behaviors.ZFSClient")
     @patch("check_zpools.behaviors.PoolMonitor")

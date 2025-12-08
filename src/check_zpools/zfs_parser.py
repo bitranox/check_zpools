@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from .models import DeviceStatus, PoolHealth, PoolStatus
+from .models import CapacityInfo, DeviceState, DeviceStatus, PoolHealth, PoolStatus, ScanState, ScrubInfo
 
 logger = logging.getLogger(__name__)
 
@@ -202,16 +202,16 @@ class ZFSParser:
         return PoolStatus(
             name=pool_name,
             health=health,
-            capacity_percent=capacity_info["capacity_percent"],
-            size_bytes=capacity_info["size_bytes"],
-            allocated_bytes=capacity_info["allocated_bytes"],
-            free_bytes=capacity_info["free_bytes"],
+            capacity_percent=capacity_info.capacity_percent,
+            size_bytes=capacity_info.size_bytes,
+            allocated_bytes=capacity_info.allocated_bytes,
+            free_bytes=capacity_info.free_bytes,
             read_errors=errors.read,
             write_errors=errors.write,
             checksum_errors=errors.checksum,
-            last_scrub=scrub_info["last_scrub"],
-            scrub_errors=scrub_info["scrub_errors"],
-            scrub_in_progress=scrub_info["scrub_in_progress"],
+            last_scrub=scrub_info.last_scrub,
+            scrub_errors=scrub_info.scrub_errors,
+            scrub_in_progress=scrub_info.scrub_in_progress,
             faulted_devices=tuple(faulted_devices),
         )
 
@@ -233,7 +233,7 @@ class ZFSParser:
         vdevs = pool_data.get("vdevs", {})
         return vdevs.get(pool_name, {})
 
-    def _extract_capacity_from_vdev(self, root_vdev: dict[str, Any]) -> dict[str, Any]:
+    def _extract_capacity_from_vdev(self, root_vdev: dict[str, Any]) -> CapacityInfo:
         """Extract capacity metrics from root vdev.
 
         With --json-int, values are already integers (bytes).
@@ -245,8 +245,8 @@ class ZFSParser:
 
         Returns
         -------
-        dict:
-            Dictionary with capacity_percent, size_bytes, allocated_bytes, free_bytes
+        CapacityInfo:
+            Typed container with capacity_percent, size_bytes, allocated_bytes, free_bytes
         """
         # Get integer values directly (no string parsing needed)
         alloc_space = root_vdev.get("alloc_space", 0)
@@ -268,12 +268,12 @@ class ZFSParser:
         free_bytes = size_bytes - allocated_bytes if size_bytes > 0 else 0
         capacity_percent = (allocated_bytes / size_bytes * 100) if size_bytes > 0 else 0.0
 
-        return {
-            "capacity_percent": capacity_percent,
-            "size_bytes": size_bytes,
-            "allocated_bytes": allocated_bytes,
-            "free_bytes": free_bytes,
-        }
+        return CapacityInfo(
+            capacity_percent=capacity_percent,
+            size_bytes=size_bytes,
+            allocated_bytes=allocated_bytes,
+            free_bytes=free_bytes,
+        )
 
     def _extract_errors_from_vdev(self, root_vdev: dict[str, Any]) -> ErrorCounts:
         """Extract error counts from root vdev.
@@ -300,7 +300,7 @@ class ZFSParser:
             logger.warning(f"Invalid error counts in vdev: {exc}")
             return ErrorCounts()
 
-    def _extract_scrub_info(self, pool_data: dict[str, Any]) -> dict[str, Any]:
+    def _extract_scrub_info(self, pool_data: dict[str, Any]) -> ScrubInfo:
         """Extract scrub information from pool status data.
 
         With --json-int, timestamps are Unix integers.
@@ -312,8 +312,8 @@ class ZFSParser:
 
         Returns
         -------
-        dict:
-            Dictionary with last_scrub, scrub_errors, scrub_in_progress
+        ScrubInfo:
+            Typed container with last_scrub, scrub_errors, scrub_in_progress
         """
         scan_info = pool_data.get("scan_stats", pool_data.get("scan", {}))
 
@@ -328,15 +328,15 @@ class ZFSParser:
             logger.warning(f"Invalid scrub_errors value '{scrub_errors_raw}', using 0")
             scrub_errors = 0
 
-        # Check if scrub is in progress
-        state = str(scan_info.get("state", "")).upper()
-        scrub_in_progress = state == "SCANNING"
+        # Check if scrub is in progress using ScanState enum
+        scan_state = ScanState.from_string(scan_info.get("state"))
+        scrub_in_progress = scan_state == ScanState.SCANNING
 
-        return {
-            "last_scrub": last_scrub,
-            "scrub_errors": scrub_errors,
-            "scrub_in_progress": scrub_in_progress,
-        }
+        return ScrubInfo(
+            last_scrub=last_scrub,
+            scrub_errors=scrub_errors,
+            scrub_in_progress=scrub_in_progress,
+        )
 
     def _parse_scrub_time(self, scan_info: dict[str, Any]) -> datetime | None:
         """Parse scrub completion time from scan info.
@@ -415,7 +415,8 @@ class ZFSParser:
 
         # Check if this vdev itself is problematic (only for disk/leaf devices)
         vdev_type = str(vdev.get("vdev_type", "")).lower()
-        state = str(vdev.get("state", "UNKNOWN")).upper()
+        state_str = str(vdev.get("state", "UNAVAIL")).upper()
+        device_state = DeviceState.from_string(state_str)
         name = str(vdev.get("name", "unknown"))
 
         # Get error counts
@@ -425,13 +426,13 @@ class ZFSParser:
 
         # Only report leaf devices (disks) - not containers like mirror/raidz
         is_leaf = vdev_type in ("disk", "file", "spare", "cache", "log")
-        is_problematic = state in ("FAULTED", "DEGRADED", "OFFLINE", "UNAVAIL", "REMOVED")
+        is_problematic = device_state.is_problematic()
         has_errors = read_errors > 0 or write_errors > 0 or checksum_errors > 0
 
         if is_leaf and (is_problematic or has_errors):
             device = DeviceStatus(
                 name=name,
-                state=state,
+                state=device_state,
                 read_errors=read_errors,
                 write_errors=write_errors,
                 checksum_errors=checksum_errors,
@@ -442,7 +443,7 @@ class ZFSParser:
                 f"Found problematic device: {name}",
                 extra={
                     "device": name,
-                    "state": state,
+                    "state": device_state.value,
                     "read_errors": read_errors,
                     "write_errors": write_errors,
                     "checksum_errors": checksum_errors,

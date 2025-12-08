@@ -36,9 +36,104 @@ from dataclasses import dataclass
 from datetime import UTC, datetime  # noqa: F401 - UTC used in doctests  # pyright: ignore[reportUnusedImport]
 from enum import Enum
 from functools import lru_cache
-from typing import Any
+
+from pydantic import BaseModel, ConfigDict
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Configuration Models (Pydantic for external boundary parsing)
+# ============================================================================
+
+
+class DaemonConfig(BaseModel):
+    """Typed configuration for daemon mode.
+
+    Why
+        Replaces dict[str, Any] with a typed Pydantic model for daemon config.
+        Provides validation at the boundary when config is loaded.
+
+    Attributes
+    ----------
+    check_interval_seconds:
+        How often to check pools (default: 300 seconds = 5 minutes).
+    pools_to_monitor:
+        List of pool names to monitor. Empty means all pools.
+    send_ok_emails:
+        Whether to send emails when all pools are OK (default: False).
+    send_recovery_emails:
+        Whether to send emails when issues are resolved (default: True).
+    """
+
+    check_interval_seconds: int = 300
+    pools_to_monitor: list[str] = []
+    send_ok_emails: bool = False
+    send_recovery_emails: bool = True
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class AlertConfig(BaseModel):
+    """Typed configuration for alerting.
+
+    Why
+        Replaces dict[str, Any] with a typed Pydantic model for alert config.
+        Provides validation at the boundary when config is loaded.
+
+    Attributes
+    ----------
+    subject_prefix:
+        Prefix for email subject lines (default: "[ZFS Alert]").
+    alert_recipients:
+        List of email addresses to receive alerts.
+    send_ok_emails:
+        Whether to send emails when all pools are OK (default: False).
+    send_recovery_emails:
+        Whether to send emails when issues are resolved (default: True).
+    alert_on_severities:
+        Which severity levels trigger alerts (default: CRITICAL, WARNING).
+    """
+
+    subject_prefix: str = "[ZFS Alert]"
+    alert_recipients: list[str] = []
+    send_ok_emails: bool = False
+    send_recovery_emails: bool = True
+    alert_on_severities: list[str] = ["CRITICAL", "WARNING"]
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class CapacityInfo(BaseModel):
+    """Capacity metrics extracted from ZFS vdev.
+
+    Why
+        Replaces dict[str, Any] returned by _extract_capacity_from_vdev.
+        Provides type-safe container for capacity values.
+    """
+
+    capacity_percent: float
+    size_bytes: int
+    allocated_bytes: int
+    free_bytes: int
+
+
+class ScrubInfo(BaseModel):
+    """Scrub status information extracted from ZFS pool.
+
+    Why
+        Replaces dict[str, Any] returned by _extract_scrub_info.
+        Provides type-safe container for scrub values.
+    """
+
+    last_scrub: datetime | None
+    scrub_errors: int
+    scrub_in_progress: bool
+
+
+# ============================================================================
+# Domain Models (Enums and Dataclasses)
+# ============================================================================
 
 
 class PoolHealth(str, Enum):
@@ -227,6 +322,256 @@ class Severity(str, Enum):
         """
         return self == Severity.CRITICAL
 
+    def is_warning(self) -> bool:
+        """Return True if this severity level is warning.
+
+        Returns
+        -------
+        bool
+            True if severity is WARNING, False otherwise.
+
+        Examples
+        --------
+        >>> Severity.WARNING.is_warning()
+        True
+        >>> Severity.CRITICAL.is_warning()
+        False
+        """
+        return self == Severity.WARNING
+
+
+class DeviceState(str, Enum):
+    """ZFS device (vdev) states as reported by zpool status.
+
+    Why
+        ZFS devices have well-defined states that determine device health.
+        Enumerating these states provides type safety and prevents typos
+        in state comparisons.
+
+    Values
+        ONLINE: Device is operational
+        DEGRADED: Device is operational but in a degraded state
+        FAULTED: Device has failed and cannot be used
+        OFFLINE: Device has been manually taken offline
+        UNAVAIL: Device is unavailable (removed or failed to open)
+        REMOVED: Device has been physically removed
+
+    Examples
+    --------
+    >>> DeviceState.ONLINE
+    <DeviceState.ONLINE: 'ONLINE'>
+    >>> DeviceState('FAULTED')
+    <DeviceState.FAULTED: 'FAULTED'>
+    """
+
+    ONLINE = "ONLINE"
+    DEGRADED = "DEGRADED"
+    FAULTED = "FAULTED"
+    OFFLINE = "OFFLINE"
+    UNAVAIL = "UNAVAIL"
+    REMOVED = "REMOVED"
+
+    @classmethod
+    def from_string(cls, value: str) -> "DeviceState":
+        """Parse a string to DeviceState, defaulting to UNAVAIL for unknown values.
+
+        Parameters
+        ----------
+        value:
+            String representation of the device state.
+
+        Returns
+        -------
+        DeviceState:
+            The corresponding enum value.
+
+        Examples
+        --------
+        >>> DeviceState.from_string("ONLINE")
+        <DeviceState.ONLINE: 'ONLINE'>
+        >>> DeviceState.from_string("UNKNOWN")
+        <DeviceState.UNAVAIL: 'UNAVAIL'>
+        """
+        try:
+            return cls(value.upper())
+        except ValueError:
+            return cls.UNAVAIL
+
+    def is_problematic(self) -> bool:
+        """Return True if this state indicates a problem.
+
+        Returns
+        -------
+        bool:
+            True for FAULTED, DEGRADED, OFFLINE, UNAVAIL, REMOVED.
+
+        Examples
+        --------
+        >>> DeviceState.FAULTED.is_problematic()
+        True
+        >>> DeviceState.ONLINE.is_problematic()
+        False
+        """
+        return self in (
+            DeviceState.FAULTED,
+            DeviceState.DEGRADED,
+            DeviceState.OFFLINE,
+            DeviceState.UNAVAIL,
+            DeviceState.REMOVED,
+        )
+
+
+class IssueCategory(str, Enum):
+    """Categories of ZFS pool issues.
+
+    Why
+        Issue categories provide type safety and enable filtering of issues
+        by type. Using an enum prevents typos and ensures consistent naming.
+
+    Values
+        HEALTH: Pool health state issues (DEGRADED, FAULTED, etc.)
+        CAPACITY: Disk space usage issues
+        ERRORS: Read/write/checksum error issues
+        SCRUB: Scrub-related issues (old scrub, scrub errors)
+        DEVICE: Individual device issues within a pool
+
+    Examples
+    --------
+    >>> IssueCategory.HEALTH
+    <IssueCategory.HEALTH: 'health'>
+    >>> IssueCategory.CAPACITY.value
+    'capacity'
+    """
+
+    HEALTH = "health"
+    CAPACITY = "capacity"
+    ERRORS = "errors"
+    SCRUB = "scrub"
+    DEVICE = "device"
+
+
+class ScanState(str, Enum):
+    """ZFS scan (scrub/resilver) states.
+
+    Why
+        Scan states indicate the current scrub/resilver activity status.
+        Using an enum provides type safety for state comparisons.
+
+    Values
+        NONE: No scan has ever been run
+        SCANNING: Scan is currently in progress
+        FINISHED: Last scan completed successfully
+        CANCELED: Last scan was canceled
+    """
+
+    NONE = "NONE"
+    SCANNING = "SCANNING"
+    FINISHED = "FINISHED"
+    CANCELED = "CANCELED"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> "ScanState":
+        """Parse a string to ScanState.
+
+        Parameters
+        ----------
+        value:
+            String representation of the scan state.
+
+        Returns
+        -------
+        ScanState:
+            The corresponding enum value.
+        """
+        if value is None:
+            return cls.NONE
+        try:
+            return cls(value.upper())
+        except ValueError:
+            return cls.NONE
+
+
+class IssueDetails(BaseModel):
+    """Structured details for a pool issue.
+
+    Why
+        Replaces dict[str, Any] with a typed Pydantic model for issue details.
+        Provides type safety for known fields while allowing flexible additional
+        fields via extra="allow".
+
+    Attributes
+    ----------
+    device_name:
+        For device issues, the name of the affected device.
+    device_state:
+        Device state string (e.g., "FAULTED", "DEGRADED").
+    device_type:
+        Type of vdev (disk, mirror, raidz, etc.).
+    current_state:
+        Current pool state for health issues.
+    expected_state:
+        Expected pool state for health issues.
+    capacity_percent:
+        Pool capacity percentage for capacity issues.
+    threshold:
+        Threshold value that was exceeded.
+    size_bytes:
+        Total pool size in bytes.
+    allocated_bytes:
+        Allocated space in bytes.
+    free_bytes:
+        Free space in bytes.
+    read_errors:
+        Read error count.
+    write_errors:
+        Write error count.
+    checksum_errors:
+        Checksum error count.
+    scrub_errors:
+        Scrub error count.
+    last_scrub:
+        Last scrub timestamp as ISO string or None.
+    age_days:
+        Age in days (for scrub age issues).
+    max_age_days:
+        Maximum allowed age in days.
+    expected:
+        Expected value for comparison.
+    actual:
+        Actual value for comparison.
+    """
+
+    # Device issue fields
+    device_name: str | None = None
+    device_state: str | None = None
+    device_type: str | None = None
+
+    # Health issue fields
+    current_state: str | None = None
+    expected_state: str | None = None
+    expected: str | None = None
+    actual: str | None = None
+
+    # Capacity issue fields
+    capacity_percent: float | None = None
+    threshold: float | int | None = None
+    size_bytes: int | None = None
+    allocated_bytes: int | None = None
+    free_bytes: int | None = None
+
+    # Error count fields
+    read_errors: int | None = None
+    write_errors: int | None = None
+    checksum_errors: int | None = None
+
+    # Scrub issue fields
+    scrub_errors: int | None = None
+    last_scrub: str | None = None
+    age_days: int | None = None
+    max_age_days: int | None = None
+
+    model_config = ConfigDict(extra="allow")
+
 
 @dataclass(frozen=True)
 class DeviceStatus:
@@ -242,7 +587,7 @@ class DeviceStatus:
     name:
         Device name or path (e.g., "wwn-0x5002538f55117008-part3")
     state:
-        Device state (ONLINE, FAULTED, DEGRADED, OFFLINE, etc.)
+        Device state as DeviceState enum
     read_errors:
         Count of read I/O errors on this device
     write_errors:
@@ -256,7 +601,7 @@ class DeviceStatus:
     --------
     >>> device = DeviceStatus(
     ...     name="wwn-0x5002538f55117008-part3",
-    ...     state="FAULTED",
+    ...     state=DeviceState.FAULTED,
     ...     read_errors=3,
     ...     write_errors=220,
     ...     checksum_errors=0,
@@ -267,7 +612,7 @@ class DeviceStatus:
     """
 
     name: str
-    state: str
+    state: DeviceState
     read_errors: int
     write_errors: int
     checksum_errors: int
@@ -275,23 +620,27 @@ class DeviceStatus:
 
     def is_faulted(self) -> bool:
         """Return True if device is in a faulted state."""
-        return self.state.upper() == "FAULTED"
+        return self.state == DeviceState.FAULTED
 
     def is_degraded(self) -> bool:
         """Return True if device is in a degraded state."""
-        return self.state.upper() == "DEGRADED"
+        return self.state == DeviceState.DEGRADED
 
     def is_offline(self) -> bool:
         """Return True if device is offline."""
-        return self.state.upper() == "OFFLINE"
+        return self.state == DeviceState.OFFLINE
 
     def is_healthy(self) -> bool:
         """Return True if device is healthy (ONLINE)."""
-        return self.state.upper() == "ONLINE"
+        return self.state == DeviceState.ONLINE
 
     def has_errors(self) -> bool:
         """Return True if device has any errors."""
         return self.read_errors > 0 or self.write_errors > 0 or self.checksum_errors > 0
+
+    def is_problematic(self) -> bool:
+        """Return True if device state indicates a problem."""
+        return self.state.is_problematic()
 
 
 @dataclass(frozen=True)
@@ -406,20 +755,20 @@ class PoolIssue:
     severity:
         How urgent this issue is (INFO, WARNING, CRITICAL)
     category:
-        Type of issue (health, capacity, errors, scrub)
+        Type of issue as IssueCategory enum
     message:
         Human-readable description of the issue
     details:
-        Additional structured data about the issue
+        Additional structured data about the issue as IssueDetails model.
 
     Examples
     --------
     >>> issue = PoolIssue(
     ...     pool_name="rpool",
     ...     severity=Severity.CRITICAL,
-    ...     category="health",
+    ...     category=IssueCategory.HEALTH,
     ...     message="Pool is DEGRADED",
-    ...     details={"expected": "ONLINE", "actual": "DEGRADED"},
+    ...     details=IssueDetails(expected="ONLINE", actual="DEGRADED"),
     ... )
     >>> issue.severity == Severity.CRITICAL
     True
@@ -427,9 +776,9 @@ class PoolIssue:
 
     pool_name: str
     severity: Severity
-    category: str
+    category: IssueCategory
     message: str
-    details: dict[str, Any]
+    details: IssueDetails
 
     def __str__(self) -> str:
         """Return user-friendly string representation.
@@ -438,8 +787,8 @@ class PoolIssue:
         --------
         >>> issue = PoolIssue(
         ...     pool_name="rpool", severity=Severity.WARNING,
-        ...     category="capacity", message="Pool at 85% capacity",
-        ...     details={}
+        ...     category=IssueCategory.CAPACITY, message="Pool at 85% capacity",
+        ...     details=IssueDetails()
         ... )
         >>> str(issue)
         '[WARNING] rpool: Pool at 85% capacity'
@@ -548,10 +897,14 @@ class CheckResult:
 
 
 __all__ = [
-    "DeviceStatus",
-    "PoolHealth",
-    "Severity",
-    "PoolStatus",
-    "PoolIssue",
     "CheckResult",
+    "DeviceState",
+    "DeviceStatus",
+    "IssueCategory",
+    "IssueDetails",
+    "PoolHealth",
+    "PoolIssue",
+    "PoolStatus",
+    "ScanState",
+    "Severity",
 ]

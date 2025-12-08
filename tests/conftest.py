@@ -19,7 +19,7 @@ import pytest
 from click.testing import CliRunner
 
 import lib_cli_exit_tools
-from check_zpools.models import CheckResult, PoolHealth, PoolStatus, Severity
+from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
 
 # ============================================================================
 # OS Detection Constants
@@ -304,3 +304,84 @@ def configurable_pool_status():
         )
 
     return _create_pool
+
+
+# ============================================================================
+# Shared Test Helper Functions - Centralized Builders
+# ============================================================================
+
+
+def a_healthy_pool_named(name: str) -> PoolStatus:
+    """Create a healthy pool with realistic defaults.
+
+    This pool is ONLINE with comfortable capacity and no errors.
+    Use this when the pool's health is not the focus of your test.
+
+    Note: This is a standalone function, not a fixture, so it can be
+    called directly in test code without fixture injection.
+    """
+    return PoolStatus(
+        name=name,
+        health=PoolHealth.ONLINE,
+        capacity_percent=45.0,
+        size_bytes=1_000_000_000_000,  # 1 TB
+        allocated_bytes=450_000_000_000,  # 450 GB
+        free_bytes=550_000_000_000,  # 550 GB
+        read_errors=0,
+        write_errors=0,
+        checksum_errors=0,
+        last_scrub=datetime.now(UTC),
+        scrub_errors=0,
+        scrub_in_progress=False,
+    )
+
+
+def a_pool_with(**overrides: object) -> PoolStatus:
+    """Create a pool with specific attributes overridden.
+
+    Use this when you need to test a specific pool characteristic.
+    All unspecified fields get sensible defaults.
+
+    Examples:
+        a_pool_with(read_errors=5)
+        a_pool_with(health=PoolHealth.DEGRADED, capacity_percent=92.5)
+
+    Note: This is a standalone function, not a fixture, so it can be
+    called directly in test code without fixture injection.
+    """
+    defaults: dict[str, object] = {
+        "name": "test-pool",
+        "health": PoolHealth.ONLINE,
+        "capacity_percent": 50.0,
+        "size_bytes": 1_000_000_000_000,
+        "allocated_bytes": 500_000_000_000,
+        "free_bytes": 500_000_000_000,
+        "read_errors": 0,
+        "write_errors": 0,
+        "checksum_errors": 0,
+        "last_scrub": None,
+        "scrub_errors": 0,
+        "scrub_in_progress": False,
+    }
+    return PoolStatus(**{**defaults, **overrides})  # type: ignore[arg-type]
+
+
+def an_issue_for_pool(
+    pool_name: str,
+    severity: Severity,
+    category: IssueCategory,
+    message: str,
+    details: IssueDetails | None = None,
+) -> PoolIssue:
+    """Create a pool issue with the given attributes.
+
+    Note: This is a standalone function, not a fixture, so it can be
+    called directly in test code without fixture injection.
+    """
+    return PoolIssue(
+        pool_name=pool_name,
+        severity=severity,
+        category=category,
+        message=message,
+        details=details or IssueDetails(),
+    )

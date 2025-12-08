@@ -13,61 +13,15 @@ They validate the monitoring rules work correctly on all platforms.
 
 from __future__ import annotations
 
-import pytest
 from datetime import datetime, timedelta, timezone
 
-from check_zpools.models import PoolHealth, PoolStatus, Severity
+import pytest
+
+from check_zpools.models import IssueCategory, PoolHealth, Severity
 from check_zpools.monitor import MonitorConfig, PoolMonitor
 
-
-# ============================================================================
-# Test Fixtures & Builder Helpers
-# ============================================================================
-
-
-def a_healthy_pool_named(name: str) -> PoolStatus:
-    """Create a healthy pool with comfortable capacity and recent scrub.
-
-    Use this when the pool's specific attributes don't matter.
-    """
-    return PoolStatus(
-        name=name,
-        health=PoolHealth.ONLINE,
-        capacity_percent=50.0,
-        size_bytes=1_000_000_000,
-        allocated_bytes=500_000_000,
-        free_bytes=500_000_000,
-        read_errors=0,
-        write_errors=0,
-        checksum_errors=0,
-        last_scrub=datetime.now(timezone.utc) - timedelta(days=1),
-        scrub_errors=0,
-        scrub_in_progress=False,
-    )
-
-
-def a_pool_with(**overrides: object) -> PoolStatus:
-    """Create a pool with specific attributes overridden.
-
-    Examples:
-        a_pool_with(capacity_percent=85.0)
-        a_pool_with(health=PoolHealth.DEGRADED, read_errors=5)
-    """
-    defaults: dict[str, object] = {
-        "name": "test-pool",
-        "health": PoolHealth.ONLINE,
-        "capacity_percent": 50.0,
-        "size_bytes": 1_000_000_000,
-        "allocated_bytes": 500_000_000,
-        "free_bytes": 500_000_000,
-        "read_errors": 0,
-        "write_errors": 0,
-        "checksum_errors": 0,
-        "last_scrub": None,
-        "scrub_errors": 0,
-        "scrub_in_progress": False,
-    }
-    return PoolStatus(**{**defaults, **overrides})  # type: ignore[arg-type]
+# Import shared test helpers from conftest (centralized to avoid duplication)
+from conftest import a_healthy_pool_named, a_pool_with
 
 
 def a_monitor_with_default_thresholds() -> PoolMonitor:
@@ -203,7 +157,7 @@ class TestHealthStateMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        health_issues = [i for i in issues if i.category == "health"]
+        health_issues = [i for i in issues if i.category == IssueCategory.HEALTH]
 
         assert len(health_issues) == 0
 
@@ -215,7 +169,7 @@ class TestHealthStateMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        health_issues = [i for i in issues if i.category == "health"]
+        health_issues = [i for i in issues if i.category == IssueCategory.HEALTH]
 
         assert len(health_issues) == 1
         assert health_issues[0].severity == Severity.WARNING
@@ -229,7 +183,7 @@ class TestHealthStateMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        health_issues = [i for i in issues if i.category == "health"]
+        health_issues = [i for i in issues if i.category == IssueCategory.HEALTH]
 
         assert len(health_issues) == 1
         assert health_issues[0].severity == Severity.CRITICAL
@@ -243,7 +197,7 @@ class TestHealthStateMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        health_issues = [i for i in issues if i.category == "health"]
+        health_issues = [i for i in issues if i.category == IssueCategory.HEALTH]
 
         assert len(health_issues) == 1
         assert health_issues[0].severity == Severity.CRITICAL
@@ -265,7 +219,7 @@ class TestCapacityBelowWarningThreshold:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 0
 
@@ -277,7 +231,7 @@ class TestCapacityBelowWarningThreshold:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 0
 
@@ -293,7 +247,7 @@ class TestCapacityAtWarningThreshold:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 1
         assert capacity_issues[0].severity == Severity.WARNING
@@ -307,7 +261,7 @@ class TestCapacityAtWarningThreshold:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 1
         assert capacity_issues[0].severity == Severity.WARNING
@@ -324,7 +278,7 @@ class TestCapacityBetweenThresholds:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 1
         assert capacity_issues[0].severity == Severity.WARNING
@@ -341,7 +295,7 @@ class TestCapacityAtCriticalThreshold:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 1
         assert capacity_issues[0].severity == Severity.CRITICAL
@@ -355,7 +309,7 @@ class TestCapacityAtCriticalThreshold:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 1
         assert capacity_issues[0].severity == Severity.CRITICAL
@@ -368,7 +322,7 @@ class TestCapacityAtCriticalThreshold:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 1
         assert capacity_issues[0].severity == Severity.CRITICAL
@@ -390,7 +344,7 @@ class TestErrorMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        error_issues = [i for i in issues if i.category == "errors"]
+        error_issues = [i for i in issues if i.category == IssueCategory.ERRORS]
 
         assert len(error_issues) == 0
 
@@ -402,7 +356,7 @@ class TestErrorMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        error_issues = [i for i in issues if i.category == "errors"]
+        error_issues = [i for i in issues if i.category == IssueCategory.ERRORS]
 
         assert len(error_issues) == 1
         assert error_issues[0].severity == Severity.WARNING
@@ -416,7 +370,7 @@ class TestErrorMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        error_issues = [i for i in issues if i.category == "errors"]
+        error_issues = [i for i in issues if i.category == IssueCategory.ERRORS]
 
         assert len(error_issues) == 1
         assert error_issues[0].severity == Severity.WARNING
@@ -430,7 +384,7 @@ class TestErrorMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        error_issues = [i for i in issues if i.category == "errors"]
+        error_issues = [i for i in issues if i.category == IssueCategory.ERRORS]
 
         assert len(error_issues) == 1
         assert error_issues[0].severity == Severity.WARNING
@@ -445,7 +399,7 @@ class TestErrorMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        error_issues = [i for i in issues if i.category == "errors"]
+        error_issues = [i for i in issues if i.category == IssueCategory.ERRORS]
 
         assert len(error_issues) == 3
 
@@ -469,7 +423,7 @@ class TestScrubStatusMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        scrub_issues = [i for i in issues if i.category == "scrub"]
+        scrub_issues = [i for i in issues if i.category == IssueCategory.SCRUB]
 
         assert len(scrub_issues) == 0
 
@@ -481,7 +435,7 @@ class TestScrubStatusMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        scrub_issues = [i for i in issues if i.category == "scrub"]
+        scrub_issues = [i for i in issues if i.category == IssueCategory.SCRUB]
 
         assert len(scrub_issues) == 1
         assert scrub_issues[0].severity == Severity.INFO
@@ -495,7 +449,7 @@ class TestScrubStatusMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        scrub_issues = [i for i in issues if i.category == "scrub"]
+        scrub_issues = [i for i in issues if i.category == IssueCategory.SCRUB]
 
         assert len(scrub_issues) == 1
         assert scrub_issues[0].severity == Severity.INFO
@@ -512,7 +466,7 @@ class TestScrubStatusMonitoring:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        scrub_issues = [i for i in issues if i.category == "scrub"]
+        scrub_issues = [i for i in issues if i.category == IssueCategory.SCRUB]
 
         assert len(scrub_issues) == 1
         assert scrub_issues[0].severity == Severity.WARNING
@@ -527,7 +481,7 @@ class TestScrubStatusMonitoring:
         monitor = PoolMonitor(config)
 
         issues = monitor.check_pool(pool)
-        scrub_issues = [i for i in issues if i.category == "scrub"]
+        scrub_issues = [i for i in issues if i.category == IssueCategory.SCRUB]
 
         assert len(scrub_issues) == 0
 
@@ -611,7 +565,7 @@ class TestCapacityEdgeCases:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 0
 
@@ -623,7 +577,7 @@ class TestCapacityEdgeCases:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        capacity_issues = [i for i in issues if i.category == "capacity"]
+        capacity_issues = [i for i in issues if i.category == IssueCategory.CAPACITY]
 
         assert len(capacity_issues) == 1
         assert capacity_issues[0].severity == Severity.WARNING
@@ -640,7 +594,7 @@ class TestScrubEdgeCases:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        scrub_issues = [i for i in issues if i.category == "scrub"]
+        scrub_issues = [i for i in issues if i.category == IssueCategory.SCRUB]
 
         # At exactly 30 days, it's >= max_age, so should trigger
         assert len(scrub_issues) >= 0  # Implementation dependent
@@ -656,7 +610,7 @@ class TestScrubEdgeCases:
         monitor = a_monitor_with_default_thresholds()
 
         issues = monitor.check_pool(pool)
-        scrub_issues = [i for i in issues if i.category == "scrub"]
+        scrub_issues = [i for i in issues if i.category == IssueCategory.SCRUB]
 
         assert len(scrub_issues) == 0
 
@@ -673,13 +627,13 @@ class TestCustomThresholds:
         # Default thresholds: 75% is OK
         default_monitor = a_monitor_with_default_thresholds()
         default_issues = default_monitor.check_pool(pool)
-        default_capacity_issues = [i for i in default_issues if i.category == "capacity"]
+        default_capacity_issues = [i for i in default_issues if i.category == IssueCategory.CAPACITY]
         assert len(default_capacity_issues) == 0
 
         # Strict thresholds: 75% triggers WARNING (>=70%)
         strict_monitor = a_monitor_with_strict_thresholds()
         strict_issues = strict_monitor.check_pool(pool)
-        strict_capacity_issues = [i for i in strict_issues if i.category == "capacity"]
+        strict_capacity_issues = [i for i in strict_issues if i.category == IssueCategory.CAPACITY]
         assert len(strict_capacity_issues) == 1
         assert strict_capacity_issues[0].severity == Severity.WARNING
 
@@ -704,7 +658,7 @@ class TestMultipleIssuesOnSinglePool:
         # Should have at least 4 issues (health, capacity, errors, scrub)
         assert len(issues) >= 4
         categories = {issue.category for issue in issues}
-        assert "health" in categories
-        assert "capacity" in categories
-        assert "errors" in categories
-        assert "scrub" in categories
+        assert IssueCategory.HEALTH in categories
+        assert IssueCategory.CAPACITY in categories
+        assert IssueCategory.ERRORS in categories
+        assert IssueCategory.SCRUB in categories

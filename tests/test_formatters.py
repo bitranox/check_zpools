@@ -13,11 +13,9 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
-
-import pytest
-
 from io import StringIO
 
+import pytest
 from rich.console import Console
 
 from check_zpools.formatters import (
@@ -27,49 +25,10 @@ from check_zpools.formatters import (
     format_check_result_text,
     get_exit_code_for_severity,
 )
-from check_zpools.models import CheckResult, PoolHealth, PoolIssue, PoolStatus, Severity
+from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolIssue, Severity
 
-
-# ============================================================================
-# Test Fixtures & Helpers
-# ============================================================================
-
-
-def a_healthy_pool_named(name: str) -> PoolStatus:
-    """Create a healthy pool with sensible defaults."""
-    return PoolStatus(
-        name=name,
-        health=PoolHealth.ONLINE,
-        capacity_percent=50.0,
-        size_bytes=1024**4,  # 1 TB
-        allocated_bytes=int(0.5 * 1024**4),
-        free_bytes=int(0.5 * 1024**4),
-        read_errors=0,
-        write_errors=0,
-        checksum_errors=0,
-        last_scrub=datetime.now(UTC),
-        scrub_errors=0,
-        scrub_in_progress=False,
-    )
-
-
-def a_pool_with(**overrides: object) -> PoolStatus:
-    """Create a pool with specific attributes overridden."""
-    defaults: dict[str, object] = {
-        "name": "test-pool",
-        "health": PoolHealth.ONLINE,
-        "capacity_percent": 50.0,
-        "size_bytes": 1024**4,
-        "allocated_bytes": int(0.5 * 1024**4),
-        "free_bytes": int(0.5 * 1024**4),
-        "read_errors": 0,
-        "write_errors": 0,
-        "checksum_errors": 0,
-        "last_scrub": datetime.now(UTC),
-        "scrub_errors": 0,
-        "scrub_in_progress": False,
-    }
-    return PoolStatus(**{**defaults, **overrides})  # type: ignore[arg-type]
+# Import shared test helpers from conftest (centralized to avoid duplication)
+from conftest import a_healthy_pool_named, a_pool_with
 
 
 def a_warning_issue_for(pool_name: str) -> PoolIssue:
@@ -77,9 +36,9 @@ def a_warning_issue_for(pool_name: str) -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.WARNING,
-        category="capacity",
+        category=IssueCategory.CAPACITY,
         message="Pool capacity is high",
-        details={"threshold": "80%", "current": "85%"},
+        details=IssueDetails(threshold=80, capacity_percent=85.0),
     )
 
 
@@ -88,9 +47,9 @@ def a_critical_issue_for(pool_name: str) -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.CRITICAL,
-        category="health",
+        category=IssueCategory.HEALTH,
         message="Pool is degraded",
-        details={"state": "DEGRADED"},
+        details=IssueDetails(current_state="DEGRADED"),
     )
 
 
@@ -99,20 +58,20 @@ def an_info_issue_for(pool_name: str) -> PoolIssue:
     return PoolIssue(
         pool_name=pool_name,
         severity=Severity.INFO,
-        category="scrub",
+        category=IssueCategory.SCRUB,
         message="Scrub completed",
-        details={},
+        details=IssueDetails(),
     )
 
 
-def an_issue_with(pool_name: str, severity: Severity, category: str, message: str) -> PoolIssue:
+def an_issue_with(pool_name: str, severity: Severity, category: IssueCategory, message: str) -> PoolIssue:
     """Create a custom issue with specific attributes."""
     return PoolIssue(
         pool_name=pool_name,
         severity=severity,
         category=category,
         message=message,
-        details={},
+        details=IssueDetails(),
     )
 
 
@@ -199,7 +158,7 @@ class TestJsonFormattingWithNoIssues:
         assert len(data["pools"]) == 1
         assert data["pools"][0]["name"] == "rpool"
         assert data["pools"][0]["health"] == "ONLINE"
-        assert data["pools"][0]["capacity_percent"] == 50.0
+        assert data["pools"][0]["capacity_percent"] == 45.0
 
     @pytest.mark.os_agnostic
     def test_ok_result_includes_empty_issues_list(self) -> None:
@@ -252,8 +211,8 @@ class TestJsonFormattingWithWarningIssues:
         json_output = format_check_result_json(result)
         data = json.loads(json_output)
 
-        assert data["issues"][0]["details"]["threshold"] == "80%"
-        assert data["issues"][0]["details"]["current"] == "85%"
+        assert data["issues"][0]["details"]["threshold"] == 80
+        assert data["issues"][0]["details"]["capacity_percent"] == 85.0
 
 
 class TestJsonFormattingWithCriticalIssues:
@@ -540,8 +499,8 @@ class TestTextFormattingWithMultipleIssues:
         """When formatting a result with multiple issues,
         all issue messages appear in the text."""
         pool = a_healthy_pool_named("rpool")
-        issue1 = an_issue_with("rpool", Severity.WARNING, "capacity", "High capacity")
-        issue2 = an_issue_with("rpool", Severity.CRITICAL, "health", "Degraded")
+        issue1 = an_issue_with("rpool", Severity.WARNING, IssueCategory.CAPACITY, "High capacity")
+        issue2 = an_issue_with("rpool", Severity.CRITICAL, IssueCategory.HEALTH, "Degraded")
 
         result = CheckResult(
             timestamp=datetime.now(UTC),
@@ -560,8 +519,8 @@ class TestTextFormattingWithMultipleIssues:
         """When formatting a result with mixed severities,
         each severity uses its appropriate color."""
         pool = a_healthy_pool_named("rpool")
-        issue1 = an_issue_with("rpool", Severity.WARNING, "capacity", "High capacity")
-        issue2 = an_issue_with("rpool", Severity.CRITICAL, "health", "Degraded")
+        issue1 = an_issue_with("rpool", Severity.WARNING, IssueCategory.CAPACITY, "High capacity")
+        issue2 = an_issue_with("rpool", Severity.CRITICAL, IssueCategory.HEALTH, "Degraded")
 
         result = CheckResult(
             timestamp=datetime.now(UTC),
@@ -750,8 +709,8 @@ class TestDisplayCheckResultTextWithIssues:
         """When displaying a result with multiple issues,
         all issues appear in output."""
         pool = a_healthy_pool_named("rpool")
-        issue1 = an_issue_with("rpool", Severity.WARNING, "capacity", "High capacity")
-        issue2 = an_issue_with("rpool", Severity.CRITICAL, "health", "Degraded")
+        issue1 = an_issue_with("rpool", Severity.WARNING, IssueCategory.CAPACITY, "High capacity")
+        issue2 = an_issue_with("rpool", Severity.CRITICAL, IssueCategory.HEALTH, "Degraded")
 
         result = CheckResult(
             timestamp=datetime.now(UTC),
@@ -800,7 +759,7 @@ class TestDisplayCheckResultTextWithTableColumns:
 
         # Column header may be truncated in narrow tables
         assert "Capaci" in output
-        assert "50.0%" in output
+        assert "45.0%" in output
 
     @pytest.mark.os_agnostic
     def test_table_includes_size_column_with_human_readable_format(self) -> None:

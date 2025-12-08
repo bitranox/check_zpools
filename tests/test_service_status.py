@@ -338,7 +338,10 @@ class TestGetPoolStatusSummaryWithFaultedDevices:
         """Pools with faulted devices should return correct faulted count."""
         from check_zpools.models import (
             CheckResult,
+            DeviceState,
             DeviceStatus,
+            IssueCategory,
+            IssueDetails,
             PoolHealth,
             PoolIssue,
             PoolStatus,
@@ -347,7 +350,7 @@ class TestGetPoolStatusSummaryWithFaultedDevices:
 
         faulted_device = DeviceStatus(
             name="wwn-0x5002538f55117008-part3",
-            state="FAULTED",
+            state=DeviceState.FAULTED,
             read_errors=3,
             write_errors=220,
             checksum_errors=0,
@@ -371,9 +374,9 @@ class TestGetPoolStatusSummaryWithFaultedDevices:
         mock_issue = PoolIssue(
             pool_name="rpool",
             severity=Severity.CRITICAL,
-            category="device",
+            category=IssueCategory.DEVICE,
             message="Device wwn-0x5002538f55117008-part3 is FAULTED",
-            details={},
+            details=IssueDetails(),
         )
         mock_result = CheckResult(
             timestamp=datetime.now(UTC),
