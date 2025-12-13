@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [3.6.2] - 2025-12-13
+
+### Fixed
+- **lib_layered_config v5.0.0 Compatibility**: Fixed type error with `deploy_config()` return type
+  - `lib_layered_config` v5.0.0 changed `deploy_config()` return type from `list[Path]` to `list[DeployResult]`
+  - Updated `config_deploy.py` to extract `destination` paths from `DeployResult` objects
+  - Updated tests to mock `DeployResult` objects instead of raw `Path` objects
+  - **Why this matters**: CI was failing with Pyright error due to type mismatch
+
 ## [3.6.1] - 2025-12-08
 
 ### Changed

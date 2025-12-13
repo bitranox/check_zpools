@@ -95,7 +95,7 @@ def deploy_configuration(
 
     source = get_default_config_path()
 
-    deployed_paths = deploy_config(
+    results = deploy_config(
         source=source,
         vendor=__init__conf__.LAYEREDCONF_VENDOR,
         app=__init__conf__.LAYEREDCONF_APP,
@@ -104,7 +104,7 @@ def deploy_configuration(
         force=force,
     )
 
-    return deployed_paths
+    return [r.destination for r in results]
 
 
 __all__ = [

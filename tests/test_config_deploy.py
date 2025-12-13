@@ -13,12 +13,20 @@ with mocked filesystem operations, not actual platform-specific paths.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from check_zpools.config_deploy import deploy_configuration
+
+
+@dataclass
+class MockDeployResult:
+    """Mock DeployResult for testing."""
+
+    destination: Path
 
 
 # ============================================================================
@@ -37,7 +45,7 @@ class TestDeployToUserTarget:
         deploy_config is called with 'user' in targets."""
         mock_source = Path("/fake/source/defaultconfig.toml")
         mock_get_path.return_value = mock_source
-        mock_deploy.return_value = [Path("/home/user/.config/check_zpools/config.toml")]
+        mock_deploy.return_value = [MockDeployResult(destination=Path("/home/user/.config/check_zpools/config.toml"))]
 
         deploy_configuration(targets=["user"])
 
@@ -51,7 +59,7 @@ class TestDeployToUserTarget:
         the function returns the deployed config path."""
         mock_source = Path("/fake/source/defaultconfig.toml")
         mock_get_path.return_value = mock_source
-        mock_deploy.return_value = [Path("/home/user/.config/check_zpools/config.toml")]
+        mock_deploy.return_value = [MockDeployResult(destination=Path("/home/user/.config/check_zpools/config.toml"))]
 
         result = deploy_configuration(targets=["user"])
 
@@ -70,7 +78,7 @@ class TestDeployToHostTarget:
         deploy_config is called with 'host' in targets."""
         mock_source = Path("/fake/source/defaultconfig.toml")
         mock_get_path.return_value = mock_source
-        mock_deploy.return_value = [Path("/etc/check_zpools/config.toml")]
+        mock_deploy.return_value = [MockDeployResult(destination=Path("/etc/check_zpools/config.toml"))]
 
         deploy_configuration(targets=["host"])
 
@@ -84,7 +92,7 @@ class TestDeployToHostTarget:
         the function returns the system config path."""
         mock_source = Path("/fake/source/defaultconfig.toml")
         mock_get_path.return_value = mock_source
-        mock_deploy.return_value = [Path("/etc/check_zpools/config.toml")]
+        mock_deploy.return_value = [MockDeployResult(destination=Path("/etc/check_zpools/config.toml"))]
 
         result = deploy_configuration(targets=["host"])
 
@@ -102,7 +110,7 @@ class TestDeployToAppTarget:
         deploy_config is called with 'app' in targets."""
         mock_source = Path("/fake/source/defaultconfig.toml")
         mock_get_path.return_value = mock_source
-        mock_deploy.return_value = [Path("/usr/share/check_zpools/config.toml")]
+        mock_deploy.return_value = [MockDeployResult(destination=Path("/usr/share/check_zpools/config.toml"))]
 
         deploy_configuration(targets=["app"])
 
@@ -116,7 +124,7 @@ class TestDeployToAppTarget:
         the function returns the application config path."""
         mock_source = Path("/fake/source/defaultconfig.toml")
         mock_get_path.return_value = mock_source
-        mock_deploy.return_value = [Path("/usr/share/check_zpools/config.toml")]
+        mock_deploy.return_value = [MockDeployResult(destination=Path("/usr/share/check_zpools/config.toml"))]
 
         result = deploy_configuration(targets=["app"])
 
@@ -140,8 +148,8 @@ class TestDeployToMultipleTargets:
         mock_source = Path("/fake/source/defaultconfig.toml")
         mock_get_path.return_value = mock_source
         mock_deploy.return_value = [
-            Path("/etc/check_zpools/config.toml"),
-            Path("/home/user/.config/check_zpools/config.toml"),
+            MockDeployResult(destination=Path("/etc/check_zpools/config.toml")),
+            MockDeployResult(destination=Path("/home/user/.config/check_zpools/config.toml")),
         ]
 
         deploy_configuration(targets=["app", "user"])
@@ -162,7 +170,7 @@ class TestDeployToMultipleTargets:
             Path("/home/user/.config/check_zpools/config.toml"),
             Path("/etc/check_zpools/config.toml"),
         ]
-        mock_deploy.return_value = expected_paths
+        mock_deploy.return_value = [MockDeployResult(destination=p) for p in expected_paths]
 
         result = deploy_configuration(targets=["user", "app"])
 
@@ -200,7 +208,7 @@ class TestForceOverwriteBehavior:
         deploy_config is called with force=True."""
         mock_source = Path("/fake/source/defaultconfig.toml")
         mock_get_path.return_value = mock_source
-        mock_deploy.return_value = [Path("/home/user/.config/check_zpools/config.toml")]
+        mock_deploy.return_value = [MockDeployResult(destination=Path("/home/user/.config/check_zpools/config.toml"))]
 
         deploy_configuration(targets=["user"], force=True)
 
