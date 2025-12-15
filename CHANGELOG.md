@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [3.6.3] - 2025-12-15
+
+### Changed
+- **Build Scripts**: Migrated TOML parsing from tomllib/tomli to rtoml
+  - Replaced `_get_toml_module()` fallback logic with direct rtoml imports
+  - Simplified error handling to use `rtoml.TomlParsingError`
+  - Removed ~50 lines of legacy compatibility code
+  - **Why this matters**: Cleaner codebase with single TOML library dependency
+
 ## [3.6.2] - 2025-12-13
 
 ### Fixed
