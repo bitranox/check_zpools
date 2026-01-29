@@ -314,10 +314,10 @@ def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
 
             super().__init__(_data=MappingProxyType(test_config_data), _meta={})
 
-        def as_dict(self) -> dict[str, Any]:
+        def as_dict(self, *, redact: bool = False) -> dict[str, Any]:
             return test_config_data
 
-        def to_json(self, *, indent: int | None = None) -> str:
+        def to_json(self, *, indent: int | None = None, redact: bool = False) -> str:
             import json
 
             return json.dumps(test_config_data, indent=indent)
@@ -524,7 +524,7 @@ def test_when_config_shows_all_sections_with_complex_values(
 
             super().__init__(_data=MappingProxyType(test_config_data), _meta={})
 
-        def as_dict(self) -> dict[str, Any]:
+        def as_dict(self, *, redact: bool = False) -> dict[str, Any]:
             return test_config_data
 
         def origin(self, key: str) -> SourceInfo | None:

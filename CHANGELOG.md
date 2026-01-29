@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [3.7.0] - 2026-01-29
+
+### Fixed
+- **lib_layered_config v5.3.1 Compatibility**: Fixed type errors in test mocks for `Config` class
+  - Added missing `redact` parameter to `as_dict()` and `to_json()` method overrides
+  - `lib_layered_config` v5.3.1 added `redact: bool = False` parameter to these methods
+  - Updated `MockConfig` classes in `test_cli.py` to match new signatures
+  - **Why this matters**: Pyright was failing with `reportIncompatibleMethodOverride` errors
+
 ## [3.6.3] - 2025-12-15
 
 ### Changed
