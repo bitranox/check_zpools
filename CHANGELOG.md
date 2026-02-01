@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [3.7.1] - 2026-02-01
+
+### Fixed
+- **Test Suite (macOS Compatibility)**: Fixed email attachment tests failing on macOS CI runners
+  - `btx_lib_mail` library blocks attachments from `/var` directory for security
+  - On macOS, pytest's `tmp_path` resolves to `/private/var/folders/...`, triggering `AttachmentSecurityError`
+  - Changed attachment tests to patch `btx_send` directly, bypassing external library security validation
+  - Affected tests: `test_send_email_with_attachments`, `test_send_email_missing_attachment_raises`, `test_when_send_email_has_attachments_it_sends`
+  - **Why this matters**: CI tests now pass consistently on both Linux and macOS runners
+
 ## [3.7.0] - 2026-01-29
 
 ### Fixed
