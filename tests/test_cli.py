@@ -830,7 +830,9 @@ def test_when_send_email_has_attachments_it_sends(
     attachment.write_text("Test content")
 
     with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        with patch("smtplib.SMTP"):
+        # Patch btx_send directly to bypass btx_lib_mail security checks
+        # which block /var on macOS where tmp_path resolves to /private/var/...
+        with patch("check_zpools.mail.btx_send", return_value=True):
             mock_config_obj = MagicMock()
             mock_config_obj.as_dict.return_value = {
                 "email": {

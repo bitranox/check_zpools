@@ -263,12 +263,16 @@ class TestSendEmail:
 
         assert result is True
 
-    @patch("smtplib.SMTP")
-    def test_send_email_with_attachments(self, mock_smtp: MagicMock, tmp_path: Path) -> None:
+    @patch("check_zpools.mail.btx_send")
+    def test_send_email_with_attachments(self, mock_btx_send: MagicMock, tmp_path: Path) -> None:
         """Should send email with file attachments."""
         # Create test attachment
         attachment = tmp_path / "test.txt"
         attachment.write_text("Test attachment content")
+
+        # Mock btx_send to return True (bypasses btx_lib_mail security checks
+        # which block /var on macOS where tmp_path resolves to /private/var/...)
+        mock_btx_send.return_value = True
 
         config = EmailConfig(
             smtp_hosts=["smtp.test.com:587"],
@@ -284,6 +288,10 @@ class TestSendEmail:
         )
 
         assert result is True
+        # Verify btx_send was called with the attachment
+        mock_btx_send.assert_called_once()
+        call_kwargs = mock_btx_send.call_args.kwargs
+        assert call_kwargs["attachment_file_paths"] == [attachment]
 
     @patch("smtplib.SMTP")
     def test_send_email_with_credentials(self, mock_smtp: MagicMock) -> None:
@@ -410,9 +418,15 @@ class TestEmailErrorScenarios:
                 body="Hello",
             )
 
-    def test_send_email_missing_attachment_raises(self, tmp_path: Path) -> None:
+    @patch("check_zpools.mail.btx_send")
+    def test_send_email_missing_attachment_raises(self, mock_btx_send: MagicMock, tmp_path: Path) -> None:
         """Should raise FileNotFoundError for missing attachments when configured."""
         nonexistent = tmp_path / "nonexistent.txt"
+
+        # Mock btx_send to raise FileNotFoundError (simulates btx_lib_mail
+        # behavior for missing files, bypassing security checks that block
+        # /var on macOS where tmp_path resolves to /private/var/...)
+        mock_btx_send.side_effect = FileNotFoundError(f"Attachment not found: {nonexistent}")
 
         config = EmailConfig(
             smtp_hosts=["smtp.test.com:587"],
@@ -420,15 +434,14 @@ class TestEmailErrorScenarios:
             raise_on_missing_attachments=True,
         )
 
-        with patch("smtplib.SMTP"):
-            with pytest.raises(FileNotFoundError):
-                send_email(
-                    config=config,
-                    recipients="recipient@test.com",
-                    subject="Test",
-                    body="Hello",
-                    attachments=[nonexistent],
-                )
+        with pytest.raises(FileNotFoundError):
+            send_email(
+                config=config,
+                recipients="recipient@test.com",
+                subject="Test",
+                body="Hello",
+                attachments=[nonexistent],
+            )
 
     @patch("smtplib.SMTP")
     def test_send_email_all_smtp_hosts_fail(self, mock_smtp: MagicMock) -> None:
