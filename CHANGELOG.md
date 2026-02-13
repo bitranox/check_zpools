@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file following
 the [Keep a Changelog](https://keepachangelog.com/) format.
 
 
+## [Unreleased]
+
+## [3.7.2] - 2026-02-13
+
+### Removed
+- **`tests/test_scripts.py`**: Deleted test file for the removed `scripts/` package
+  - All `scripts/*.py` modules were deleted in a prior cleanup
+  - Test file caused pyright errors (8 `reportMissingImports`) and pytest collection failures
+  - **Why this matters**: Restores clean test runs after the `scripts/` package removal
+
+### Fixed
+- **`reset_git_history.sh`**: Fixed shellcheck and shfmt violations
+  - Re-indented from 2 spaces to 4 spaces (shfmt requirement)
+  - Quoted `HEAD^{tree}` and added `shellcheck disable=SC1083` for literal braces warning
+
 ## [3.7.1] - 2026-02-01
 
 ### Fixed
