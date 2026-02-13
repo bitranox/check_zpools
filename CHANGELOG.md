@@ -10,22 +10,31 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 - **`service_install.py` — `_get_daemon_config()` dead code**: Function imported from non-existent `lib_config_layers` library instead of the project's `lib_layered_config`, and referenced non-existent `__init__conf__` attributes (`slug_name`, `default_config`). The function always silently returned `{}`, causing `service-status` to display hardcoded defaults instead of actual configuration. Now uses the project's existing `config.get_config()` adapter.
+- **Python 3.10 compatibility**: Replaced `datetime.UTC` (3.11+) with `datetime.timezone.utc` and `tomllib` (3.11+) with `rtoml` across all source and test files to support the full `requires-python = ">=3.10"` range.
+- **macOS CI failures**: Fixed `python -m pytest` resolving to system framework Python instead of `actions/setup-python` Python by using `pytest` binary directly. Added `UV_BREAK_SYSTEM_PACKAGES=1` for PEP 668 compatibility with Homebrew Python. Added `brew install bash` step for bash 4+ requirement.
 
 ### Added
 - **`tests/test_cli_email_handlers.py`**: New test file with 20 tests covering `cli_email_handlers.py` which previously had zero test coverage. Tests cover SMTP validation, email send error handling for all known/unknown error types, exit codes, stderr output, and logging behavior.
+- **`tests/test_cli_traceback.py`**, **`tests/test_config.py`**, **`tests/test_logging_setup.py`**: New dedicated test files.
+- **`.github/actions/extract-metadata`**: New composite action to parse `pyproject.toml` and expose project metadata as step outputs.
+
+### Changed
+- **CI workflow renamed**: `ci.yml` → `default_cicd_public.yml`, `release.yml` → `default_release_public.yml`.
+- **Python version matrix expanded**: CI now tests against Python 3.10, 3.11, 3.12, 3.13, and 3.14.
+- **Ruff target version**: Changed from `py313` to `py310` to match `requires-python`.
+- **pip-audit exclusions**: Added setuptools CVEs (`PYSEC-2022-43012`, `PYSEC-2025-49`, `CVE-2024-6345`) and cryptography `CVE-2026-26007`.
+
+### Removed
+- **`scripts/` directory**: Entire legacy scripts package (~4,700 lines) replaced by `bmk` / Makefile.
+- **`tests/test_scripts.py`**: Deleted test file for the removed `scripts/` package.
 
 ## [3.7.2] - 2026-02-13
 
 ### Removed
-- **`tests/test_scripts.py`**: Deleted test file for the removed `scripts/` package
-  - All `scripts/*.py` modules were deleted in a prior cleanup
-  - Test file caused pyright errors (8 `reportMissingImports`) and pytest collection failures
-  - **Why this matters**: Restores clean test runs after the `scripts/` package removal
+- **`tests/test_scripts.py`**: Deleted test file for the removed `scripts/` package.
 
 ### Fixed
-- **`reset_git_history.sh`**: Fixed shellcheck and shfmt violations
-  - Re-indented from 2 spaces to 4 spaces (shfmt requirement)
-  - Quoted `HEAD^{tree}` and added `shellcheck disable=SC1083` for literal braces warning
+- **`reset_git_history.sh`**: Fixed shellcheck and shfmt violations.
 
 ## [3.7.1] - 2026-02-01
 
