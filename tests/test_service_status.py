@@ -12,7 +12,7 @@ All tests mock external dependencies (systemctl, ZFS commands, file I/O).
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -311,13 +311,13 @@ class TestGetPoolStatusSummaryWithHealthyPools:
             read_errors=0,
             write_errors=0,
             checksum_errors=0,
-            last_scrub=datetime.now(UTC),
+            last_scrub=datetime.now(timezone.utc),
             scrub_errors=0,
             scrub_in_progress=False,
             faulted_devices=(),
         )
         mock_result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[mock_pool],
             issues=[],
             overall_severity=Severity.OK,
@@ -366,7 +366,7 @@ class TestGetPoolStatusSummaryWithFaultedDevices:
             read_errors=0,
             write_errors=0,
             checksum_errors=0,
-            last_scrub=datetime.now(UTC),
+            last_scrub=datetime.now(timezone.utc),
             scrub_errors=0,
             scrub_in_progress=False,
             faulted_devices=(faulted_device,),
@@ -379,7 +379,7 @@ class TestGetPoolStatusSummaryWithFaultedDevices:
             details=IssueDetails(),
         )
         mock_result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[mock_pool],
             issues=[mock_issue],
             overall_severity=Severity.CRITICAL,
@@ -467,7 +467,7 @@ class TestShowServiceStatusInstalled:
             "enabled": True,
             "status_text": "",
         }
-        start_time = datetime.now(UTC) - timedelta(hours=3, minutes=15)
+        start_time = datetime.now(timezone.utc) - timedelta(hours=3, minutes=15)
 
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),
@@ -548,7 +548,7 @@ class TestShowServiceStatusInstalled:
             "status_text": "",
         }
         # Alert sent 30 minutes ago with 2 hour resend interval
-        last_alerted = (datetime.now(UTC) - timedelta(minutes=30)).isoformat()
+        last_alerted = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
         alert_state = {
             "alerts": {
                 "rpool:device": {

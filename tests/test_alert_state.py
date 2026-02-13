@@ -14,7 +14,7 @@ All tests are OS-agnostic (pure Python state management and JSON serialization).
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -69,7 +69,7 @@ def an_alert_state(
     last_severity: str | None = None,
 ) -> AlertState:
     """Create an alert state with configurable age and severity."""
-    timestamp = datetime.now(UTC) - timedelta(hours=hours_ago)
+    timestamp = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
     return AlertState(
         pool_name=pool_name,
         issue_category=category,
@@ -114,7 +114,7 @@ class TestAlertStateCreation:
     def test_alert_state_remembers_timestamps(self) -> None:
         """When creating an alert state with timestamps,
         it preserves both first_seen and last_alerted."""
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         state = AlertState(
             pool_name="rpool",
             issue_category="capacity",
@@ -453,7 +453,7 @@ class TestLoadingValidState:
         """When loading from a valid state file,
         all alert states are restored."""
         state_file = tmp_path / "alert_state.json"
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         data = {
             "version": 1,
             "alerts": {
@@ -528,7 +528,7 @@ class TestLoadingWithCorruptData:
         """When some alert entries are corrupt,
         valid entries are loaded and corrupt ones are skipped."""
         state_file = tmp_path / "alert_state.json"
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         data = {
             "version": 1,
             "alerts": {

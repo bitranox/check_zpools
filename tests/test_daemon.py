@@ -29,7 +29,7 @@ from __future__ import annotations
 import signal
 import threading
 import time
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
 import pytest
@@ -114,8 +114,8 @@ def healthy_pool_json() -> dict:
                 "scan_stats": {
                     "function": "SCRUB",
                     "state": "FINISHED",
-                    "start_time": int(datetime.now(UTC).timestamp()) - 86400,  # 1 day ago
-                    "end_time": int(datetime.now(UTC).timestamp()) - 86400,
+                    "start_time": int(datetime.now(timezone.utc).timestamp()) - 86400,  # 1 day ago
+                    "end_time": int(datetime.now(timezone.utc).timestamp()) - 86400,
                     "errors": 0,
                 },
             }
@@ -160,8 +160,8 @@ def degraded_pool_json() -> dict:
                 "scan_stats": {
                     "function": "SCRUB",
                     "state": "FINISHED",
-                    "start_time": int(datetime.now(UTC).timestamp()) - 86400,
-                    "end_time": int(datetime.now(UTC).timestamp()) - 86400,
+                    "start_time": int(datetime.now(timezone.utc).timestamp()) - 86400,
+                    "end_time": int(datetime.now(timezone.utc).timestamp()) - 86400,
                     "errors": 3,
                 },
             }
@@ -198,7 +198,7 @@ def mock_monitor() -> Mock:
     """
     monitor = Mock()
     monitor.check_all_pools.return_value = CheckResult(
-        timestamp=datetime.now(UTC),
+        timestamp=datetime.now(timezone.utc),
         pools=[],
         issues=[],
         overall_severity=Severity.OK,
@@ -566,7 +566,7 @@ class TestAlertHandlingSendsAlertsForNewIssues:
         Then: Calls send_alert once
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -593,7 +593,7 @@ class TestAlertHandlingSendsAlertsForNewIssues:
         Then: send_alert called with issue as first arg
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -621,7 +621,7 @@ class TestAlertHandlingSendsAlertsForNewIssues:
         Then: send_alert called with pool status as second arg
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -654,7 +654,7 @@ class TestAlertHandlingRecordsNewIssues:
         Then: Calls record_alert with issue
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -686,7 +686,7 @@ class TestAlertHandlingSuppressesDuplicates:
         Then: send_alert is not called
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -719,7 +719,7 @@ class TestAlertHandlingSuppressesDuplicates:
         )
 
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[ok_issue],
             overall_severity=Severity.OK,
@@ -756,7 +756,7 @@ class TestRecoveryDetectionSendsNotifications:
         """
         # First cycle: issue present
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -766,7 +766,7 @@ class TestRecoveryDetectionSendsNotifications:
 
         # Second cycle: issue resolved
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
@@ -791,7 +791,7 @@ class TestRecoveryDetectionSendsNotifications:
         Then: First arg is 'rpool'
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -800,7 +800,7 @@ class TestRecoveryDetectionSendsNotifications:
         daemon._run_check_cycle()
 
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
@@ -826,7 +826,7 @@ class TestRecoveryDetectionSendsNotifications:
         Then: Second arg is 'capacity'
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -835,7 +835,7 @@ class TestRecoveryDetectionSendsNotifications:
         daemon._run_check_cycle()
 
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
@@ -861,7 +861,7 @@ class TestRecoveryDetectionSendsNotifications:
         Then: Third arg is pool status
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -870,7 +870,7 @@ class TestRecoveryDetectionSendsNotifications:
         daemon._run_check_cycle()
 
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,
@@ -901,7 +901,7 @@ class TestRecoveryDetectionClearsState:
         Then: Calls clear_issue with pool name and category
         """
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[capacity_warning_issue],
             overall_severity=Severity.WARNING,
@@ -910,7 +910,7 @@ class TestRecoveryDetectionClearsState:
         daemon._run_check_cycle()
 
         mock_monitor.check_all_pools.return_value = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[healthy_pool_status],
             issues=[],
             overall_severity=Severity.OK,

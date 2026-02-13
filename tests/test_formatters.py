@@ -12,7 +12,7 @@ All tests are OS-agnostic (pure Python string formatting and JSON serialization)
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from io import StringIO
 
 import pytest
@@ -78,7 +78,7 @@ def an_issue_with(pool_name: str, severity: Severity, category: IssueCategory, m
 def a_check_result_with_no_issues() -> CheckResult:
     """Create a check result with healthy pool and no issues."""
     return CheckResult(
-        timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC),
+        timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
         pools=[a_healthy_pool_named("rpool")],
         issues=[],
         overall_severity=Severity.OK,
@@ -88,7 +88,7 @@ def a_check_result_with_no_issues() -> CheckResult:
 def a_check_result_with_warning() -> CheckResult:
     """Create a check result with one warning issue."""
     return CheckResult(
-        timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC),
+        timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
         pools=[a_healthy_pool_named("rpool")],
         issues=[a_warning_issue_for("rpool")],
         overall_severity=Severity.WARNING,
@@ -98,7 +98,7 @@ def a_check_result_with_warning() -> CheckResult:
 def a_check_result_with_critical() -> CheckResult:
     """Create a check result with one critical issue."""
     return CheckResult(
-        timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC),
+        timestamp=datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc),
         pools=[a_healthy_pool_named("rpool")],
         issues=[a_critical_issue_for("rpool")],
         overall_severity=Severity.CRITICAL,
@@ -254,7 +254,7 @@ class TestJsonFormattingWithMultipleEntities:
         pool2 = a_pool_with(name="tank", capacity_percent=30.0, last_scrub=None)
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool1, pool2],
             issues=[],
             overall_severity=Severity.OK,
@@ -276,7 +276,7 @@ class TestJsonFormattingWithMultipleEntities:
         critical = a_critical_issue_for("rpool")
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool],
             issues=[warning, critical],
             overall_severity=Severity.CRITICAL,
@@ -462,7 +462,7 @@ class TestTextFormattingWithInfoSeverity:
         issue = an_info_issue_for("rpool")
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool],
             issues=[issue],
             overall_severity=Severity.INFO,
@@ -480,7 +480,7 @@ class TestTextFormattingWithInfoSeverity:
         issue = an_info_issue_for("rpool")
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool],
             issues=[issue],
             overall_severity=Severity.INFO,
@@ -503,7 +503,7 @@ class TestTextFormattingWithMultipleIssues:
         issue2 = an_issue_with("rpool", Severity.CRITICAL, IssueCategory.HEALTH, "Degraded")
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool],
             issues=[issue1, issue2],
             overall_severity=Severity.CRITICAL,
@@ -523,7 +523,7 @@ class TestTextFormattingWithMultipleIssues:
         issue2 = an_issue_with("rpool", Severity.CRITICAL, IssueCategory.HEALTH, "Degraded")
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool],
             issues=[issue1, issue2],
             overall_severity=Severity.CRITICAL,
@@ -713,7 +713,7 @@ class TestDisplayCheckResultTextWithIssues:
         issue2 = an_issue_with("rpool", Severity.CRITICAL, IssueCategory.HEALTH, "Degraded")
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool],
             issues=[issue1, issue2],
             overall_severity=Severity.CRITICAL,
@@ -767,7 +767,7 @@ class TestDisplayCheckResultTextWithTableColumns:
         the Size column shows human-readable size."""
         pool = a_pool_with(name="rpool", size_bytes=1024**4)  # 1 TB
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool],
             issues=[],
             overall_severity=Severity.OK,
@@ -807,7 +807,7 @@ class TestDisplayCheckResultTextWithTableColumns:
             checksum_errors=1,
         )
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool],
             issues=[],
             overall_severity=Severity.OK,
@@ -833,7 +833,7 @@ class TestDisplayCheckResultTextWithMultiplePools:
         pool2 = a_pool_with(name="tank", capacity_percent=30.0, last_scrub=None)
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool1, pool2],
             issues=[],
             overall_severity=Severity.OK,
@@ -856,7 +856,7 @@ class TestDisplayCheckResultTextWithMultiplePools:
         pool2 = a_pool_with(name="tank", capacity_percent=30.0, last_scrub=None)
 
         result = CheckResult(
-            timestamp=datetime.now(UTC),
+            timestamp=datetime.now(timezone.utc),
             pools=[pool1, pool2],
             issues=[],
             overall_severity=Severity.OK,

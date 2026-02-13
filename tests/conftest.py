@@ -12,7 +12,7 @@ import re
 import sys
 from collections.abc import Callable, Iterator
 from dataclasses import fields
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import pytest
@@ -225,7 +225,7 @@ def healthy_pool_status() -> PoolStatus:
         read_errors=0,
         write_errors=0,
         checksum_errors=0,
-        last_scrub=datetime(2025, 11, 24, 12, 0, 0, tzinfo=UTC),
+        last_scrub=datetime(2025, 11, 24, 12, 0, 0, tzinfo=timezone.utc),
         scrub_errors=0,
         scrub_in_progress=False,
     )
@@ -244,7 +244,7 @@ def ok_check_result(healthy_pool_status: PoolStatus) -> CheckResult:
         CheckResult with OK severity and one healthy pool.
     """
     return CheckResult(
-        timestamp=datetime(2025, 11, 24, 12, 0, 0, tzinfo=UTC),
+        timestamp=datetime(2025, 11, 24, 12, 0, 0, tzinfo=timezone.utc),
         pools=[healthy_pool_status],
         issues=[],
         overall_severity=Severity.OK,
@@ -286,7 +286,7 @@ def configurable_pool_status():
             PoolStatus with specified configuration
         """
         if last_scrub is None:
-            last_scrub = datetime.now(UTC)
+            last_scrub = datetime.now(timezone.utc)
 
         return PoolStatus(
             name=name,
@@ -330,7 +330,7 @@ def a_healthy_pool_named(name: str) -> PoolStatus:
         read_errors=0,
         write_errors=0,
         checksum_errors=0,
-        last_scrub=datetime.now(UTC),
+        last_scrub=datetime.now(timezone.utc),
         scrub_errors=0,
         scrub_in_progress=False,
     )

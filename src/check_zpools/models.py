@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime  # noqa: F401 - UTC used in doctests  # pyright: ignore[reportUnusedImport]
+from datetime import datetime, timezone  # noqa: F401 - timezone used in doctests  # pyright: ignore[reportUnusedImport]
 from enum import Enum
 from functools import lru_cache
 
@@ -695,7 +695,7 @@ class PoolStatus:
     ...     read_errors=0,
     ...     write_errors=0,
     ...     checksum_errors=0,
-    ...     last_scrub=datetime.now(UTC),
+    ...     last_scrub=datetime.now(timezone.utc),
     ...     scrub_errors=0,
     ...     scrub_in_progress=False,
     ...     faulted_devices=[],
@@ -825,7 +825,7 @@ class CheckResult:
     ...     last_scrub=None, scrub_errors=0, scrub_in_progress=False
     ... )
     >>> result = CheckResult(
-    ...     timestamp=datetime.now(UTC),
+    ...     timestamp=datetime.now(timezone.utc),
     ...     pools=[pool],
     ...     issues=[],
     ...     overall_severity=Severity.OK,
@@ -847,7 +847,7 @@ class CheckResult:
         Examples
         --------
         >>> result = CheckResult(
-        ...     timestamp=datetime.now(UTC),
+        ...     timestamp=datetime.now(timezone.utc),
         ...     pools=[],
         ...     issues=[],
         ...     overall_severity=Severity.OK
@@ -865,7 +865,7 @@ class CheckResult:
         >>> issue1 = PoolIssue("pool1", Severity.WARNING, "capacity", "High", {})
         >>> issue2 = PoolIssue("pool2", Severity.CRITICAL, "health", "Faulted", {})
         >>> result = CheckResult(
-        ...     timestamp=datetime.now(UTC),
+        ...     timestamp=datetime.now(timezone.utc),
         ...     pools=[],
         ...     issues=[issue1, issue2],
         ...     overall_severity=Severity.CRITICAL
@@ -885,7 +885,7 @@ class CheckResult:
         >>> issue1 = PoolIssue("pool1", Severity.WARNING, "capacity", "High", {})
         >>> issue2 = PoolIssue("pool2", Severity.CRITICAL, "health", "Faulted", {})
         >>> result = CheckResult(
-        ...     timestamp=datetime.now(UTC),
+        ...     timestamp=datetime.now(timezone.utc),
         ...     pools=[],
         ...     issues=[issue1, issue2],
         ...     overall_severity=Severity.CRITICAL

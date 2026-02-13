@@ -28,8 +28,8 @@ Coverage Strategy
 
 from __future__ import annotations
 
-import tomllib
-from datetime import UTC, datetime
+import rtoml
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -143,7 +143,7 @@ def sample_pool() -> PoolStatus:
         read_errors=0,
         write_errors=0,
         checksum_errors=0,
-        last_scrub=datetime.now(UTC),
+        last_scrub=datetime.now(timezone.utc),
         scrub_errors=0,
         scrub_in_progress=False,
     )
@@ -568,8 +568,7 @@ class TestAlertBodyIncludesSystemMetadata:
 
         # Read version from pyproject.toml
         pyproject_path = Path(__file__).parent.parent / "pyproject.toml"
-        with pyproject_path.open("rb") as f:
-            pyproject = tomllib.load(f)
+        pyproject = rtoml.load(pyproject_path)
         expected_version = pyproject["project"]["version"]
 
         # Should contain version number (e.g., "v1.0.0")
@@ -597,7 +596,7 @@ class TestAlertBodyHandlesScrubEdgeCases:
             read_errors=0,
             write_errors=0,
             checksum_errors=0,
-            last_scrub=datetime.now(UTC),
+            last_scrub=datetime.now(timezone.utc),
             scrub_errors=0,
             scrub_in_progress=True,
         )

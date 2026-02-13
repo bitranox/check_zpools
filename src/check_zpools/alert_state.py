@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -243,7 +243,7 @@ class AlertStateManager:
             return True
 
         # Check if resend interval has passed for unchanged state
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         elapsed = now - state.last_alerted
         should_resend = elapsed >= timedelta(hours=self.resend_interval_hours)
 
@@ -290,7 +290,7 @@ class AlertStateManager:
         device_name = self._extract_device_name(issue)
         category_value = issue.category.value
         key = self._make_key(issue.pool_name, category_value, device_name)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         current_severity = issue.severity.value
 
         if key in self.states:

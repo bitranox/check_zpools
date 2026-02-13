@@ -32,7 +32,7 @@ import os
 import re
 import shutil
 import subprocess  # nosec B404 - subprocess used safely with list arguments, not shell=True
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -992,7 +992,7 @@ def show_service_status() -> None:
     if alerts:
         print("\nActive Alert States:")
         print("-" * 56)
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
 
         for _key, state in alerts.items():
             pool_name = state.get("pool_name", "unknown")
