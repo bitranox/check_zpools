@@ -1,7 +1,7 @@
 # check_zpools
 
 <!-- Badges -->
-[![CI](https://github.com/bitranox/check_zpools/actions/workflows/ci.yml/badge.svg)](https://github.com/bitranox/check_zpools/actions/workflows/ci.yml)
+[![CI](https://github.com/bitranox/check_zpools/actions/workflows/default_cicd_public.yml/badge.svg)](https://github.com/bitranox/check_zpools/actions/workflows/default_cicd_public.yml)
 [![CodeQL](https://github.com/bitranox/check_zpools/actions/workflows/codeql.yml/badge.svg)](https://github.com/bitranox/check_zpools/actions/workflows/codeql.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Open in Codespaces](https://img.shields.io/badge/Codespaces-Open-blue?logo=github&logoColor=white&style=flat-square)](https://codespaces.new/bitranox/check_zpools?quickstart=1)
