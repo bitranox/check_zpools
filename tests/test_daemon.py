@@ -516,11 +516,13 @@ class TestCheckCycleRecoversFromErrors:
     def test_continues_after_zfs_fetch_error(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
         """When ZFS client raises error, logs and continues.
 
-        Given: ZFS client that raises RuntimeError
+        Given: ZFS client that raises ZFSCommandError
         When: Running _run_check_cycle
         Then: Does not crash (returns normally)
         """
-        mock_zfs_client.get_pool_status.side_effect = RuntimeError("ZFS error")
+        from check_zpools.zfs_client import ZFSCommandError
+
+        mock_zfs_client.get_pool_status.side_effect = ZFSCommandError(["zpool", "status"], 1, "ZFS error")
 
         # Should not raise
         daemon._run_check_cycle()

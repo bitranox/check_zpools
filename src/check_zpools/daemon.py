@@ -32,10 +32,11 @@ from typing import Any
 from . import __init__conf__
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
+from .formatters import format_bytes_human
 from .models import CheckResult, DaemonConfig, PoolIssue, PoolStatus, Severity
 from .monitor import PoolMonitor
-from .zfs_client import ZFSClient
-from .zfs_parser import ZFSParser
+from .zfs_client import ZFSClient, ZFSCommandError, ZFSNotAvailableError
+from .zfs_parser import ZFSParseError, ZFSParser
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ class ZPoolDaemon:
             self._run_monitoring_loop()
         except KeyboardInterrupt:
             logger.info("Received keyboard interrupt, shutting down")
-        except Exception as exc:
+        except Exception as exc:  # Intentional broad catch: last-resort crash logger before re-raise
             logger.error(
                 "Daemon crashed with unexpected error",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
@@ -238,7 +239,7 @@ class ZPoolDaemon:
         while not self.shutdown_event.is_set():
             try:
                 self._run_check_cycle()
-            except Exception as exc:
+            except Exception as exc:  # Intentional broad catch: daemon must survive any single-cycle failure
                 logger.error(
                     "Error during check cycle, continuing",
                     extra={"error": str(exc), "error_type": type(exc).__name__},
@@ -259,7 +260,7 @@ class ZPoolDaemon:
         # Fetch ZFS data (single command with --json-int provides all data)
         try:
             status_data = self.zfs_client.get_pool_status()
-        except Exception as exc:
+        except (ZFSCommandError, ZFSNotAvailableError, OSError) as exc:
             logger.error(
                 "Failed to fetch ZFS data",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
@@ -270,7 +271,7 @@ class ZPoolDaemon:
         # Parse into PoolStatus objects
         try:
             return self.parser.parse_pool_status(status_data)
-        except Exception as exc:
+        except (ZFSParseError, KeyError, TypeError) as exc:
             logger.error(
                 "Failed to parse ZFS data",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
@@ -513,29 +514,6 @@ class ZPoolDaemon:
 
         return " ".join(parts)
 
-    def _format_bytes(self, bytes_value: int) -> str:
-        """Format bytes in human-readable format.
-
-        Parameters
-        ----------
-        bytes_value:
-            Size in bytes.
-
-        Returns
-        -------
-        str:
-            Formatted size string (e.g., "1.00 TB", "464.00 GB").
-        """
-        units = ["B", "KB", "MB", "GB", "TB", "PB"]
-        size = float(bytes_value)
-        unit_index = 0
-
-        while size >= 1024.0 and unit_index < len(units) - 1:
-            size /= 1024.0
-            unit_index += 1
-
-        return f"{size:.2f} {units[unit_index]}"
-
     def _log_pool_details(self, pools: dict[str, Any]) -> None:
         """Log detailed information for each pool.
 
@@ -557,9 +535,9 @@ class ZPoolDaemon:
                     "pool_name": pool_name,
                     "health": pool.health.value,
                     "capacity_percent": f"{pool.capacity_percent:.1f}%",
-                    "size": self._format_bytes(pool.size_bytes),
-                    "allocated": self._format_bytes(pool.allocated_bytes),
-                    "free": self._format_bytes(pool.free_bytes),
+                    "size": format_bytes_human(pool.size_bytes),
+                    "allocated": format_bytes_human(pool.allocated_bytes),
+                    "free": format_bytes_human(pool.free_bytes),
                     "read_errors": pool.read_errors,
                     "write_errors": pool.write_errors,
                     "checksum_errors": pool.checksum_errors,

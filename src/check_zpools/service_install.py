@@ -197,7 +197,7 @@ def _walk_process_ancestors(start_process: "psutil.Process") -> tuple[Path | Non
         except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
             logger.debug(f"Process access error at depth {depth}: {e}")
             break
-        except Exception as e:
+        except (psutil.Error, OSError, ValueError) as e:
             logger.debug(f"Error checking ancestor at depth {depth}: {e}")
             ancestor = ancestor.parent()
 
@@ -238,7 +238,7 @@ def _detect_uvx_from_process_tree() -> tuple[Path | None, str | None]:
         current_process = psutil.Process()
         return _walk_process_ancestors(current_process)
 
-    except Exception as e:
+    except (ImportError, OSError, RuntimeError) as e:  # psutil may not be installed (ImportError) or fail at runtime
         logger.debug(f"Process tree detection failed: {e}")
         return (None, None)
 
@@ -815,7 +815,7 @@ def _get_service_start_time() -> datetime | None:
                 except ValueError:
                     # Timestamp format didn't match, return None
                     logger.debug("Could not parse systemd timestamp: %s", timestamp_str)
-    except Exception as exc:
+    except (subprocess.SubprocessError, OSError) as exc:
         # Systemctl command failed or other error - not critical for status display
         logger.debug("Could not get service start time: %s", exc)
     return None
@@ -877,22 +877,21 @@ def _load_alert_state() -> dict[str, Any]:
 def _get_daemon_config() -> dict[str, Any]:
     """Load daemon configuration from layered config.
 
+    Why
+        Uses the project's existing config adapter to read the daemon section,
+        ensuring service status displays the same thresholds used at runtime.
+
     Returns
     -------
     dict
         Daemon configuration section, or empty dict on error.
     """
     try:
-        from lib_config_layers import LayeredConfig  # type: ignore[import-not-found]
+        from .config import get_config
 
-        from . import __init__conf__
-
-        config = LayeredConfig(
-            app_name=__init__conf__.slug_name,  # type: ignore[attr-defined]
-            default_config=__init__conf__.default_config,  # type: ignore[attr-defined]
-        )
-        return config.get("daemon", {})  # type: ignore[no-any-return]
-    except Exception:
+        config_dict = get_config().as_dict()
+        return config_dict.get("daemon", {})
+    except (ImportError, KeyError, OSError):
         return {}
 
 
@@ -916,7 +915,7 @@ def _get_pool_status_summary() -> tuple[int, int, list[str]]:
             issues.append(f"{issue.pool_name}: {issue.message}")
 
         return pool_count, faulted_count, issues
-    except Exception as e:
+    except (RuntimeError, OSError, ValueError) as e:
         return 0, 0, [f"Error getting pool status: {e}"]
 
 

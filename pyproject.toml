@@ -1,6 +1,6 @@
 [project]
 name = "check_zpools"
-version = "3.7.2"
+version = "3.7.3"
 description = "Zpool Monitoring Daemon"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -107,7 +107,7 @@ source = ["src/check_zpools"]
 omit = [
   "tests/*",
 ]
-fail_under = 60
+fail_under = 80
 show_missing = true
 
 [tool.clean]
@@ -147,12 +147,25 @@ src-path = "src"
 root_package = "check_zpools"
 
 [[tool.importlinter.contracts]]
-name = "CLI depends on behaviors only"
+name = "Architecture layers"
 type = "layers"
 layers = [
   "check_zpools.cli",
+  "check_zpools.cli_commands",
+  "check_zpools.alias_manager",
+  "check_zpools.service_install",
   "check_zpools.behaviors",
+  "check_zpools.daemon",
+  "check_zpools.alerting | check_zpools.config_show | check_zpools.config_deploy | check_zpools.cli_email_handlers | check_zpools.cli_errors | check_zpools.cli_traceback | check_zpools.logging_setup",
+  "check_zpools.formatters",
+  "check_zpools.alert_state | check_zpools.monitor | check_zpools.zfs_parser",
+  "check_zpools.mail | check_zpools.zfs_client | check_zpools.config",
+  "check_zpools.models | check_zpools.__init__conf__",
 ]
+
+[tool.bashate]
+max-line-length = 120
+ignores = ["E003"]
 
 [tool.pip-audit]
 # Known vulnerabilities to ignore (unfixable or accepted risk)

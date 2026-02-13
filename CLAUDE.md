@@ -36,38 +36,83 @@ When working with Python code:
 check_zpools/
 ├── .github/
 │   └── workflows/              # GitHub Actions CI/CD workflows
-├── .devcontainer/              # Dev container configuration
 ├── docs/                       # Project documentation
 │   └── systemdesign/           # System design documents
 ├── notebooks/                  # Jupyter notebooks for experiments
-├── scripts/                    # Build and automation scripts
-│   ├── build.py               # Build wheel/sdist
-│   ├── bump*.py               # Version bump scripts
-│   ├── clean.py               # Clean build artifacts
-│   ├── test.py                # Run tests with coverage
-│   ├── push.py                # Git push with monitoring
-│   ├── release.py             # Create releases
-│   ├── menu.py                # Interactive TUI menu
-│   └── _utils.py              # Shared utilities
 ├── src/
-│   └── check_zpools/  # Main Python package
-│       ├── __init__.py        # Package initialization
-│       ├── __init__conf__.py  # Configuration loader
-│       ├── __main__.py        # CLI entry point
-│       ├── cli.py             # CLI implementation
-│       ├── behaviors.py       # Core behaviors/business logic
-│       └── py.typed           # PEP 561 marker
-├── tests/                     # Test suite
-├── .env.example               # Example environment variables
-├── CLAUDE.md                  # Claude Code guidelines (this file)
-├── CHANGELOG.md               # Version history
-├── CONTRIBUTING.md            # Contribution guidelines
-├── DEVELOPMENT.md             # Development setup guide
-├── INSTALL.md                 # Installation instructions
-├── Makefile                   # Make targets for common tasks
-├── pyproject.toml             # Project metadata & dependencies
-├── codecov.yml                # Codecov configuration
-└── README.md                  # Project overview
+│   └── check_zpools/           # Main Python package
+│       ├── cli_commands/        # CLI command modules
+│       │   └── commands/        # Individual command implementations
+│       │       ├── alias_create.py
+│       │       ├── alias_delete.py
+│       │       ├── check.py
+│       │       ├── config_deploy.py
+│       │       ├── config_show.py
+│       │       ├── daemon.py
+│       │       ├── send_email.py
+│       │       ├── send_notification.py
+│       │       ├── service_install.py
+│       │       ├── service_status.py
+│       │       └── service_uninstall.py
+│       ├── __init__.py          # Package initialization
+│       ├── __init__conf__.py    # Static metadata constants (synced from pyproject.toml)
+│       ├── __main__.py          # Module entry point (python -m check_zpools)
+│       ├── alert_state.py       # Alert deduplication state management
+│       ├── alerting.py          # Email alert formatting and sending
+│       ├── alias_manager.py     # Shell alias creation/removal
+│       ├── behaviors.py         # Orchestration layer (CLI ↔ domain)
+│       ├── cli.py               # CLI group and root command wiring
+│       ├── cli_email_handlers.py # Shared email validation for CLI commands
+│       ├── cli_errors.py        # Centralized CLI error handlers
+│       ├── cli_traceback.py     # Traceback state management utilities
+│       ├── config.py            # Layered configuration loader
+│       ├── config_deploy.py     # Config file deployment to system dirs
+│       ├── config_show.py       # Config display for CLI
+│       ├── daemon.py            # Long-running monitoring daemon
+│       ├── defaultconfig.toml   # Bundled default configuration
+│       ├── formatters.py        # Output formatting (JSON, text, bytes)
+│       ├── logging_setup.py     # Centralized logging initialization
+│       ├── mail.py              # SMTP email adapter
+│       ├── models.py            # Domain models (PoolStatus, CheckResult, etc.)
+│       ├── monitor.py           # Pool health/capacity threshold checking
+│       ├── py.typed             # PEP 561 marker
+│       ├── service_install.py   # Systemd service lifecycle management
+│       ├── zfs_client.py        # ZFS subprocess command adapter
+│       └── zfs_parser.py        # ZFS JSON output parser
+├── tests/                       # Test suite
+│   ├── conftest.py              # Shared fixtures and OS markers
+│   ├── test_alert_state.py
+│   ├── test_alerting.py
+│   ├── test_alias_manager.py
+│   ├── test_behaviors.py
+│   ├── test_cli.py
+│   ├── test_cli_commands_integration.py
+│   ├── test_cli_errors.py
+│   ├── test_cli_traceback.py
+│   ├── test_config.py
+│   ├── test_config_deploy.py
+│   ├── test_daemon.py
+│   ├── test_formatters.py
+│   ├── test_logging_setup.py
+│   ├── test_mail.py
+│   ├── test_metadata.py
+│   ├── test_models.py
+│   ├── test_module_entry.py
+│   ├── test_monitor.py
+│   ├── test_service_status.py
+│   └── test_zfs_parser.py
+├── CLAUDE.md                    # Claude Code guidelines (this file)
+├── CHANGELOG.md                 # Version history
+├── CODE_ARCHITECTURE.md         # Architecture documentation
+├── CONTRIBUTING.md              # Contribution guidelines
+├── DEVELOPMENT.md               # Development setup guide
+├── INSTALL.md                   # Installation instructions
+├── LICENSE                      # MIT license
+├── Makefile                     # Make targets for common tasks
+├── README.md                    # Project overview
+├── SECURITY.md                  # Security policy
+├── codecov.yml                  # Codecov configuration
+└── pyproject.toml               # Project metadata & dependencies
 ```
 
 ## Versioning & Releases
@@ -75,7 +120,7 @@ check_zpools/
 - **Single Source of Truth**: Package version is in `pyproject.toml` (`[project].version`)
 - **Version Bumps**: update `pyproject.toml` , `CHANGELOG.md` and update the constants in `src/../__init__conf__.py` according to `pyproject.toml`  
     - Automation rewrites `src/check_zpools/__init__conf__.py` from `pyproject.toml`, so runtime code imports generated constants instead of querying `importlib.metadata`.
-    - After updating project metadata (version, summary, URLs, authors) run `make test` (or `python -m scripts.test`) to regenerate the metadata module before committing.
+    - After updating project metadata (version, summary, URLs, authors) run `make test` to regenerate the metadata module before committing.
 - **Release Tags**: Format is `vX.Y.Z` (push tags for CI to build and publish)
 
 ## Common Make Targets
@@ -142,3 +187,11 @@ When working on this project:
 3. Run `make test` before commits
 4. Follow versioning guidelines for releases
 5. Monitor CI after pushing changes
+
+## Code Quality
+
+Deliberately accepted items — do not flag in future reviews:
+
+- **Pyright `reportUnknown*` suppressions**: External libraries (pydantic, rich_click, lib_log_rich, lib_cli_exit_tools) lack source-resolvable types in the build environment, causing cascading `Unknown` warnings. The 5 `reportUnknown*` and `reportMissingTypeArgument` rules are set to `"none"` to suppress this noise. Re-evaluate if type stubs become available for these libraries.
+- **No dedicated test file for `zfs_client.py`**: Indirect coverage through `test_daemon.py`, `test_behaviors.py`, and `test_cli_commands_integration.py` is sufficient. The module is exercised via integration paths rather than isolated unit tests.
+- **No dedicated test file for `config_show.py`**: Indirect coverage through `test_cli.py` is sufficient. Display formatting is exercised via CLI integration paths.

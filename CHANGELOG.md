@@ -6,6 +6,14 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.7.3] - 2026-02-13
+
+### Fixed
+- **`service_install.py` — `_get_daemon_config()` dead code**: Function imported from non-existent `lib_config_layers` library instead of the project's `lib_layered_config`, and referenced non-existent `__init__conf__` attributes (`slug_name`, `default_config`). The function always silently returned `{}`, causing `service-status` to display hardcoded defaults instead of actual configuration. Now uses the project's existing `config.get_config()` adapter.
+
+### Added
+- **`tests/test_cli_email_handlers.py`**: New test file with 20 tests covering `cli_email_handlers.py` which previously had zero test coverage. Tests cover SMTP validation, email send error handling for all known/unknown error types, exit codes, stderr output, and logging behavior.
+
 ## [3.7.2] - 2026-02-13
 
 ### Removed

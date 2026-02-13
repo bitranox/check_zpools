@@ -272,7 +272,7 @@ class TestGetServiceStartTimeWithErrors:
 
     def test_exception_returns_none(self) -> None:
         """Exception during systemctl call should return None."""
-        with patch("check_zpools.service_install._run_systemctl", side_effect=RuntimeError("test")):
+        with patch("check_zpools.service_install._run_systemctl", side_effect=OSError("test")):
             result = _get_service_start_time()
 
         assert result is None

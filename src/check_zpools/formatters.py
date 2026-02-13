@@ -145,24 +145,42 @@ def _get_capacity_color(capacity_percent: float) -> str:
     return "red"
 
 
-def _format_pool_size(size_bytes: int) -> str:
-    """Format pool size in human-readable format.
+def format_bytes_human(size_bytes: int) -> str:
+    """Format bytes into human-readable size with appropriate unit.
+
+    Why
+    ---
+    Sizes should be displayed in the most readable unit (GB, TB, PB)
+    based on the actual value, with 2 decimal places for precision.
 
     Parameters
     ----------
     size_bytes:
-        Pool size in bytes.
+        Size in bytes to format.
 
     Returns
     -------
-    str:
-        Formatted size (e.g., "1.50 TB" or "500.00 GB").
+    str
+        Formatted size string (e.g., "9.48 GB", "1.25 TB").
+
+    Examples
+    --------
+    >>> format_bytes_human(1024**4)
+    '1.00 TB'
+    >>> format_bytes_human(500 * 1024**3)
+    '500.00 GB'
+    >>> format_bytes_human(42)
+    '42 B'
     """
-    size_gb = size_bytes / (1024**3)
-    if size_gb >= 1024:
-        size_tb = size_gb / 1024
-        return f"{size_tb:.2f} TB"
-    return f"{size_gb:.2f} GB"
+    units = ["B", "KB", "MB", "GB", "TB", "PB"]
+    size = float(size_bytes)
+    unit_index = 0
+
+    while size >= 1024.0 and unit_index < len(units) - 1:
+        size /= 1024.0
+        unit_index += 1
+
+    return f"{size:.2f} {units[unit_index]}" if unit_index > 0 else f"{size_bytes} B"
 
 
 def _format_pool_errors(read: int, write: int, checksum: int) -> str:
@@ -223,7 +241,7 @@ def _format_pool_row(pool: PoolStatus) -> tuple[str, str, str, str, str, str, st
     error_color = "green" if not pool.has_errors() else "red"
 
     # Format components
-    size_str = _format_pool_size(pool.size_bytes)
+    size_str = format_bytes_human(pool.size_bytes)
     errors_str = _format_pool_errors(pool.read_errors, pool.write_errors, pool.checksum_errors)
     scrub_text, scrub_color = _format_last_scrub(pool.last_scrub)
     devices_text, devices_color = _format_faulted_devices(pool)
@@ -426,6 +444,7 @@ def get_exit_code_for_severity(severity: Severity) -> int:
 
 
 __all__ = [
+    "format_bytes_human",
     "format_check_result_json",
     "format_check_result_text",
     "display_check_result_text",

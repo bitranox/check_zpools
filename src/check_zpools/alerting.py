@@ -28,6 +28,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from . import __init__conf__
+from .formatters import format_bytes_human
 from .mail import EmailConfig, send_email
 from .models import AlertConfig, IssueCategory, PoolIssue, PoolStatus, Severity
 from .zfs_client import ZFSCommandError
@@ -36,44 +37,6 @@ if TYPE_CHECKING:
     from .zfs_client import ZFSClient
 
 logger = logging.getLogger(__name__)
-
-# Binary unit multipliers (powers of 1024)
-_BYTES_PER_KB = 1024
-_BYTES_PER_MB = 1024**2
-_BYTES_PER_GB = 1024**3
-_BYTES_PER_TB = 1024**4
-_BYTES_PER_PB = 1024**5
-
-
-def _format_bytes_human(size_bytes: int) -> str:
-    """Format bytes into human-readable size with appropriate unit.
-
-    Why
-    ---
-    Sizes should be displayed in the most readable unit (GB, TB, PB)
-    based on the actual value, with 2 decimal places for precision.
-
-    Parameters
-    ----------
-    size_bytes:
-        Size in bytes to format.
-
-    Returns
-    -------
-    str
-        Formatted size string (e.g., "9.48 GB", "1.25 TB").
-    """
-    if size_bytes >= _BYTES_PER_PB:
-        return f"{size_bytes / _BYTES_PER_PB:.2f} PB"
-    if size_bytes >= _BYTES_PER_TB:
-        return f"{size_bytes / _BYTES_PER_TB:.2f} TB"
-    if size_bytes >= _BYTES_PER_GB:
-        return f"{size_bytes / _BYTES_PER_GB:.2f} GB"
-    if size_bytes >= _BYTES_PER_MB:
-        return f"{size_bytes / _BYTES_PER_MB:.2f} MB"
-    if size_bytes >= _BYTES_PER_KB:
-        return f"{size_bytes / _BYTES_PER_KB:.2f} KB"
-    return f"{size_bytes} B"
 
 
 class EmailAlerter:
@@ -405,9 +368,9 @@ class EmailAlerter:
         """
         # Format pool capacity with human-readable sizes
         capacity_pct = pool.capacity_percent
-        used_str = _format_bytes_human(pool.allocated_bytes)
-        total_str = _format_bytes_human(pool.size_bytes)
-        free_str = _format_bytes_human(pool.free_bytes)
+        used_str = format_bytes_human(pool.allocated_bytes)
+        total_str = format_bytes_human(pool.size_bytes)
+        free_str = format_bytes_human(pool.free_bytes)
 
         # Format scrub information
         if pool.last_scrub:
@@ -562,9 +525,9 @@ class EmailAlerter:
             List of formatted lines for capacity section.
         """
         capacity_pct = pool.capacity_percent
-        total_str = _format_bytes_human(pool.size_bytes)
-        used_str = _format_bytes_human(pool.allocated_bytes)
-        free_str = _format_bytes_human(pool.free_bytes)
+        total_str = format_bytes_human(pool.size_bytes)
+        used_str = format_bytes_human(pool.allocated_bytes)
+        free_str = format_bytes_human(pool.free_bytes)
 
         return [
             "Capacity:",
