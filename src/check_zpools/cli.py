@@ -21,6 +21,7 @@ import logging
 from typing import Optional, Sequence
 
 import rich_click as click
+from .typed_click import option, version_option
 
 import lib_cli_exit_tools
 import lib_log_rich.runtime
@@ -61,12 +62,12 @@ logger = logging.getLogger(__name__)
     context_settings=CLICK_CONTEXT_SETTINGS,
     invoke_without_command=True,
 )
-@click.version_option(
+@version_option(
     version=__init__conf__.version,
     prog_name=__init__conf__.shell_command,
     message=f"{__init__conf__.shell_command} version {__init__conf__.version}",
 )
-@click.option(
+@option(
     "--traceback/--no-traceback",
     is_flag=True,
     default=False,
@@ -114,13 +115,13 @@ def cli_fail() -> None:
 
 
 @cli.command("config", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--format",
     type=click.Choice(["human", "json"], case_sensitive=False),
     default="human",
     help="Output format (human-readable or JSON)",
 )
-@click.option(
+@option(
     "--section",
     type=str,
     default=None,
@@ -132,7 +133,7 @@ def cli_config(format: str, section: Optional[str]) -> None:
 
 
 @cli.command("config-deploy", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--target",
     "targets",
     type=click.Choice(["app", "host", "user"], case_sensitive=False),
@@ -140,7 +141,7 @@ def cli_config(format: str, section: Optional[str]) -> None:
     required=True,
     help="Target configuration layer(s) to deploy to",
 )
-@click.option(
+@option(
     "--force",
     is_flag=True,
     default=False,
@@ -152,35 +153,35 @@ def cli_config_deploy(targets: tuple[str, ...], force: bool) -> None:
 
 
 @cli.command("send-email", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--to",
     "recipients",
     multiple=True,
     required=True,
     help="Recipient email address (can specify multiple)",
 )
-@click.option(
+@option(
     "--subject",
     required=True,
     help="Email subject line",
 )
-@click.option(
+@option(
     "--body",
     default="",
     help="Plain-text email body",
 )
-@click.option(
+@option(
     "--body-html",
     default="",
     help="HTML email body",
 )
-@click.option(
+@option(
     "--from",
     "from_address",
     default=None,
     help="Override sender address",
 )
-@click.option(
+@option(
     "--attachment",
     "attachments",
     multiple=True,
@@ -200,19 +201,19 @@ def cli_send_email(
 
 
 @cli.command("send-notification", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--to",
     "recipients",
     multiple=True,
     required=True,
     help="Recipient email address",
 )
-@click.option(
+@option(
     "--subject",
     required=True,
     help="Notification subject line",
 )
-@click.option(
+@option(
     "--message",
     required=True,
     help="Notification message",
@@ -227,19 +228,19 @@ def cli_send_notification(
 
 
 @cli.command("service-install", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--no-enable",
     is_flag=True,
     default=False,
     help="Don't enable service to start on boot",
 )
-@click.option(
+@option(
     "--no-start",
     is_flag=True,
     default=False,
     help="Don't start service immediately",
 )
-@click.option(
+@option(
     "--uvx-version",
     type=str,
     default=None,
@@ -251,13 +252,13 @@ def cli_install_service(no_enable: bool, no_start: bool, uvx_version: Optional[s
 
 
 @cli.command("service-uninstall", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--no-stop",
     is_flag=True,
     default=False,
     help="Don't stop running service",
 )
-@click.option(
+@option(
     "--no-disable",
     is_flag=True,
     default=False,
@@ -275,13 +276,13 @@ def cli_service_status() -> None:
 
 
 @cli.command("alias-create", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--user",
     type=str,
     default=None,
     help="Target username for alias creation (defaults to sudo user or current user)",
 )
-@click.option(
+@option(
     "--all-users",
     is_flag=True,
     default=False,
@@ -293,13 +294,13 @@ def cli_alias_create(user: Optional[str], all_users: bool) -> None:
 
 
 @cli.command("alias-delete", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--user",
     type=str,
     default=None,
     help="Target username for alias removal (defaults to sudo user or current user)",
 )
-@click.option(
+@option(
     "--all-users",
     is_flag=True,
     default=False,
@@ -311,7 +312,7 @@ def cli_alias_delete(user: Optional[str], all_users: bool) -> None:
 
 
 @cli.command("check", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--format",
     type=click.Choice(["text", "json"], case_sensitive=False),
     default="text",
@@ -323,7 +324,7 @@ def cli_check(format: str) -> None:
 
 
 @cli.command("daemon", context_settings=CLICK_CONTEXT_SETTINGS)
-@click.option(
+@option(
     "--foreground",
     is_flag=True,
     default=False,
