@@ -125,7 +125,7 @@ class TestEmailConfig:
 
         assert conf.smtphosts == ["smtp.example.com:587"]
         assert conf.smtp_username == "user"
-        assert conf.smtp_password == "pass"
+        assert conf.smtp_password is not None and conf.smtp_password.get_secret_value() == "pass"
         assert conf.smtp_timeout == 45.0
         assert conf.smtp_use_starttls is True
 

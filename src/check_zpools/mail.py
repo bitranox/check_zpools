@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any, Sequence, cast
 
 from btx_lib_mail.lib_mail import ConfMail, send as btx_send
+from pydantic import SecretStr
 
 logger = logging.getLogger(__name__)
 
@@ -197,7 +198,7 @@ class EmailConfig:
         return ConfMail(
             smtphosts=self.smtp_hosts,  # type: ignore[reportUnknownVariableType]
             smtp_username=self.smtp_username,
-            smtp_password=self.smtp_password,
+            smtp_password=SecretStr(self.smtp_password) if self.smtp_password is not None else None,
             smtp_use_starttls=self.use_starttls,
             smtp_timeout=self.timeout,
             raise_on_missing_attachments=self.raise_on_missing_attachments,

@@ -6,6 +6,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.7.5] 2026-07-19
+
+### Changed
+- Bump `btx-lib-mail` floor to `>=1.4.0` and wrap the SMTP password in
+  `pydantic.SecretStr` when building the `ConfMail` transport config, matching
+  btx_lib_mail 1.4.0 which now stores `smtp_password` as a `SecretStr`.
+
 ## [3.7.4] 2026-06-14
 
 ### Changed
@@ -15,7 +22,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ## [3.7.3] - 2026-02-13
 
 ### Fixed
-- **`service_install.py` — `_get_daemon_config()` dead code**: Function imported from non-existent `lib_config_layers` library instead of the project's `lib_layered_config`, and referenced non-existent `__init__conf__` attributes (`slug_name`, `default_config`). The function always silently returned `{}`, causing `service-status` to display hardcoded defaults instead of actual configuration. Now uses the project's existing `config.get_config()` adapter.
+- **`service_install.py`  -  `_get_daemon_config()` dead code**: Function imported from non-existent `lib_config_layers` library instead of the project's `lib_layered_config`, and referenced non-existent `__init__conf__` attributes (`slug_name`, `default_config`). The function always silently returned `{}`, causing `service-status` to display hardcoded defaults instead of actual configuration. Now uses the project's existing `config.get_config()` adapter.
 - **Python 3.10 compatibility**: Replaced `datetime.UTC` (3.11+) with `datetime.timezone.utc` and `tomllib` (3.11+) with `rtoml` across all source and test files to support the full `requires-python = ">=3.10"` range.
 - **macOS CI failures**: Fixed `python -m pytest` resolving to system framework Python instead of `actions/setup-python` Python by using `pytest` binary directly. Added `UV_BREAK_SYSTEM_PACKAGES=1` for PEP 668 compatibility with Homebrew Python. Added `brew install bash` step for bash 4+ requirement.
 
@@ -205,7 +212,7 @@ pre-v
     Current Pool Status:
     --------------------------------------------------------
       • Pools monitored:    4
-      • Device status:      ✗ 1 FAULTED
+      • Device status:      NO 1 FAULTED
       • Active issues:      1
           → rpool: Device wwn-0x5002538f55117008-part3 is FAULTED
 
@@ -257,7 +264,7 @@ pre-v
 ### Changed
 - **Systemd service logging**: Added custom console format template to service file
   - Removes emoji icons (`{level_icon}`) from log output for cleaner journald logs
-  - Avoids UTF-8 emoji characters (ℹ, ⚠, ✖) appearing as escape sequences in journal
+  - Avoids UTF-8 emoji characters (ℹ, WARN, ✖) appearing as escape sequences in journal
   - Format: `{timestamp} {LEVEL:>8} {logger_name} - {message} {context_fields}`
 
 ### Documentation
@@ -643,9 +650,9 @@ it looks like the daemon mode does not read the environmen
 
 ### Documentation
 - **Important**: When installing service via uvx, include a version specifier for best results:
-  - ✅ Recommended for production: `uvx check_zpools@2.0.4 service-install`
-  - ✅ Acceptable for auto-updates: `uvx check_zpools@latest service-install`
-  - ⚠️  Works but may use unexpected version: `uvx check_zpools service-install`
+  - OK Recommended for production: `uvx check_zpools@2.0.4 service-install`
+  - OK Acceptable for auto-updates: `uvx check_zpools@latest service-install`
+  - WARN  Works but may use unexpected version: `uvx check_zpools service-install`
 - Version specifier is auto-detected from the invocation command and included in the service file
 
 ## [2.0.3] - 2025-11-17
