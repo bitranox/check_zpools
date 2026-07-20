@@ -34,6 +34,13 @@ from aiosmtpd.smtp import AuthResult, LoginPassword
 SINK_USERNAME = "testuser"
 SINK_PASSWORD = "testpass"  # nosec B105 - test-only fixture credential, not a real secret
 
+# aiosmtpd spends this budget on BOTH starting the event-loop thread and then
+# probing that the server answers: respond_timeout = ready_timeout - startup.
+# Its 5s default assumes a developer laptop; on a loaded CI runner startup alone
+# can consume nearly all of it, leaving the probe to time out against a server
+# that is in fact healthy.
+SINK_READY_TIMEOUT = 30.0
+
 
 @dataclass(frozen=True)
 class DeliveredMail:
@@ -72,6 +79,16 @@ class SmtpSink:
     host: str
     delivered: list[DeliveredMail] = field(default_factory=list)
     logins: list[tuple[str, str]] = field(default_factory=list)
+
+    def reset(self) -> None:
+        """Forget everything recorded so far.
+
+        A sink is shared across a test session (starting a server per test is
+        what overruns aiosmtpd's readiness budget on slow CI runners), so each
+        test clears it before running.
+        """
+        self.delivered.clear()
+        self.logins.clear()
 
     @property
     def only_mail(self) -> DeliveredMail:
@@ -152,7 +169,13 @@ def running_smtp_sink(*, require_auth: bool = False) -> Generator[SmtpSink]:
         controller_options["authenticator"] = _make_authenticator(sink)
         controller_options["auth_require_tls"] = False
 
-    controller = Controller(_RecordingHandler(sink), hostname="127.0.0.1", port=port, **controller_options)
+    controller = Controller(
+        _RecordingHandler(sink),
+        hostname="127.0.0.1",
+        port=port,
+        ready_timeout=SINK_READY_TIMEOUT,
+        **controller_options,
+    )
     controller.start()
     try:
         yield sink

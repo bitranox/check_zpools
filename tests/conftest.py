@@ -169,20 +169,41 @@ def cli_runner() -> CliRunner:
     return CliRunner()
 
 
-@pytest.fixture
-def smtp_sink() -> Iterator[SmtpSink]:
-    """Provide a real, unauthenticated SMTP server on loopback."""
+# The sink servers are session-scoped: starting an aiosmtpd controller per test
+# is what pushes a slow CI runner past its readiness budget. Each test gets a
+# freshly reset view of a long-lived server instead.
+
+
+@pytest.fixture(scope="session")
+def smtp_sink_server() -> Iterator[SmtpSink]:
+    """Run one unauthenticated SMTP server for the whole session."""
 
     with running_smtp_sink() as sink:
         yield sink
 
 
-@pytest.fixture
-def authenticating_smtp_sink() -> Iterator[SmtpSink]:
-    """Provide a real SMTP server that requires the sink test credentials."""
+@pytest.fixture(scope="session")
+def authenticating_smtp_sink_server() -> Iterator[SmtpSink]:
+    """Run one credential-checking SMTP server for the whole session."""
 
     with running_smtp_sink(require_auth=True) as sink:
         yield sink
+
+
+@pytest.fixture
+def smtp_sink(smtp_sink_server: SmtpSink) -> SmtpSink:
+    """Provide a real, unauthenticated SMTP server with no mail recorded yet."""
+
+    smtp_sink_server.reset()
+    return smtp_sink_server
+
+
+@pytest.fixture
+def authenticating_smtp_sink(authenticating_smtp_sink_server: SmtpSink) -> SmtpSink:
+    """Provide a real SMTP server that requires the sink test credentials."""
+
+    authenticating_smtp_sink_server.reset()
+    return authenticating_smtp_sink_server
 
 
 @pytest.fixture
