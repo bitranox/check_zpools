@@ -20,7 +20,7 @@ from click.testing import CliRunner
 
 import lib_cli_exit_tools
 from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
-from smtp_sink import SmtpSink, running_smtp_sink, unreachable_smtp_host
+from smtp_sink import SmtpSink, running_smtp_sink, stub_client_fqdn, unreachable_smtp_host
 
 # ============================================================================
 # OS Detection Constants
@@ -172,6 +172,14 @@ def cli_runner() -> CliRunner:
 # The sink servers are session-scoped: no test needs its own server, so one
 # long-lived server per flavour is started and each test gets a freshly reset
 # view of it.
+
+
+@pytest.fixture(scope="session", autouse=True)
+def stub_smtp_client_fqdn() -> Iterator[None]:
+    """Keep SMTP clients from reverse-resolving the runner's hostname."""
+
+    with stub_client_fqdn():
+        yield
 
 
 @pytest.fixture(scope="session")

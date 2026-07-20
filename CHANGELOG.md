@@ -26,6 +26,10 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   real credential rejection instead of mocked exceptions.
 - The `send_email` / `send_notification` doctests stub `btx_send`, this module's
   own boundary to the mail library, rather than the library's internals.
+- The test suite stubs `socket.getfqdn`. `smtplib` calls it for its EHLO name on
+  every connection, and that reverse-DNS lookup stalls about 35 seconds per
+  connection on the macOS runners. No test asserts on the client's advertised
+  hostname, and the suite should not depend on the runner's DNS.
 
 ## [3.7.5] 2026-07-19
 

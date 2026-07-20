@@ -336,6 +336,28 @@ def running_smtp_sink(*, require_auth: bool = False) -> Generator[SmtpSink]:
         thread.join(timeout=SINK_SHUTDOWN_TIMEOUT)
 
 
+@contextmanager
+def stub_client_fqdn() -> Generator[None]:
+    """Stop ``smtplib`` from resolving the local FQDN for its EHLO name.
+
+    ``smtplib.SMTP.__init__`` calls :func:`socket.getfqdn` whenever the caller
+    does not pass ``local_hostname``, and btx_lib_mail does not. That is a
+    reverse-DNS lookup, which stalls for about 35 seconds per connection on the
+    macOS CI runners - once per recipient, since btx_lib_mail opens one
+    connection each. Nothing here asserts on the client's advertised hostname,
+    and a test suite should not depend on the runner's DNS anyway.
+
+    This patches a stdlib network call, the one external edge that cannot be
+    injected through btx_lib_mail's API.
+    """
+    original = socket.getfqdn
+    socket.getfqdn = lambda name="": "sink-client.test"
+    try:
+        yield
+    finally:
+        socket.getfqdn = original
+
+
 def _free_port() -> int:
     """Reserve and release a loopback port, returning its number."""
     with socket.socket() as probe:
