@@ -69,7 +69,6 @@ dev = [
   "textual>=8.2.8",
   "import-linter>=2.13",
   "rtoml>=0.13.0",
-  "aiosmtpd>=1.4.6"
 ]
 
 [project.scripts]

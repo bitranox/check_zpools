@@ -16,9 +16,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 - Delivery is now exercised against a real in-process SMTP server bound to
-  loopback (`tests/smtp_sink.py`, new `aiosmtpd` dev dependency), so the tests
-  survive library releases and assert what actually arrived: envelope sender,
-  recipients, subject, and the plain-text and HTML parts.
+  loopback (`tests/smtp_sink.py`, stdlib `socketserver`, no new dependency), so
+  the tests survive library releases and assert what actually arrived: envelope
+  sender, recipients, subject, and the plain-text and HTML parts. The server
+  advertises CHUNKING, so the BDAT path btx_lib_mail prefers is the one under
+  test. `aiosmtpd` was tried first and dropped: it never writes its 220 greeting
+  on the macOS runners (Homebrew Python 3.14), so every client times out.
 - Connection- and authentication-failure tests use a real refused port and a
   real credential rejection instead of mocked exceptions.
 - The `send_email` / `send_notification` doctests stub `btx_send`, this module's
