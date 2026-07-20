@@ -18,7 +18,9 @@ sink with non-default settings.
 
 from __future__ import annotations
 
+import asyncio
 import socket
+import threading
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -26,19 +28,16 @@ from email import message_from_bytes
 from email.message import Message
 from typing import Any
 
-from aiosmtpd.controller import Controller
-from aiosmtpd.smtp import AuthResult, LoginPassword
+from aiosmtpd.smtp import SMTP, AuthResult, LoginPassword
 
 # Credentials the authenticating sink accepts. Tests that exercise the
 # authenticated path must send exactly these.
 SINK_USERNAME = "testuser"
 SINK_PASSWORD = "testpass"  # nosec B105 - test-only fixture credential, not a real secret
 
-# aiosmtpd spends this budget on BOTH starting the event-loop thread and then
-# probing that the server answers: respond_timeout = ready_timeout - startup.
-# Its 5s default assumes a developer laptop; on a loaded CI runner startup alone
-# can consume nearly all of it, leaving the probe to time out against a server
-# that is in fact healthy.
+# Ceiling for binding the listening socket and, on the way out, for the event
+# loop thread to wind down. Both are near-instant; this only stops a wedged
+# thread from hanging the suite forever.
 SINK_READY_TIMEOUT = 30.0
 
 
@@ -83,9 +82,8 @@ class SmtpSink:
     def reset(self) -> None:
         """Forget everything recorded so far.
 
-        A sink is shared across a test session (starting a server per test is
-        what overruns aiosmtpd's readiness budget on slow CI runners), so each
-        test clears it before running.
+        One sink serves the whole test session rather than standing a server up
+        per test, so each test clears it before running.
         """
         self.delivered.clear()
         self.logins.clear()
@@ -118,8 +116,9 @@ class _RecordingHandler:
 def _free_port() -> int:
     """Reserve and release a loopback port, returning its number.
 
-    The tiny race between release and the server binding is unavoidable with
-    aiosmtpd, whose controller cannot report back an OS-assigned port.
+    Only used for :func:`unreachable_smtp_host`, which wants a port with nothing
+    on it. The sink itself binds port 0 and reads back what the OS assigned, so
+    it never races anyone for a number.
     """
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
@@ -150,6 +149,13 @@ def _make_authenticator(sink: SmtpSink) -> Any:
 def running_smtp_sink(*, require_auth: bool = False) -> Generator[SmtpSink]:
     """Run an SMTP sink on loopback for the duration of the block.
 
+    Uses aiosmtpd's SMTP protocol on an event loop we own rather than its
+    ``Controller``. The Controller proves readiness by opening a probe
+    connection under a shared timeout budget, and that probe fails on macOS CI
+    runners against a server that is in fact listening. Awaiting
+    ``loop.create_server`` gives the same guarantee directly: it returns only
+    once the socket is bound and accepting, with nothing to time out.
+
     Parameters
     ----------
     require_auth:
@@ -161,26 +167,36 @@ def running_smtp_sink(*, require_auth: bool = False) -> Generator[SmtpSink]:
     SmtpSink:
         Sink whose ``host`` goes straight into ``EmailConfig.smtp_hosts``.
     """
-    port = _free_port()
-    sink = SmtpSink(host=f"127.0.0.1:{port}")
-    controller_options: dict[str, Any] = {}
+    sink = SmtpSink(host="")
+    handler = _RecordingHandler(sink)
+    protocol_options: dict[str, Any] = {}
     if require_auth:
         # The sink never offers STARTTLS, so AUTH has to be allowed in the clear.
-        controller_options["authenticator"] = _make_authenticator(sink)
-        controller_options["auth_require_tls"] = False
+        protocol_options["authenticator"] = _make_authenticator(sink)
+        protocol_options["auth_require_tls"] = False
 
-    controller = Controller(
-        _RecordingHandler(sink),
-        hostname="127.0.0.1",
-        port=port,
-        ready_timeout=SINK_READY_TIMEOUT,
-        **controller_options,
-    )
-    controller.start()
+    loop = asyncio.new_event_loop()
+    thread = threading.Thread(target=loop.run_forever, daemon=True)
+    thread.start()
+
+    async def create() -> asyncio.Server:
+        # Port 0 lets the OS pick; we read back the real port below, so no other
+        # process can take the number between choosing it and binding it.
+        return await loop.create_server(
+            lambda: SMTP(handler, **protocol_options),
+            host="127.0.0.1",
+            port=0,
+        )
+
+    server = asyncio.run_coroutine_threadsafe(create(), loop).result(SINK_READY_TIMEOUT)
+    sink.host = f"127.0.0.1:{server.sockets[0].getsockname()[1]}"
     try:
         yield sink
     finally:
-        controller.stop()
+        loop.call_soon_threadsafe(server.close)
+        loop.call_soon_threadsafe(loop.stop)
+        thread.join(timeout=SINK_READY_TIMEOUT)
+        loop.close()
 
 
 @contextmanager

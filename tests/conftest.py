@@ -169,9 +169,9 @@ def cli_runner() -> CliRunner:
     return CliRunner()
 
 
-# The sink servers are session-scoped: starting an aiosmtpd controller per test
-# is what pushes a slow CI runner past its readiness budget. Each test gets a
-# freshly reset view of a long-lived server instead.
+# The sink servers are session-scoped: no test needs its own server, so one
+# long-lived server per flavour is started and each test gets a freshly reset
+# view of it.
 
 
 @pytest.fixture(scope="session")
