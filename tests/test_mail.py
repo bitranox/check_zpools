@@ -7,7 +7,11 @@ application's configuration system and provides a clean interface for
 email operations.
 
 All tests are OS-agnostic (email logic works everywhere).
-SMTP tests use mocks (no real SMTP servers needed).
+
+Delivery is exercised against a real in-process SMTP server bound to loopback
+(see ``tests/smtp_sink.py``) rather than a mocked ``smtplib.SMTP``: btx_lib_mail
+drives the connection at socket level, so a mock only ever matches its current
+internals, and a real server lets these tests assert what actually arrived.
 """
 
 from __future__ import annotations
@@ -23,6 +27,21 @@ from check_zpools.mail import (
     send_email,
     send_notification,
 )
+from smtp_sink import SINK_PASSWORD, SINK_USERNAME, SmtpSink
+
+
+def _config_for(sink: SmtpSink, **overrides: object) -> EmailConfig:
+    """Build an EmailConfig pointing at ``sink``.
+
+    The sink speaks plain SMTP, so STARTTLS is off; every other field comes from
+    the caller.
+    """
+    settings: dict[str, object] = {
+        "smtp_hosts": [sink.host],
+        "use_starttls": False,
+    }
+    settings.update(overrides)
+    return EmailConfig(**settings)  # type: ignore[arg-type]
 
 
 @pytest.mark.os_agnostic
@@ -191,15 +210,11 @@ class TestLoadEmailConfigFromDict:
 
 @pytest.mark.os_agnostic
 class TestSendEmail:
-    """Test send_email function."""
+    """Test send_email function against a real SMTP server."""
 
-    @patch("smtplib.SMTP")
-    def test_send_simple_email(self, mock_smtp: MagicMock) -> None:
-        """Should send email with basic parameters."""
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
-            from_address="sender@test.com",
-        )
+    def test_send_simple_email(self, smtp_sink: SmtpSink) -> None:
+        """Should deliver an email carrying the given subject and body."""
+        config = _config_for(smtp_sink, from_address="sender@test.com")
 
         result = send_email(
             config=config,
@@ -209,14 +224,15 @@ class TestSendEmail:
         )
 
         assert result is True
+        mail = smtp_sink.only_mail
+        assert mail.sender == "sender@test.com"
+        assert mail.recipients == ("recipient@test.com",)
+        assert mail.subject == "Test Subject"
+        assert "Test body" in mail.text_part()
 
-    @patch("smtplib.SMTP")
-    def test_send_email_with_html(self, mock_smtp: MagicMock) -> None:
-        """Should send email with both plain text and HTML."""
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
-            from_address="sender@test.com",
-        )
+    def test_send_email_with_html(self, smtp_sink: SmtpSink) -> None:
+        """Should deliver both the plain-text and the HTML alternative."""
+        config = _config_for(smtp_sink, from_address="sender@test.com")
 
         result = send_email(
             config=config,
@@ -227,14 +243,13 @@ class TestSendEmail:
         )
 
         assert result is True
+        mail = smtp_sink.only_mail
+        assert "Plain text" in mail.text_part()
+        assert "<h1>HTML</h1>" in mail.html_part()
 
-    @patch("smtplib.SMTP")
-    def test_send_email_multiple_recipients(self, mock_smtp: MagicMock) -> None:
-        """Should send email to multiple recipients."""
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
-            from_address="sender@test.com",
-        )
+    def test_send_email_multiple_recipients(self, smtp_sink: SmtpSink) -> None:
+        """Should deliver to every recipient given."""
+        config = _config_for(smtp_sink, from_address="sender@test.com")
 
         result = send_email(
             config=config,
@@ -244,14 +259,13 @@ class TestSendEmail:
         )
 
         assert result is True
+        # btx_lib_mail opens one envelope per recipient, so each arrives separately.
+        delivered_to = {recipient for mail in smtp_sink.delivered for recipient in mail.recipients}
+        assert delivered_to == {"user1@test.com", "user2@test.com"}
 
-    @patch("smtplib.SMTP")
-    def test_send_email_with_from_override(self, mock_smtp: MagicMock) -> None:
-        """Should allow overriding sender address."""
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
-            from_address="default@test.com",
-        )
+    def test_send_email_with_from_override(self, smtp_sink: SmtpSink) -> None:
+        """Should put the override address in the envelope instead of the configured one."""
+        config = _config_for(smtp_sink, from_address="default@test.com")
 
         result = send_email(
             config=config,
@@ -262,6 +276,7 @@ class TestSendEmail:
         )
 
         assert result is True
+        assert smtp_sink.only_mail.sender == "override@test.com"
 
     @patch("check_zpools.mail.btx_send")
     def test_send_email_with_attachments(self, mock_btx_send: MagicMock, tmp_path: Path) -> None:
@@ -293,14 +308,13 @@ class TestSendEmail:
         call_kwargs = mock_btx_send.call_args.kwargs
         assert call_kwargs["attachment_file_paths"] == [attachment]
 
-    @patch("smtplib.SMTP")
-    def test_send_email_with_credentials(self, mock_smtp: MagicMock) -> None:
-        """Should use SMTP credentials when configured."""
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
+    def test_send_email_with_credentials(self, authenticating_smtp_sink: SmtpSink) -> None:
+        """Should authenticate with the configured credentials before delivering."""
+        config = _config_for(
+            authenticating_smtp_sink,
             from_address="sender@test.com",
-            smtp_username="testuser",
-            smtp_password="testpass",
+            smtp_username=SINK_USERNAME,
+            smtp_password=SINK_PASSWORD,
         )
 
         result = send_email(
@@ -311,19 +325,16 @@ class TestSendEmail:
         )
 
         assert result is True
+        assert authenticating_smtp_sink.logins == [(SINK_USERNAME, SINK_PASSWORD)]
 
 
 @pytest.mark.os_agnostic
 class TestSendNotification:
     """Test send_notification convenience function."""
 
-    @patch("smtplib.SMTP")
-    def test_send_simple_notification(self, mock_smtp: MagicMock) -> None:
-        """Should send plain-text notification."""
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
-            from_address="alerts@test.com",
-        )
+    def test_send_simple_notification(self, smtp_sink: SmtpSink) -> None:
+        """Should deliver the message as a plain-text mail."""
+        config = _config_for(smtp_sink, from_address="alerts@test.com")
 
         result = send_notification(
             config=config,
@@ -333,14 +344,15 @@ class TestSendNotification:
         )
 
         assert result is True
+        mail = smtp_sink.only_mail
+        assert mail.sender == "alerts@test.com"
+        assert mail.subject == "Alert"
+        assert "System notification" in mail.text_part()
+        assert mail.html_part() == ""
 
-    @patch("smtplib.SMTP")
-    def test_send_notification_multiple_recipients(self, mock_smtp: MagicMock) -> None:
-        """Should send notification to multiple recipients."""
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
-            from_address="alerts@test.com",
-        )
+    def test_send_notification_multiple_recipients(self, smtp_sink: SmtpSink) -> None:
+        """Should deliver the notification to every recipient given."""
+        config = _config_for(smtp_sink, from_address="alerts@test.com")
 
         result = send_notification(
             config=config,
@@ -350,20 +362,20 @@ class TestSendNotification:
         )
 
         assert result is True
+        delivered_to = {recipient for mail in smtp_sink.delivered for recipient in mail.recipients}
+        assert delivered_to == {"admin1@test.com", "admin2@test.com"}
 
 
 @pytest.mark.os_agnostic
 class TestEmailErrorScenarios:
     """Test error handling in email functionality."""
 
-    @patch("smtplib.SMTP")
-    def test_send_email_smtp_connection_failure(self, mock_smtp: MagicMock) -> None:
-        """Should raise RuntimeError when SMTP connection fails."""
-        mock_smtp.side_effect = ConnectionError("Cannot connect to SMTP server")
-
+    def test_send_email_smtp_connection_failure(self, dead_smtp_host: str) -> None:
+        """Should raise RuntimeError when the SMTP host refuses the connection."""
         config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
+            smtp_hosts=[dead_smtp_host],
             from_address="sender@test.com",
+            use_starttls=False,
         )
 
         # btx_lib_mail wraps connection errors in RuntimeError
@@ -375,17 +387,12 @@ class TestEmailErrorScenarios:
                 body="Hello",
             )
 
-    @patch("smtplib.SMTP")
-    def test_send_email_authentication_failure(self, mock_smtp: MagicMock) -> None:
-        """Should raise exception when SMTP authentication fails."""
-        mock_instance = MagicMock()
-        mock_instance.login.side_effect = Exception("Authentication failed")
-        mock_smtp.return_value.__enter__.return_value = mock_instance
-
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
+    def test_send_email_authentication_failure(self, authenticating_smtp_sink: SmtpSink) -> None:
+        """Should raise RuntimeError when the server rejects the credentials."""
+        config = _config_for(
+            authenticating_smtp_sink,
             from_address="sender@test.com",
-            smtp_username="user@test.com",
+            smtp_username=SINK_USERNAME,
             smtp_password="wrong_password",
         )
 
@@ -398,25 +405,7 @@ class TestEmailErrorScenarios:
                 body="Hello",
             )
 
-    @patch("smtplib.SMTP")
-    def test_send_email_invalid_recipients(self, mock_smtp: MagicMock) -> None:
-        """Should propagate errors from btx_lib_mail for invalid recipients."""
-        # Configure mock to raise ValueError during send
-        mock_smtp.side_effect = ValueError("Invalid recipient address")
-
-        config = EmailConfig(
-            smtp_hosts=["smtp.test.com:587"],
-            from_address="sender@test.com",
-        )
-
-        # btx_lib_mail wraps validation errors in RuntimeError
-        with pytest.raises(RuntimeError, match="following recipients failed"):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-            )
+        assert authenticating_smtp_sink.delivered == []
 
     @patch("check_zpools.mail.btx_send")
     def test_send_email_missing_attachment_raises(self, mock_btx_send: MagicMock, tmp_path: Path) -> None:
@@ -443,14 +432,12 @@ class TestEmailErrorScenarios:
                 attachments=[nonexistent],
             )
 
-    @patch("smtplib.SMTP")
-    def test_send_email_all_smtp_hosts_fail(self, mock_smtp: MagicMock) -> None:
-        """Should raise RuntimeError when all SMTP hosts fail."""
-        mock_smtp.side_effect = ConnectionError("Connection refused")
-
+    def test_send_email_all_smtp_hosts_fail(self, dead_smtp_host: str, dead_smtp_host_2: str) -> None:
+        """Should raise RuntimeError when every configured SMTP host refuses."""
         config = EmailConfig(
-            smtp_hosts=["smtp1.test.com:587", "smtp2.test.com:587"],
+            smtp_hosts=[dead_smtp_host, dead_smtp_host_2],
             from_address="sender@test.com",
+            use_starttls=False,
         )
 
         with pytest.raises(RuntimeError, match="following recipients failed"):

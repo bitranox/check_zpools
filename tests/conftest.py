@@ -20,6 +20,7 @@ from click.testing import CliRunner
 
 import lib_cli_exit_tools
 from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
+from smtp_sink import SmtpSink, running_smtp_sink, unreachable_smtp_host
 
 # ============================================================================
 # OS Detection Constants
@@ -166,6 +167,38 @@ def cli_runner() -> CliRunner:
     """Provide a fresh :class:`CliRunner` per test."""
 
     return CliRunner()
+
+
+@pytest.fixture
+def smtp_sink() -> Iterator[SmtpSink]:
+    """Provide a real, unauthenticated SMTP server on loopback."""
+
+    with running_smtp_sink() as sink:
+        yield sink
+
+
+@pytest.fixture
+def authenticating_smtp_sink() -> Iterator[SmtpSink]:
+    """Provide a real SMTP server that requires the sink test credentials."""
+
+    with running_smtp_sink(require_auth=True) as sink:
+        yield sink
+
+
+@pytest.fixture
+def dead_smtp_host() -> Iterator[str]:
+    """Provide a loopback ``host:port`` with no server behind it."""
+
+    with unreachable_smtp_host() as host:
+        yield host
+
+
+@pytest.fixture
+def dead_smtp_host_2() -> Iterator[str]:
+    """Provide a second, distinct dead loopback host for multi-host failover tests."""
+
+    with unreachable_smtp_host() as host:
+        yield host
 
 
 @pytest.fixture

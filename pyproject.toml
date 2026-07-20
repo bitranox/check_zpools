@@ -1,6 +1,6 @@
 [project]
 name = "check_zpools"
-version = "3.7.5"
+version = "3.7.6"
 description = "Zpool Monitoring Daemon"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -68,7 +68,8 @@ dev = [
   "pip-audit>=2.10.1",
   "textual>=8.2.8",
   "import-linter>=2.13",
-  "rtoml>=0.13.0"
+  "rtoml>=0.13.0",
+  "aiosmtpd>=1.4.6"
 ]
 
 [project.scripts]

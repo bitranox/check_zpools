@@ -13,6 +13,31 @@ import lib_cli_exit_tools
 
 from check_zpools import cli as cli_mod
 from check_zpools import __init__conf__
+from smtp_sink import SmtpSink
+
+
+def _config_stub_for_host(host: str, from_address: str) -> Any:
+    """Return a ``get_config`` stub whose email section points at ``host``.
+
+    The send commands only ever call ``as_dict()``, so a minimal stub is enough.
+    STARTTLS is off because the test SMTP sink speaks plain SMTP.
+    """
+    from unittest.mock import MagicMock
+
+    config_obj = MagicMock()
+    config_obj.as_dict.return_value = {
+        "email": {
+            "smtp_hosts": [host],
+            "from_address": from_address,
+            "use_starttls": False,
+        }
+    }
+    return config_obj
+
+
+def _config_stub_for(sink: SmtpSink, from_address: str) -> Any:
+    """Return a ``get_config`` stub pointing at a running SMTP sink."""
+    return _config_stub_for_host(sink.host, from_address)
 
 
 @dataclass(slots=True)
@@ -707,114 +732,97 @@ def test_when_send_email_is_invoked_without_smtp_hosts_it_fails(
 @pytest.mark.os_agnostic
 def test_when_send_email_is_invoked_with_valid_config_it_sends(
     cli_runner: CliRunner,
-    tmp_path: Any,
+    smtp_sink: SmtpSink,
 ) -> None:
     """When SMTP is configured, send-email should successfully send."""
-    from unittest.mock import patch, MagicMock
-
-    # Create test config with SMTP settings
-    config_path = tmp_path / "test_config.toml"
-    config_path.write_text('[email]\nsmtp_hosts = ["smtp.test.com:587"]\nfrom_address = "sender@test.com"\n')
+    from unittest.mock import patch
 
     with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        with patch("smtplib.SMTP"):
-            # Mock config
-            mock_config_obj = MagicMock()
-            mock_config_obj.as_dict.return_value = {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-            mock_get_config.return_value = mock_config_obj
+        mock_get_config.return_value = _config_stub_for(smtp_sink, "sender@test.com")
 
-            result: Result = cli_runner.invoke(
-                cli_mod.cli,
-                [
-                    "send-email",
-                    "--to",
-                    "recipient@test.com",
-                    "--subject",
-                    "Test Subject",
-                    "--body",
-                    "Test body",
-                ],
-            )
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-email",
+                "--to",
+                "recipient@test.com",
+                "--subject",
+                "Test Subject",
+                "--body",
+                "Test body",
+            ],
+        )
 
-            assert result.exit_code == 0
-            assert "Email sent successfully" in result.output
+        assert result.exit_code == 0
+        assert "Email sent successfully" in result.output
+        mail = smtp_sink.only_mail
+        assert mail.sender == "sender@test.com"
+        assert mail.recipients == ("recipient@test.com",)
+        assert mail.subject == "Test Subject"
+        assert "Test body" in mail.text_part()
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_receives_multiple_recipients_it_accepts_them(
     cli_runner: CliRunner,
+    smtp_sink: SmtpSink,
 ) -> None:
     """When multiple --to flags are provided, send-email should accept them."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
 
     with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        with patch("smtplib.SMTP"):
-            mock_config_obj = MagicMock()
-            mock_config_obj.as_dict.return_value = {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-            mock_get_config.return_value = mock_config_obj
+        mock_get_config.return_value = _config_stub_for(smtp_sink, "sender@test.com")
 
-            result: Result = cli_runner.invoke(
-                cli_mod.cli,
-                [
-                    "send-email",
-                    "--to",
-                    "user1@test.com",
-                    "--to",
-                    "user2@test.com",
-                    "--subject",
-                    "Test",
-                    "--body",
-                    "Hello",
-                ],
-            )
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-email",
+                "--to",
+                "user1@test.com",
+                "--to",
+                "user2@test.com",
+                "--subject",
+                "Test",
+                "--body",
+                "Hello",
+            ],
+        )
 
-            assert result.exit_code == 0
+        assert result.exit_code == 0
+        delivered_to = {recipient for mail in smtp_sink.delivered for recipient in mail.recipients}
+        assert delivered_to == {"user1@test.com", "user2@test.com"}
 
 
 @pytest.mark.os_agnostic
 def test_when_send_email_includes_html_body_it_sends(
     cli_runner: CliRunner,
+    smtp_sink: SmtpSink,
 ) -> None:
     """When HTML body is provided, send-email should include it."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
 
     with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        with patch("smtplib.SMTP"):
-            mock_config_obj = MagicMock()
-            mock_config_obj.as_dict.return_value = {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-            mock_get_config.return_value = mock_config_obj
+        mock_get_config.return_value = _config_stub_for(smtp_sink, "sender@test.com")
 
-            result: Result = cli_runner.invoke(
-                cli_mod.cli,
-                [
-                    "send-email",
-                    "--to",
-                    "recipient@test.com",
-                    "--subject",
-                    "Test",
-                    "--body",
-                    "Plain text",
-                    "--body-html",
-                    "<h1>HTML</h1>",
-                ],
-            )
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-email",
+                "--to",
+                "recipient@test.com",
+                "--subject",
+                "Test",
+                "--body",
+                "Plain text",
+                "--body-html",
+                "<h1>HTML</h1>",
+            ],
+        )
 
-            assert result.exit_code == 0
+        assert result.exit_code == 0
+        mail = smtp_sink.only_mail
+        assert "Plain text" in mail.text_part()
+        assert "<h1>HTML</h1>" in mail.html_part()
 
 
 @pytest.mark.os_agnostic
@@ -863,38 +871,29 @@ def test_when_send_email_has_attachments_it_sends(
 @pytest.mark.os_agnostic
 def test_when_send_email_smtp_fails_it_reports_error(
     cli_runner: CliRunner,
+    dead_smtp_host: str,
 ) -> None:
-    """When SMTP connection fails, send-email should show error message."""
-    from unittest.mock import patch, MagicMock
+    """When the SMTP host refuses the connection, send-email should show an error."""
+    from unittest.mock import patch
 
     with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        with patch("smtplib.SMTP") as mock_smtp:
-            mock_smtp.side_effect = ConnectionError("Cannot connect")
+        mock_get_config.return_value = _config_stub_for_host(dead_smtp_host, "sender@test.com")
 
-            mock_config_obj = MagicMock()
-            mock_config_obj.as_dict.return_value = {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
-            }
-            mock_get_config.return_value = mock_config_obj
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-email",
+                "--to",
+                "recipient@test.com",
+                "--subject",
+                "Test",
+                "--body",
+                "Hello",
+            ],
+        )
 
-            result: Result = cli_runner.invoke(
-                cli_mod.cli,
-                [
-                    "send-email",
-                    "--to",
-                    "recipient@test.com",
-                    "--subject",
-                    "Test",
-                    "--body",
-                    "Hello",
-                ],
-            )
-
-            assert result.exit_code == 1
-            assert "Error" in result.output
+        assert result.exit_code == 1
+        assert "Error" in result.output
 
 
 @pytest.mark.os_agnostic
@@ -922,106 +921,89 @@ def test_when_send_notification_is_invoked_without_smtp_hosts_it_fails(
 @pytest.mark.os_agnostic
 def test_when_send_notification_is_invoked_with_valid_config_it_sends(
     cli_runner: CliRunner,
+    smtp_sink: SmtpSink,
 ) -> None:
     """When SMTP is configured, send-notification should successfully send."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
 
     with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
-        with patch("smtplib.SMTP"):
-            mock_config_obj = MagicMock()
-            mock_config_obj.as_dict.return_value = {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "alerts@test.com",
-                }
-            }
-            mock_get_config.return_value = mock_config_obj
+        mock_get_config.return_value = _config_stub_for(smtp_sink, "alerts@test.com")
 
-            result: Result = cli_runner.invoke(
-                cli_mod.cli,
-                [
-                    "send-notification",
-                    "--to",
-                    "admin@test.com",
-                    "--subject",
-                    "Alert",
-                    "--message",
-                    "System notification",
-                ],
-            )
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-notification",
+                "--to",
+                "admin@test.com",
+                "--subject",
+                "Alert",
+                "--message",
+                "System notification",
+            ],
+        )
 
-            assert result.exit_code == 0
-            assert "Notification sent successfully" in result.output
+        assert result.exit_code == 0
+        assert "Notification sent successfully" in result.output
+        mail = smtp_sink.only_mail
+        assert mail.sender == "alerts@test.com"
+        assert mail.subject == "Alert"
+        assert "System notification" in mail.text_part()
 
 
 @pytest.mark.os_agnostic
 def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
     cli_runner: CliRunner,
+    smtp_sink: SmtpSink,
 ) -> None:
     """When multiple --to flags are provided, send-notification should accept them."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import patch
 
     with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
-        with patch("smtplib.SMTP"):
-            mock_config_obj = MagicMock()
-            mock_config_obj.as_dict.return_value = {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "alerts@test.com",
-                }
-            }
-            mock_get_config.return_value = mock_config_obj
+        mock_get_config.return_value = _config_stub_for(smtp_sink, "alerts@test.com")
 
-            result: Result = cli_runner.invoke(
-                cli_mod.cli,
-                [
-                    "send-notification",
-                    "--to",
-                    "admin1@test.com",
-                    "--to",
-                    "admin2@test.com",
-                    "--subject",
-                    "Alert",
-                    "--message",
-                    "System notification",
-                ],
-            )
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-notification",
+                "--to",
+                "admin1@test.com",
+                "--to",
+                "admin2@test.com",
+                "--subject",
+                "Alert",
+                "--message",
+                "System notification",
+            ],
+        )
 
-            assert result.exit_code == 0
+        assert result.exit_code == 0
+        delivered_to = {recipient for mail in smtp_sink.delivered for recipient in mail.recipients}
+        assert delivered_to == {"admin1@test.com", "admin2@test.com"}
 
 
 @pytest.mark.os_agnostic
 def test_when_send_notification_smtp_fails_it_reports_error(
     cli_runner: CliRunner,
+    dead_smtp_host: str,
 ) -> None:
-    """When SMTP connection fails, send-notification should show error message."""
-    from unittest.mock import patch, MagicMock
+    """When the SMTP host refuses the connection, send-notification should show an error."""
+    from unittest.mock import patch
 
     with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
-        with patch("smtplib.SMTP") as mock_smtp:
-            mock_smtp.side_effect = ConnectionError("Cannot connect")
+        mock_get_config.return_value = _config_stub_for_host(dead_smtp_host, "alerts@test.com")
 
-            mock_config_obj = MagicMock()
-            mock_config_obj.as_dict.return_value = {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "alerts@test.com",
-                }
-            }
-            mock_get_config.return_value = mock_config_obj
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-notification",
+                "--to",
+                "admin@test.com",
+                "--subject",
+                "Alert",
+                "--message",
+                "System notification",
+            ],
+        )
 
-            result: Result = cli_runner.invoke(
-                cli_mod.cli,
-                [
-                    "send-notification",
-                    "--to",
-                    "admin@test.com",
-                    "--subject",
-                    "Alert",
-                    "--message",
-                    "System notification",
-                ],
-            )
-
-            assert result.exit_code == 1
-            assert "Error" in result.output
+        assert result.exit_code == 1
+        assert "Error" in result.output

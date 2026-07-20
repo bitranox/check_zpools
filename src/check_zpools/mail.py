@@ -371,12 +371,16 @@ def send_email(
 
     Examples
     --------
-    >>> from unittest.mock import patch, MagicMock
+    Stubbing ``btx_send`` keeps this example offline. It is this module's own
+    boundary to the mail library, so unlike a stand-in for ``smtplib.SMTP`` it
+    does not depend on how that library drives the connection internally.
+
+    >>> from unittest.mock import patch
     >>> config = EmailConfig(
     ...     smtp_hosts=["smtp.example.com"],
     ...     from_address="sender@example.com"
     ... )
-    >>> with patch("smtplib.SMTP") as mock_smtp:
+    >>> with patch("check_zpools.mail.btx_send", return_value=True):
     ...     result = send_email(
     ...         config=config,
     ...         recipients="recipient@example.com",
@@ -459,7 +463,7 @@ def send_notification(
     ...     smtp_hosts=["smtp.example.com"],
     ...     from_address="alerts@example.com"
     ... )
-    >>> with patch("smtplib.SMTP"):
+    >>> with patch("check_zpools.mail.btx_send", return_value=True):
     ...     result = send_notification(
     ...         config=config,
     ...         recipients="admin@example.com",

@@ -6,6 +6,24 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.7.6] 2026-07-20
+
+### Fixed
+- Mail tests no longer fake SMTP by patching `smtplib.SMTP` with a `MagicMock`.
+  btx_lib_mail drives the connection at socket level (capability probing, BDAT
+  or DATA framing, raw `sendall`), so the mock stopped satisfying it and 18
+  tests plus 2 doctests failed against btx_lib_mail 1.5.0.
+
+### Changed
+- Delivery is now exercised against a real in-process SMTP server bound to
+  loopback (`tests/smtp_sink.py`, new `aiosmtpd` dev dependency), so the tests
+  survive library releases and assert what actually arrived: envelope sender,
+  recipients, subject, and the plain-text and HTML parts.
+- Connection- and authentication-failure tests use a real refused port and a
+  real credential rejection instead of mocked exceptions.
+- The `send_email` / `send_notification` doctests stub `btx_send`, this module's
+  own boundary to the mail library, rather than the library's internals.
+
 ## [3.7.5] 2026-07-19
 
 ### Changed
