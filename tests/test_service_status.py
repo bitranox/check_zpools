@@ -13,10 +13,8 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from check_zpools.service_install import (
     _format_duration,
@@ -25,6 +23,10 @@ from check_zpools.service_install import (
     _load_alert_state,
 )
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    import pytest
 
 # ============================================================================
 # Tests for _format_duration

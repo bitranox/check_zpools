@@ -17,11 +17,11 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from check_zpools.models import IssueCategory, PoolHealth, Severity
-from check_zpools.monitor import MonitorConfig, PoolMonitor
-
 # Import shared test helpers from conftest (centralized to avoid duplication)
 from conftest import a_healthy_pool_named, a_pool_with
+
+from check_zpools.models import IssueCategory, PoolHealth, Severity
+from check_zpools.monitor import MonitorConfig, PoolMonitor
 
 
 def a_monitor_with_default_thresholds() -> PoolMonitor:

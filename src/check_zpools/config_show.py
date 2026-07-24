@@ -8,7 +8,7 @@ all formatting and display logic here.
 
 Contents
 --------
-* :func:`display_config` – displays configuration in requested format
+* :func:`display_config` - displays configuration in requested format
 
 System Role
 -----------
@@ -178,7 +178,7 @@ def _display_human_section_data(section_name: str, section_data: Any, config: An
     """
     click.echo(f"\n[{section_name}]")
     if isinstance(section_data, dict):
-        dict_data = cast(dict[str, Any], section_data)
+        dict_data = cast("dict[str, Any]", section_data)
         for key, value in dict_data.items():
             dotted_key = f"{section_name}.{key}"
             _display_value_with_source(key, value, dotted_key, config, indent="  ")
@@ -210,12 +210,11 @@ def _display_human_section(config: Any, section: str | None) -> None:
             raise SystemExit(1)
     else:
         data: dict[str, Any] = config.as_dict()
-        for section_name in data:
-            section_data: Any = data[section_name]
+        for section_name, section_data in data.items():
             _display_human_section_data(section_name, section_data, config)
 
 
-def display_config(*, format: str = "human", section: str | None = None) -> None:
+def display_config(*, output_format: str = "human", section: str | None = None) -> None:
     """Display the current merged configuration from all sources.
 
     Why
@@ -232,7 +231,7 @@ def display_config(*, format: str = "human", section: str | None = None) -> None
 
     Parameters
     ----------
-    format:
+    output_format:
         Output format: "human" for TOML-like display or "json" for JSON.
         Defaults to "human".
     section:
@@ -257,7 +256,7 @@ def display_config(*, format: str = "human", section: str | None = None) -> None
       service = "check_zpools"
       environment = "prod"
 
-    >>> display_config(format="json")  # doctest: +SKIP
+    >>> display_config(output_format="json")  # doctest: +SKIP
     {
       "lib_log_rich": {
         "service": "check_zpools",
@@ -267,7 +266,7 @@ def display_config(*, format: str = "human", section: str | None = None) -> None
     """
     config = get_config()
 
-    if format.lower() == "json":
+    if output_format.lower() == "json":
         _display_json_section(config, section)
     else:
         _display_human_section(config, section)

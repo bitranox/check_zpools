@@ -25,7 +25,6 @@ import pytest
 from check_zpools.cli_email_handlers import handle_send_email_error, validate_smtp_configuration
 from check_zpools.mail import EmailConfig
 
-
 # ============================================================================
 # Tests: SMTP Configuration Validation — Exit Behavior
 # ============================================================================
@@ -101,9 +100,8 @@ class TestSmtpValidationLogging:
         an ERROR level log message is written."""
         config = EmailConfig(smtp_hosts=[])
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                validate_smtp_configuration(config)
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            validate_smtp_configuration(config)
 
         assert any("No SMTP hosts configured" in record.message for record in caplog.records)
 
@@ -236,9 +234,8 @@ class TestSendEmailErrorLogging:
         an ERROR log with 'Invalid email parameters' is written."""
         exc = ValueError("Bad address")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_send_email_error(exc, "ValueError")
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_send_email_error(exc, "ValueError")
 
         assert any("Invalid email parameters" in record.message for record in caplog.records)
 
@@ -248,9 +245,8 @@ class TestSendEmailErrorLogging:
         an ERROR log with 'Unexpected error sending email' is written."""
         exc = OSError("Disk full")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_send_email_error(exc, "OSError")
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_send_email_error(exc, "OSError")
 
         assert any("Unexpected error sending email" in record.message for record in caplog.records)
 
@@ -260,9 +256,8 @@ class TestSendEmailErrorLogging:
         the log does not include exc_info traceback."""
         exc = ValueError("Bad address")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_send_email_error(exc, "ValueError")
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_send_email_error(exc, "ValueError")
 
         error_records = [r for r in caplog.records if "Invalid email parameters" in r.message]
         assert len(error_records) > 0
@@ -275,9 +270,8 @@ class TestSendEmailErrorLogging:
         the log includes exc_info for debugging."""
         exc = OSError("Disk full")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_send_email_error(exc, "OSError")
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_send_email_error(exc, "OSError")
 
         error_records = [r for r in caplog.records if "Unexpected error" in r.message]
         assert len(error_records) > 0

@@ -8,7 +8,7 @@ function to copy the bundled defaultconfig.toml to requested target layers.
 
 Contents
 --------
-* :func:`deploy_configuration` – deploys configuration to specified targets
+* :func:`deploy_configuration` - deploys configuration to specified targets
 
 System Role
 -----------
@@ -19,13 +19,16 @@ parsing and user interaction.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from lib_layered_config import deploy_config
 
 from . import __init__conf__
 from .config import get_default_config_path
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from pathlib import Path
 
 
 def deploy_configuration(

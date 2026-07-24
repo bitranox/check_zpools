@@ -17,7 +17,6 @@ import pytest
 
 from check_zpools.config import get_config, get_default_config_path
 
-
 # ============================================================================
 # Tests: get_default_config_path
 # ============================================================================

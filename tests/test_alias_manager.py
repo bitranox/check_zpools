@@ -15,10 +15,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
-from click.testing import CliRunner
 
 from check_zpools import __init__conf__
 from check_zpools.alias_manager import (
@@ -34,6 +34,8 @@ from check_zpools.alias_manager import (
     delete_alias,
 )
 
+if TYPE_CHECKING:
+    from click.testing import CliRunner
 
 # ============================================================================
 # Tests for _generate_alias_block
@@ -173,9 +175,8 @@ class TestGetUserInfo:
 
     def test_raises_keyerror_for_unknown_user(self) -> None:
         """Should raise KeyError for non-existent user."""
-        with patch("pwd.getpwnam", side_effect=KeyError("unknown")):
-            with pytest.raises(KeyError, match="User not found"):
-                _get_user_info("nonexistent")
+        with patch("pwd.getpwnam", side_effect=KeyError("unknown")), pytest.raises(KeyError, match="User not found"):
+            _get_user_info("nonexistent")
 
 
 # ============================================================================
@@ -254,16 +255,14 @@ class TestCreateAliasRootCheck:
     @pytest.mark.linux_only
     def test_requires_root_privileges(self) -> None:
         """Should raise PermissionError when not root."""
-        with patch("os.geteuid", return_value=1000):
-            with pytest.raises(PermissionError, match="root"):
-                create_alias()
+        with patch("os.geteuid", return_value=1000), pytest.raises(PermissionError, match="root"):
+            create_alias()
 
     @pytest.mark.linux_only
     def test_user_flag_requires_root_with_specific_message(self) -> None:
         """Should show specific error when --user used without root."""
-        with patch("os.geteuid", return_value=1000):
-            with pytest.raises(PermissionError, match="--user flag requires root"):
-                create_alias(username="someuser")
+        with patch("os.geteuid", return_value=1000), pytest.raises(PermissionError, match="--user flag requires root"):
+            create_alias(username="someuser")
 
 
 class TestCreateAliasSuccess:
@@ -386,16 +385,14 @@ class TestDeleteAliasRootCheck:
     @pytest.mark.linux_only
     def test_requires_root_privileges(self) -> None:
         """Should raise PermissionError when not root."""
-        with patch("os.geteuid", return_value=1000):
-            with pytest.raises(PermissionError, match="root"):
-                delete_alias()
+        with patch("os.geteuid", return_value=1000), pytest.raises(PermissionError, match="root"):
+            delete_alias()
 
     @pytest.mark.linux_only
     def test_user_flag_requires_root_with_specific_message(self) -> None:
         """Should show specific error when --user used without root."""
-        with patch("os.geteuid", return_value=1000):
-            with pytest.raises(PermissionError, match="--user flag requires root"):
-                delete_alias(username="someuser")
+        with patch("os.geteuid", return_value=1000), pytest.raises(PermissionError, match="--user flag requires root"):
+            delete_alias(username="someuser")
 
 
 class TestDeleteAliasSuccess:
@@ -475,7 +472,7 @@ class TestAliasCreateCLI:
         """Command should be registered in CLI."""
         from check_zpools.cli import cli
 
-        assert "alias-create" in [cmd for cmd in cli.commands]
+        assert "alias-create" in list(cli.commands)
 
     def test_user_option_available(self) -> None:
         """--user option should be available."""
@@ -493,7 +490,7 @@ class TestAliasDeleteCLI:
         """Command should be registered in CLI."""
         from check_zpools.cli import cli
 
-        assert "alias-delete" in [cmd for cmd in cli.commands]
+        assert "alias-delete" in list(cli.commands)
 
     def test_user_option_available(self) -> None:
         """--user option should be available."""
@@ -786,27 +783,23 @@ class TestUnsupportedPlatformHandling:
 
     def test_create_alias_raises_on_windows(self) -> None:
         """Should raise NotImplementedError on Windows."""
-        with patch("platform.system", return_value="Windows"):
-            with pytest.raises(NotImplementedError, match="Windows"):
-                create_alias()
+        with patch("platform.system", return_value="Windows"), pytest.raises(NotImplementedError, match="Windows"):
+            create_alias()
 
     def test_delete_alias_raises_on_windows(self) -> None:
         """Should raise NotImplementedError on Windows."""
-        with patch("platform.system", return_value="Windows"):
-            with pytest.raises(NotImplementedError, match="Windows"):
-                delete_alias()
+        with patch("platform.system", return_value="Windows"), pytest.raises(NotImplementedError, match="Windows"):
+            delete_alias()
 
     def test_create_alias_raises_on_macos(self) -> None:
         """Should raise NotImplementedError on macOS."""
-        with patch("platform.system", return_value="Darwin"):
-            with pytest.raises(NotImplementedError, match="macOS"):
-                create_alias()
+        with patch("platform.system", return_value="Darwin"), pytest.raises(NotImplementedError, match="macOS"):
+            create_alias()
 
     def test_delete_alias_raises_on_macos(self) -> None:
         """Should raise NotImplementedError on macOS."""
-        with patch("platform.system", return_value="Darwin"):
-            with pytest.raises(NotImplementedError, match="macOS"):
-                delete_alias()
+        with patch("platform.system", return_value="Darwin"), pytest.raises(NotImplementedError, match="macOS"):
+            delete_alias()
 
 
 # ============================================================================
@@ -862,9 +855,8 @@ class TestCreateAliasAllUsers:
     @pytest.mark.linux_only
     def test_all_users_requires_root(self) -> None:
         """Should raise PermissionError when not root with all_users=True."""
-        with patch("os.geteuid", return_value=1000):
-            with pytest.raises(PermissionError, match="root"):
-                create_alias(all_users=True)
+        with patch("os.geteuid", return_value=1000), pytest.raises(PermissionError, match="root"):
+            create_alias(all_users=True)
 
     @pytest.mark.linux_only
     def test_all_users_success_message(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -930,9 +922,8 @@ class TestDeleteAliasAllUsers:
     @pytest.mark.linux_only
     def test_all_users_delete_requires_root(self) -> None:
         """Should raise PermissionError when not root with all_users=True."""
-        with patch("os.geteuid", return_value=1000):
-            with pytest.raises(PermissionError, match="root"):
-                delete_alias(all_users=True)
+        with patch("os.geteuid", return_value=1000), pytest.raises(PermissionError, match="root"):
+            delete_alias(all_users=True)
 
     @pytest.mark.linux_only
     def test_all_users_delete_handles_no_alias(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

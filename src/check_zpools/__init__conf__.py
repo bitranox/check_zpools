@@ -24,7 +24,7 @@ name = "check_zpools"
 #: Human-readable summary shown in CLI help output.
 title = "Zpool Monitoring Daemon"
 #: Current release version pulled from ``pyproject.toml`` by automation.
-version = "3.7.6"
+version = "3.7.7"
 #: Repository homepage presented to users.
 homepage = "https://github.com/bitranox/check_zpools"
 #: Author attribution surfaced in CLI output.
@@ -71,4 +71,4 @@ def print_info() -> None:
     pad = max(len(label) for label, _ in fields)
     lines = [f"Info for {name}:", ""]
     lines.extend(f"    {label.ljust(pad)} = {value}" for label, value in fields)
-    print("\n".join(lines))
+    print("\n".join(lines))  # noqa: T201 - lowest architecture layer must stay free of a click/rich_click dependency

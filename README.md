@@ -1066,7 +1066,7 @@ else:
 
 # Access configuration
 config = get_config()
-capacity_config = config['zfs']['capacity']
+capacity_config = config["zfs"]["capacity"]
 print(f"Warning threshold: {capacity_config['warning_percent']}%")
 print(f"Critical threshold: {capacity_config['critical_percent']}%")
 ```
@@ -1080,26 +1080,17 @@ import requests
 from check_zpools.behaviors import check_pools_once
 from check_zpools.models import Severity
 
+
 def send_slack_alert(message: str, severity: Severity):
     """Send alert to Slack webhook."""
     webhook_url = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
 
-    color = {
-        Severity.CRITICAL: "danger",
-        Severity.WARNING: "warning",
-        Severity.INFO: "good",
-        Severity.OK: "good"
-    }[severity]
+    color = {Severity.CRITICAL: "danger", Severity.WARNING: "warning", Severity.INFO: "good", Severity.OK: "good"}[severity]
 
-    payload = {
-        "attachments": [{
-            "color": color,
-            "text": message,
-            "footer": "ZFS Pool Monitor"
-        }]
-    }
+    payload = {"attachments": [{"color": color, "text": message, "footer": "ZFS Pool Monitor"}]}
 
     requests.post(webhook_url, json=payload)
+
 
 # Check pools
 result = check_pools_once()

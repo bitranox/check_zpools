@@ -24,7 +24,6 @@ from check_zpools.cli_traceback import (
     snapshot_traceback_state,
 )
 
-
 # ============================================================================
 # Tests: apply_traceback_preferences
 # ============================================================================

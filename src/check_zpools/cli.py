@@ -18,13 +18,11 @@ targets register the console script defined in :mod:`check_zpools.__init__conf__
 from __future__ import annotations
 
 import logging
-from typing import Optional, Sequence
-
-import rich_click as click
-from .typed_click import option, version_option
+from typing import TYPE_CHECKING
 
 import lib_cli_exit_tools
 import lib_log_rich.runtime
+import rich_click as click
 from click.core import ParameterSource
 
 from . import __init__conf__
@@ -50,9 +48,13 @@ from .cli_traceback import (
     snapshot_traceback_state,
 )
 from .logging_setup import init_logging
+from .typed_click import option, version_option
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 #: Shared Click context flags so help output stays consistent across commands.
-CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}  # noqa: C408
+CLICK_CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +76,13 @@ logger = logging.getLogger(__name__)
     help="Show full Python traceback on errors",
 )
 @click.pass_context
-def cli(ctx: click.Context, traceback: bool) -> None:
+def cli(ctx: click.Context, *, traceback: bool) -> None:
     """Root command storing global flags and syncing shared traceback state."""
     init_logging()
 
     ctx.ensure_object(dict)
     ctx.obj["traceback"] = traceback
-    apply_traceback_preferences(traceback)
+    apply_traceback_preferences(enabled=traceback)
 
     if ctx.invoked_subcommand is None:
         source = ctx.get_parameter_source("traceback")
@@ -117,6 +119,7 @@ def cli_fail() -> None:
 @cli.command("config", context_settings=CLICK_CONTEXT_SETTINGS)
 @option(
     "--format",
+    "output_format",
     type=click.Choice(["human", "json"], case_sensitive=False),
     default="human",
     help="Output format (human-readable or JSON)",
@@ -127,9 +130,9 @@ def cli_fail() -> None:
     default=None,
     help="Show only a specific configuration section",
 )
-def cli_config(format: str, section: Optional[str]) -> None:
+def cli_config(*, output_format: str, section: str | None) -> None:
     """Display the current merged configuration from all sources."""
-    config_show_command(format, section)
+    config_show_command(output_format=output_format, section=section)
 
 
 @cli.command("config-deploy", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -147,9 +150,9 @@ def cli_config(format: str, section: Optional[str]) -> None:
     default=False,
     help="Overwrite existing configuration files",
 )
-def cli_config_deploy(targets: tuple[str, ...], force: bool) -> None:
+def cli_config_deploy(*, targets: tuple[str, ...], force: bool) -> None:
     """Deploy default configuration to system or user directories."""
-    config_deploy_command(targets, force)
+    config_deploy_command(targets=targets, force=force)
 
 
 @cli.command("send-email", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -189,15 +192,23 @@ def cli_config_deploy(targets: tuple[str, ...], force: bool) -> None:
     help="File to attach (can specify multiple)",
 )
 def cli_send_email(
+    *,
     recipients: tuple[str, ...],
     subject: str,
     body: str,
     body_html: str,
-    from_address: Optional[str],
+    from_address: str | None,
     attachments: tuple[str, ...],
 ) -> None:
     """Send an email using configured SMTP settings."""
-    send_email_command(recipients, subject, body, body_html, from_address, attachments)
+    send_email_command(
+        recipients,
+        subject=subject,
+        body=body,
+        body_html=body_html,
+        from_address=from_address,
+        attachments=attachments,
+    )
 
 
 @cli.command("send-notification", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -246,9 +257,9 @@ def cli_send_notification(
     default=None,
     help="Version specifier for uvx installations",
 )
-def cli_install_service(no_enable: bool, no_start: bool, uvx_version: Optional[str]) -> None:
+def cli_install_service(*, no_enable: bool, no_start: bool, uvx_version: str | None) -> None:
     """Install check_zpools as a systemd service (requires root)."""
-    service_install_command(no_enable, no_start, uvx_version)
+    service_install_command(no_enable=no_enable, no_start=no_start, uvx_version=uvx_version)
 
 
 @cli.command("service-uninstall", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -264,9 +275,9 @@ def cli_install_service(no_enable: bool, no_start: bool, uvx_version: Optional[s
     default=False,
     help="Don't disable service",
 )
-def cli_uninstall_service(no_stop: bool, no_disable: bool) -> None:
+def cli_uninstall_service(*, no_stop: bool, no_disable: bool) -> None:
     """Uninstall check_zpools systemd service (requires root)."""
-    service_uninstall_command(no_stop, no_disable)
+    service_uninstall_command(no_stop=no_stop, no_disable=no_disable)
 
 
 @cli.command("service-status", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -288,9 +299,9 @@ def cli_service_status() -> None:
     default=False,
     help="Create alias in /etc/bash.bashrc for all users (requires root)",
 )
-def cli_alias_create(user: Optional[str], all_users: bool) -> None:
+def cli_alias_create(*, user: str | None, all_users: bool) -> None:
     """Create bash alias for check_zpools CLI (requires root)."""
-    alias_create_command(user, all_users)
+    alias_create_command(user=user, all_users=all_users)
 
 
 @cli.command("alias-delete", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -306,21 +317,22 @@ def cli_alias_create(user: Optional[str], all_users: bool) -> None:
     default=False,
     help="Remove alias from /etc/bash.bashrc (system-wide, requires root)",
 )
-def cli_alias_delete(user: Optional[str], all_users: bool) -> None:
+def cli_alias_delete(*, user: str | None, all_users: bool) -> None:
     """Remove bash alias for check_zpools CLI (requires root)."""
-    alias_delete_command(user, all_users)
+    alias_delete_command(user=user, all_users=all_users)
 
 
 @cli.command("check", context_settings=CLICK_CONTEXT_SETTINGS)
 @option(
     "--format",
+    "output_format",
     type=click.Choice(["text", "json"], case_sensitive=False),
     default="text",
     help="Output format for results",
 )
-def cli_check(format: str) -> None:
+def cli_check(*, output_format: str) -> None:
     """Perform one-shot check of all ZFS pools."""
-    check_command(format)
+    check_command(output_format=output_format)
 
 
 @cli.command("daemon", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -330,13 +342,13 @@ def cli_check(format: str) -> None:
     default=False,
     help="Run in foreground (don't daemonize)",
 )
-def cli_daemon(foreground: bool) -> None:
+def cli_daemon(*, foreground: bool) -> None:
     """Start daemon mode for continuous ZFS pool monitoring."""
-    daemon_command(foreground)
+    daemon_command(foreground=foreground)
 
 
 def main(
-    argv: Optional[Sequence[str]] = None,
+    argv: Sequence[str] | None = None,
     *,
     restore_traceback: bool = True,
     summary_limit: int = TRACEBACK_SUMMARY_LIMIT,
@@ -354,7 +366,7 @@ def main(
 
 
 def _run_cli_via_exit_tools(
-    argv: Optional[Sequence[str]],
+    argv: Sequence[str] | None,
     *,
     summary_limit: int,
     verbose_limit: int,
@@ -366,9 +378,9 @@ def _run_cli_via_exit_tools(
             argv=list(argv) if argv is not None else None,
             prog_name=__init__conf__.shell_command,
         )
-    except BaseException as exc:  # noqa: BLE001
+    except BaseException as exc:
         tracebacks_enabled = bool(getattr(lib_cli_exit_tools.config, "traceback", False))
-        apply_traceback_preferences(tracebacks_enabled)
+        apply_traceback_preferences(enabled=tracebacks_enabled)
         length_limit = verbose_limit if tracebacks_enabled else summary_limit
         lib_cli_exit_tools.print_exception_message(
             trace_back=tracebacks_enabled,

@@ -16,10 +16,11 @@ internals, and a real server lets these tests assert what actually arrived.
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+from smtp_sink import SINK_PASSWORD, SINK_USERNAME, SmtpSink
 
 from check_zpools.mail import (
     EmailConfig,
@@ -27,7 +28,9 @@ from check_zpools.mail import (
     send_email,
     send_notification,
 )
-from smtp_sink import SINK_PASSWORD, SINK_USERNAME, SmtpSink
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _config_for(sink: SmtpSink, **overrides: object) -> EmailConfig:
@@ -379,7 +382,7 @@ class TestEmailErrorScenarios:
         )
 
         # btx_lib_mail wraps connection errors in RuntimeError
-        with pytest.raises(RuntimeError, match="failed.*on all of following hosts"):
+        with pytest.raises(RuntimeError, match=r"failed.*on all of following hosts"):
             send_email(
                 config=config,
                 recipients="recipient@test.com",
@@ -397,7 +400,7 @@ class TestEmailErrorScenarios:
         )
 
         # btx_lib_mail wraps auth errors in RuntimeError
-        with pytest.raises(RuntimeError, match="failed.*on all of following hosts"):
+        with pytest.raises(RuntimeError, match=r"failed.*on all of following hosts"):
             send_email(
                 config=config,
                 recipients="recipient@test.com",

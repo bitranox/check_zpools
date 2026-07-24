@@ -8,8 +8,8 @@ requiring no string parsing.
 
 Contents
 --------
-* :class:`ZFSParseError` – Exception raised when parsing fails
-* :class:`ZFSParser` – Main parser for ZFS JSON output
+* :class:`ZFSParseError` - Exception raised when parsing fails
+* :class:`ZFSParser` - Main parser for ZFS JSON output
 
 System Role
 -----------
@@ -151,23 +151,41 @@ class ZFSParser:
                 return pools
 
             for pool_name, pool_data in pools_data.items():
-                try:
-                    pool_status = self._parse_pool(pool_name, pool_data)
+                pool_status = self._try_parse_pool(pool_name, pool_data)
+                if pool_status is not None:
                     pools[pool_name] = pool_status
-                    logger.debug(f"Parsed pool: {pool_name}")
-                except Exception as exc:
-                    logger.error(
-                        f"Failed to parse pool {pool_name}",
-                        extra={"pool_name": pool_name, "error": str(exc)},
-                        exc_info=True,
-                    )
-                    continue
 
             return pools
 
         except Exception as exc:
-            logger.error("Failed to parse zpool status output", exc_info=True)
+            logger.exception("Failed to parse zpool status output")
             raise ZFSParseError(f"Failed to parse zpool status output: {exc}") from exc
+
+    def _try_parse_pool(self, pool_name: str, pool_data: dict[str, Any]) -> PoolStatus | None:
+        """Parse a single pool, tolerating and logging per-pool failures.
+
+        Why
+            Keeps the try/except out of the caller's loop body (PERF203) while
+            preserving the same per-pool resilience: one malformed pool must
+            not abort parsing the rest of the zpool status output.
+
+        Returns
+        -------
+        PoolStatus | None:
+            The parsed pool, or None if parsing failed (already logged).
+        """
+        try:
+            pool_status = self._parse_pool(pool_name, pool_data)
+            logger.debug("Parsed pool: %s", pool_name)
+        except Exception as exc:
+            logger.exception(
+                "Failed to parse pool %s",
+                pool_name,
+                extra={"pool_name": pool_name, "error": str(exc)},
+            )
+            return None
+
+        return pool_status
 
     def _parse_pool(self, pool_name: str, pool_data: dict[str, Any]) -> PoolStatus:
         """Parse single pool from zpool status --json-int output.
@@ -297,7 +315,7 @@ class ZFSParser:
                 checksum=int(root_vdev.get("checksum_errors", 0)),
             )
         except (ValueError, TypeError) as exc:
-            logger.warning(f"Invalid error counts in vdev: {exc}")
+            logger.warning("Invalid error counts in vdev: %s", exc)
             return ErrorCounts()
 
     def _extract_scrub_info(self, pool_data: dict[str, Any]) -> ScrubInfo:
@@ -325,7 +343,7 @@ class ZFSParser:
         try:
             scrub_errors = int(scrub_errors_raw)
         except (ValueError, TypeError):
-            logger.warning(f"Invalid scrub_errors value '{scrub_errors_raw}', using 0")
+            logger.warning("Invalid scrub_errors value '%s', using 0", scrub_errors_raw)
             scrub_errors = 0
 
         # Check if scrub is in progress using ScanState enum
@@ -366,7 +384,7 @@ class ZFSParser:
                     if timestamp > 0:
                         return datetime.fromtimestamp(timestamp, tz=timezone.utc)
                 except (ValueError, TypeError, OSError) as exc:
-                    logger.debug(f"Failed to parse timestamp field '{field}': {exc}")
+                    logger.debug("Failed to parse timestamp field '%s': %s", field, exc)
                     continue
 
         return None
@@ -389,7 +407,7 @@ class ZFSParser:
         try:
             return PoolHealth(health_value)
         except ValueError:
-            logger.warning(f"Unknown health state '{health_value}' for pool {pool_name}, using OFFLINE")
+            logger.warning("Unknown health state '%s' for pool %s, using OFFLINE", health_value, pool_name)
             return PoolHealth.OFFLINE
 
     def _find_problematic_devices(self, vdev: dict[str, Any]) -> list[DeviceStatus]:
@@ -440,7 +458,8 @@ class ZFSParser:
             )
             problematic.append(device)
             logger.debug(
-                f"Found problematic device: {name}",
+                "Found problematic device: %s",
+                name,
                 extra={
                     "device": name,
                     "state": device_state.value,
@@ -479,6 +498,6 @@ class ZFSParser:
 
 
 __all__ = [
-    "ZFSParser",
     "ZFSParseError",
+    "ZFSParser",
 ]

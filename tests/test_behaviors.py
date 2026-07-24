@@ -25,6 +25,7 @@ Coverage Strategy
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from dataclasses import dataclass
 from io import StringIO
@@ -35,7 +36,6 @@ import pytest
 
 from check_zpools import behaviors
 from check_zpools.models import CheckResult, DaemonConfig, PoolStatus
-
 
 # =============================================================================
 # OS Markers
@@ -349,7 +349,7 @@ class TestMonitorConfigurationRejectsInconsistentThresholds:
             }
         }
 
-        with pytest.raises(ValueError, match="capacity_warning_percent.*must be less than capacity_critical_percent"):
+        with pytest.raises(ValueError, match=r"capacity_warning_percent.*must be less than capacity_critical_percent"):
             behaviors._build_monitor_config(config)
 
     def test_rejects_warning_equal_to_critical(self) -> None:
@@ -366,7 +366,7 @@ class TestMonitorConfigurationRejectsInconsistentThresholds:
             }
         }
 
-        with pytest.raises(ValueError, match="capacity_warning_percent.*must be less than capacity_critical_percent"):
+        with pytest.raises(ValueError, match=r"capacity_warning_percent.*must be less than capacity_critical_percent"):
             behaviors._build_monitor_config(config)
 
 
@@ -453,6 +453,7 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
         mock_parser_class: MagicMock,
         mock_client_class: MagicMock,
         mock_get_config: MagicMock,
+        *,
         healthy_pool_status: PoolStatus,
         ok_check_result: CheckResult,
     ) -> None:
@@ -508,10 +509,8 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
         mock_client_class.return_value = mock_client
 
         # May fail due to incomplete mocking, but we verify get_config not called
-        try:
+        with contextlib.suppress(Exception):
             behaviors.check_pools_once(config=custom_config)
-        except Exception:
-            pass
 
         mock_get_config.assert_not_called()
 

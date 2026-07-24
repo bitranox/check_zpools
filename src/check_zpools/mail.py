@@ -8,9 +8,9 @@ email functionality behind a domain-appropriate interface.
 
 Contents
 --------
-* :class:`EmailConfig` – Configuration container for email settings
-* :func:`send_email` – Primary email sending interface
-* :func:`send_notification` – Convenience wrapper for simple notifications
+* :class:`EmailConfig` - Configuration container for email settings
+* :func:`send_email` - Primary email sending interface
+* :func:`send_notification` - Convenience wrapper for simple notifications
 
 System Role
 -----------
@@ -22,15 +22,24 @@ email mechanics.
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Sequence, cast
+from typing import TYPE_CHECKING, Any, cast
 
-from btx_lib_mail.lib_mail import ConfMail, send as btx_send
+from btx_lib_mail.lib_mail import ConfMail
+from btx_lib_mail.lib_mail import send as btx_send
 from pydantic import SecretStr
 
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from pathlib import Path
+
 logger = logging.getLogger(__name__)
+
+#: Highest valid TCP port number.
+MAX_PORT_NUMBER = 65535
+
+#: Expected number of parts when splitting a "host:port" string.
+HOST_PORT_PARTS_COUNT = 2
 
 
 def _default_smtp_hosts() -> list[str]:
@@ -122,7 +131,7 @@ class EmailConfig:
         """
         try:
             port = int(port_str)
-            if not (1 <= port <= 65535):
+            if not (1 <= port <= MAX_PORT_NUMBER):
                 raise ValueError(f"Port must be 1-65535 in {host!r}")
         except ValueError as e:
             if "invalid literal" in str(e):
@@ -145,7 +154,7 @@ class EmailConfig:
             return
 
         parts = host.split(":")
-        if len(parts) != 2:
+        if len(parts) != HOST_PORT_PARTS_COUNT:
             raise ValueError(f"Invalid SMTP host format (expected 'host:port'): {host!r}")
 
         self._validate_smtp_host_port(host, parts[1])
@@ -521,7 +530,7 @@ def _get_optional_string(section: Mapping[str, Any], key: str) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _get_bool_value(section: Mapping[str, Any], key: str, default: bool) -> bool:
+def _get_bool_value(section: Mapping[str, Any], key: str, *, default: bool) -> bool:
     """Extract boolean value from config section with type validation.
 
     Parameters
@@ -598,11 +607,11 @@ def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
     """
     # Extract email section
     email_section_raw = config_dict.get("email", {})
-    email_section: Mapping[str, Any] = cast(Mapping[str, Any], email_section_raw if isinstance(email_section_raw, dict) else {})
+    email_section: Mapping[str, Any] = cast("Mapping[str, Any]", email_section_raw if isinstance(email_section_raw, dict) else {})
 
     # Extract smtp_hosts (list type)
     smtp_hosts_raw = email_section.get("smtp_hosts", [])
-    smtp_hosts = cast(list[str], smtp_hosts_raw if isinstance(smtp_hosts_raw, list) else [])
+    smtp_hosts = cast("list[str]", smtp_hosts_raw if isinstance(smtp_hosts_raw, list) else [])
 
     # Extract all other fields using helper functions
     return EmailConfig(
@@ -610,16 +619,16 @@ def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
         from_address=_get_string_value(email_section, "from_address", "noreply@localhost"),
         smtp_username=_get_optional_string(email_section, "smtp_username"),
         smtp_password=_get_optional_string(email_section, "smtp_password"),
-        use_starttls=_get_bool_value(email_section, "use_starttls", True),
+        use_starttls=_get_bool_value(email_section, "use_starttls", default=True),
         timeout=_get_float_value(email_section, "timeout", 30.0),
-        raise_on_missing_attachments=_get_bool_value(email_section, "raise_on_missing_attachments", True),
-        raise_on_invalid_recipient=_get_bool_value(email_section, "raise_on_invalid_recipient", True),
+        raise_on_missing_attachments=_get_bool_value(email_section, "raise_on_missing_attachments", default=True),
+        raise_on_invalid_recipient=_get_bool_value(email_section, "raise_on_invalid_recipient", default=True),
     )
 
 
 __all__ = [
     "EmailConfig",
+    "load_email_config_from_dict",
     "send_email",
     "send_notification",
-    "load_email_config_from_dict",
 ]

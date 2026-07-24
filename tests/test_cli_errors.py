@@ -19,7 +19,6 @@ import pytest
 from check_zpools.cli_errors import handle_generic_error, handle_zfs_not_available
 from check_zpools.zfs_client import ZFSNotAvailableError
 
-
 # ============================================================================
 # Tests: ZFS Not Available Error Handling
 # ============================================================================
@@ -49,9 +48,8 @@ class TestZfsNotAvailableLogging:
         an ERROR level log message is written."""
         exc = ZFSNotAvailableError("ZFS kernel module not loaded")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_zfs_not_available(exc, operation="check")
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_zfs_not_available(exc, operation="check")
 
         assert any("ZFS not available" in record.message for record in caplog.records)
         assert len(caplog.records) > 0
@@ -62,9 +60,8 @@ class TestZfsNotAvailableLogging:
         the handler uses a default operation name in logs."""
         exc = ZFSNotAvailableError("ZFS not found")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_zfs_not_available(exc)
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_zfs_not_available(exc)
 
         assert any("ZFS not available" in record.message for record in caplog.records)
 
@@ -114,9 +111,8 @@ class TestGenericErrorLogging:
         an ERROR log is written with full traceback information."""
         exc = ValueError("Invalid configuration")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_generic_error(exc, operation="config validation")
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_generic_error(exc, operation="config validation")
 
         assert any("config validation" in record.message for record in caplog.records)
         assert any(record.exc_info is not None for record in caplog.records)
@@ -127,9 +123,8 @@ class TestGenericErrorLogging:
         the log includes information about the exception type."""
         exc = KeyError("missing_key")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_generic_error(exc, operation="parse")
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_generic_error(exc, operation="parse")
 
         assert any("Operation failed" in record.message or "parse" in record.message for record in caplog.records)
         assert len(caplog.records) > 0
@@ -140,9 +135,8 @@ class TestGenericErrorLogging:
         the handler uses a default operation name in logs."""
         exc = Exception("Generic error")
 
-        with caplog.at_level(logging.ERROR):
-            with pytest.raises(SystemExit):
-                handle_generic_error(exc)
+        with caplog.at_level(logging.ERROR), pytest.raises(SystemExit):
+            handle_generic_error(exc)
 
         assert any("Operation failed" in record.message for record in caplog.records)
 

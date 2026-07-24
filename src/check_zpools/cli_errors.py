@@ -15,11 +15,12 @@ Contents
 from __future__ import annotations
 
 import logging
-from typing import NoReturn
+from typing import TYPE_CHECKING, NoReturn
 
 import rich_click as click
 
-from .zfs_client import ZFSNotAvailableError
+if TYPE_CHECKING:
+    from .zfs_client import ZFSNotAvailableError
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +79,8 @@ def handle_generic_error(exc: Exception, *, operation: str = "Operation") -> NoR
     Logs error with full traceback and displays user-friendly message to stderr.
     """
     logger.error(
-        f"{operation} failed",
+        "%s failed",
+        operation,
         extra={"error": str(exc), "error_type": type(exc).__name__},
         exc_info=True,
     )
@@ -87,6 +89,6 @@ def handle_generic_error(exc: Exception, *, operation: str = "Operation") -> NoR
 
 
 __all__ = [
-    "handle_zfs_not_available",
     "handle_generic_error",
+    "handle_zfs_not_available",
 ]

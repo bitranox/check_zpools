@@ -14,7 +14,7 @@ from ...mail import load_email_config_from_dict, send_notification
 logger = logging.getLogger(__name__)
 
 
-def _handle_notification_result(result: bool, recipients: tuple[str, ...]) -> None:
+def _handle_notification_result(*, result: bool, recipients: tuple[str, ...]) -> None:
     """Handle notification send result.
 
     Parameters
@@ -94,7 +94,7 @@ def send_notification_command(
                 message=message,
             )
 
-            _handle_notification_result(result, recipients)
+            _handle_notification_result(result=result, recipients=recipients)
 
         except Exception as exc:
             _handle_notification_error(exc)

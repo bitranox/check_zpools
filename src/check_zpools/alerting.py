@@ -71,6 +71,7 @@ class EmailAlerter:
         self,
         email_config: EmailConfig,
         alert_config: AlertConfig,
+        *,
         capacity_warning_percent: int = 80,
         capacity_critical_percent: int = 90,
         scrub_max_age_days: int = 30,
@@ -82,7 +83,7 @@ class EmailAlerter:
         self.recipients = alert_config.alert_recipients
         self.include_ok_alerts = alert_config.send_ok_emails
         self.include_recovery_alerts = alert_config.send_recovery_emails
-        self.alert_on_severities = set(severity.upper() for severity in alert_config.alert_on_severities)
+        self.alert_on_severities = {severity.upper() for severity in alert_config.alert_on_severities}
         self.capacity_warning_percent = capacity_warning_percent
         self.capacity_critical_percent = capacity_critical_percent
         self.scrub_max_age_days = scrub_max_age_days
@@ -151,14 +152,13 @@ class EmailAlerter:
                 body=body,
             )
         except Exception as exc:
-            logger.error(
+            logger.exception(
                 "Failed to send alert email",
                 extra={
                     "pool": pool.name,
                     "error": str(exc),
                     "error_type": type(exc).__name__,
                 },
-                exc_info=True,
             )
             return False
 
@@ -217,14 +217,13 @@ class EmailAlerter:
                 body=body,
             )
         except Exception as exc:
-            logger.error(
+            logger.exception(
                 "Failed to send recovery email",
                 extra={
                     "pool": pool_name,
                     "error": str(exc),
                     "error_type": type(exc).__name__,
                 },
-                exc_info=True,
             )
             return False
 
@@ -670,8 +669,7 @@ class EmailAlerter:
 
         if notes:
             lines = ["Notes:"]
-            for note in notes:
-                lines.append(f"  {note}")
+            lines.extend(f"  {note}" for note in notes)
             lines.append("")
             return lines
 
@@ -731,7 +729,8 @@ class EmailAlerter:
             )
         except (ZFSCommandError, subprocess.TimeoutExpired, RuntimeError) as exc:
             logger.warning(
-                f"Failed to fetch zpool status output for {email_type}",
+                "Failed to fetch zpool status output for %s",
+                email_type,
                 extra={
                     "pool": pool_name,
                     "error": str(exc),

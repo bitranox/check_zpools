@@ -17,11 +17,25 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from rich.console import Console
 from rich.table import Table
 
-from .models import CheckResult, PoolIssue, PoolStatus, Severity
+if TYPE_CHECKING:
+    from .models import CheckResult, PoolIssue, PoolStatus, Severity
+
+#: Capacity display thresholds (mirrors MonitorConfig defaults for the color heuristic).
+CAPACITY_COLOR_WARNING_THRESHOLD = 80
+CAPACITY_COLOR_CRITICAL_THRESHOLD = 90
+
+#: Byte-unit conversion base (1 KB = 1024 B).
+BYTES_PER_UNIT = 1024.0
+
+#: Day thresholds for human-readable "time ago" formatting.
+DAYS_PER_WEEK = 7
+DAYS_PER_MONTH = 30
+DAYS_STALE_WARNING = 60
 
 
 def format_check_result_json(result: CheckResult) -> str:
@@ -138,9 +152,9 @@ def _get_capacity_color(capacity_percent: float) -> str:
     str:
         Color name for Rich markup.
     """
-    if capacity_percent < 80:
+    if capacity_percent < CAPACITY_COLOR_WARNING_THRESHOLD:
         return "green"
-    if capacity_percent < 90:
+    if capacity_percent < CAPACITY_COLOR_CRITICAL_THRESHOLD:
         return "yellow"
     return "red"
 
@@ -176,8 +190,8 @@ def format_bytes_human(size_bytes: int) -> str:
     size = float(size_bytes)
     unit_index = 0
 
-    while size >= 1024.0 and unit_index < len(units) - 1:
-        size /= 1024.0
+    while size >= BYTES_PER_UNIT and unit_index < len(units) - 1:
+        size /= BYTES_PER_UNIT
         unit_index += 1
 
     return f"{size:.2f} {units[unit_index]}" if unit_index > 0 else f"{size_bytes} B"
@@ -367,15 +381,15 @@ def _format_scrub_age(days: int) -> tuple[str, str]:
         return ("Today", "green")
     if days == 1:
         return ("Yesterday", "green")
-    if days < 7:
+    if days < DAYS_PER_WEEK:
         return (f"{days}d ago", "green")
-    if days < 30:
-        weeks = days // 7
+    if days < DAYS_PER_MONTH:
+        weeks = days // DAYS_PER_WEEK
         return (f"{weeks}w ago", "green")
-    if days < 60:
+    if days < DAYS_STALE_WARNING:
         return (f"{days}d ago", "yellow")  # Warning: approaching 2 months
 
-    months = days // 30
+    months = days // DAYS_PER_MONTH
     return (f"{months}mo ago", "red")  # Critical: very old scrub
 
 
@@ -444,9 +458,9 @@ def get_exit_code_for_severity(severity: Severity) -> int:
 
 
 __all__ = [
+    "display_check_result_text",
     "format_bytes_human",
     "format_check_result_json",
     "format_check_result_text",
-    "display_check_result_text",
     "get_exit_code_for_severity",
 ]

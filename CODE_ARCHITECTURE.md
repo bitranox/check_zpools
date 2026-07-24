@@ -15,10 +15,10 @@ The email alerting system follows clean code principles with:
 ```python
 # Binary unit multipliers (powers of 1024)
 _BYTES_PER_KB = 1024
-_BYTES_PER_MB = 1024 ** 2
-_BYTES_PER_GB = 1024 ** 3
-_BYTES_PER_TB = 1024 ** 4
-_BYTES_PER_PB = 1024 ** 5
+_BYTES_PER_MB = 1024**2
+_BYTES_PER_GB = 1024**3
+_BYTES_PER_TB = 1024**4
+_BYTES_PER_PB = 1024**5
 ```
 
 These constants provide self-documenting byte conversions and eliminate magic numbers throughout the codebase.
@@ -182,7 +182,7 @@ Pre-compiled regex pattern for performance:
 
 ```python
 # Module-level constant
-_SIZE_PATTERN = re.compile(r'^([0-9.]+)\s*([KMGTP])$')
+_SIZE_PATTERN = re.compile(r"^([0-9.]+)\s*([KMGTP])$")
 ```
 
 **Used in:** `_parse_size_to_bytes(size_str) -> int`
@@ -344,12 +344,12 @@ Represents ZFS pool health states:
 
 ```python
 class PoolHealth(str, Enum):
-    ONLINE = "ONLINE"      # Fully operational
+    ONLINE = "ONLINE"  # Fully operational
     DEGRADED = "DEGRADED"  # Operational but degraded
-    FAULTED = "FAULTED"    # Cannot provide data
-    OFFLINE = "OFFLINE"    # Manually offline
-    UNAVAIL = "UNAVAIL"    # Insufficient devices
-    REMOVED = "REMOVED"    # Removed from system
+    FAULTED = "FAULTED"  # Cannot provide data
+    OFFLINE = "OFFLINE"  # Manually offline
+    UNAVAIL = "UNAVAIL"  # Insufficient devices
+    REMOVED = "REMOVED"  # Removed from system
 ```
 
 **Methods:**
@@ -365,8 +365,8 @@ Represents issue severity levels with ordering:
 
 ```python
 class Severity(str, Enum):
-    OK = "OK"              # No issues
-    WARNING = "WARNING"    # Attention needed
+    OK = "OK"  # No issues
+    WARNING = "WARNING"  # Attention needed
     CRITICAL = "CRITICAL"  # Urgent action required
 ```
 
@@ -412,8 +412,8 @@ Represents a detected issue with a pool:
 class PoolIssue:
     pool_name: str
     severity: Severity
-    category: str          # 'capacity', 'health', 'errors', 'scrub'
-    message: str           # Human-readable description
+    category: str  # 'capacity', 'health', 'errors', 'scrub'
+    message: str  # Human-readable description
     details: dict[str, Any]  # Additional context
 ```
 
@@ -472,12 +472,7 @@ All models are designed for easy serialization:
 
 **JSON Export**: Used by `format_check_result_json()` for CLI output
 ```python
-{
-  "timestamp": "2025-11-19T22:00:00Z",
-  "pools": [...],
-  "issues": [...],
-  "overall_severity": "WARNING"
-}
+{"timestamp": "2025-11-19T22:00:00Z", "pools": [...], "issues": [...], "overall_severity": "WARNING"}
 ```
 
 **State Persistence**: Used by `AlertStateManager` for alert deduplication

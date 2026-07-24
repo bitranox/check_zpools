@@ -37,7 +37,6 @@ import pytest
 from check_zpools.daemon import ZPoolDaemon
 from check_zpools.models import CheckResult, DaemonConfig, IssueCategory, IssueDetails, PoolIssue, PoolStatus, Severity
 
-
 # =============================================================================
 # OS Markers
 # =============================================================================
@@ -551,6 +550,7 @@ class TestAlertHandlingSendsAlertsForNewIssues:
 
     def test_sends_alert_when_new_issue_detected(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -579,6 +579,7 @@ class TestAlertHandlingSendsAlertsForNewIssues:
 
     def test_alert_includes_issue_details(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -607,6 +608,7 @@ class TestAlertHandlingSendsAlertsForNewIssues:
 
     def test_alert_includes_pool_status(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -640,6 +642,7 @@ class TestAlertHandlingRecordsNewIssues:
 
     def test_records_alert_in_state_manager(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -672,6 +675,7 @@ class TestAlertHandlingSuppressesDuplicates:
 
     def test_suppresses_alert_when_issue_is_duplicate(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -741,6 +745,7 @@ class TestRecoveryDetectionSendsNotifications:
 
     def test_sends_recovery_when_issue_resolves(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -777,6 +782,7 @@ class TestRecoveryDetectionSendsNotifications:
 
     def test_recovery_includes_pool_name(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -812,6 +818,7 @@ class TestRecoveryDetectionSendsNotifications:
 
     def test_recovery_includes_issue_category(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -847,6 +854,7 @@ class TestRecoveryDetectionSendsNotifications:
 
     def test_recovery_includes_pool_status(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,
@@ -887,6 +895,7 @@ class TestRecoveryDetectionClearsState:
 
     def test_clears_issue_from_state_manager(
         self,
+        *,
         daemon: ZPoolDaemon,
         mock_alerter: Mock,
         mock_state_manager: Mock,

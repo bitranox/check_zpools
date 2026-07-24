@@ -21,12 +21,12 @@ Contents
 
 from __future__ import annotations
 
-from typing import Final, Tuple
+from typing import Final
 
 import lib_cli_exit_tools
 
 #: Type alias for traceback state (traceback_enabled, force_color_enabled)
-TracebackState = Tuple[bool, bool]
+TracebackState = tuple[bool, bool]
 
 #: Character budget used when printing truncated tracebacks.
 TRACEBACK_SUMMARY_LIMIT: Final[int] = 500
@@ -35,7 +35,7 @@ TRACEBACK_SUMMARY_LIMIT: Final[int] = 500
 TRACEBACK_VERBOSE_LIMIT: Final[int] = 10_000
 
 
-def apply_traceback_preferences(enabled: bool) -> None:
+def apply_traceback_preferences(*, enabled: bool) -> None:
     """Synchronise shared traceback flags with the requested preference.
 
     Why
@@ -52,12 +52,12 @@ def apply_traceback_preferences(enabled: bool) -> None:
 
     Examples
     --------
-    >>> apply_traceback_preferences(True)
+    >>> apply_traceback_preferences(enabled=True)
     >>> bool(lib_cli_exit_tools.config.traceback)
     True
     >>> bool(lib_cli_exit_tools.config.traceback_force_color)
     True
-    >>> apply_traceback_preferences(False)
+    >>> apply_traceback_preferences(enabled=False)
     >>> bool(lib_cli_exit_tools.config.traceback)
     False
     """
@@ -111,7 +111,7 @@ def restore_traceback_state(state: TracebackState) -> None:
     Examples
     --------
     >>> original = snapshot_traceback_state()
-    >>> apply_traceback_preferences(True)
+    >>> apply_traceback_preferences(enabled=True)
     >>> restore_traceback_state(original)
     >>> bool(lib_cli_exit_tools.config.traceback) == original[0]
     True
@@ -120,7 +120,7 @@ def restore_traceback_state(state: TracebackState) -> None:
     lib_cli_exit_tools.config.traceback_force_color = state[1]
 
 
-def get_traceback_limit(tracebacks_enabled: bool) -> int:
+def get_traceback_limit(*, tracebacks_enabled: bool) -> int:
     """Calculate the character limit for traceback rendering.
 
     Parameters

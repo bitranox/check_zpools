@@ -259,7 +259,7 @@ def parse_capacity(capacity_str: str) -> float:
     >>> parse_capacity("100%")
     100.0
     """
-    return float(capacity_str.rstrip('%'))
+    return float(capacity_str.rstrip("%"))
 ```
 
 Run doctests: `pytest --doctest-modules src/`
@@ -286,6 +286,7 @@ Use markers to categorize tests:
 def test_when_config_is_loaded_it_parses_toml():
     """Cross-platform configuration test."""
     ...
+
 
 @pytest.mark.requires_zfs
 def test_when_zpool_command_runs_it_returns_status():

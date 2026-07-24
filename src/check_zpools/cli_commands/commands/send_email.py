@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Optional
 
 import lib_log_rich.runtime
 import rich_click as click
@@ -57,7 +56,7 @@ def _log_send_email_request(recipients: tuple[str, ...], subject: str, body_html
     )
 
 
-def _handle_send_result(result: bool, recipients: tuple[str, ...]) -> None:
+def _handle_send_result(*, result: bool, recipients: tuple[str, ...]) -> None:
     """Handle email send result.
 
     Parameters
@@ -82,10 +81,11 @@ def _handle_send_result(result: bool, recipients: tuple[str, ...]) -> None:
 
 def send_email_command(
     recipients: tuple[str, ...],
+    *,
     subject: str,
     body: str,
     body_html: str,
-    from_address: Optional[str],
+    from_address: str | None,
     attachments: tuple[str, ...],
 ) -> None:
     """Execute send-email command logic."""
@@ -113,7 +113,7 @@ def send_email_command(
                 attachments=attachment_paths,
             )
 
-            _handle_send_result(result, recipients)
+            _handle_send_result(result=result, recipients=recipients)
 
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             handle_send_email_error(exc, type(exc).__name__)

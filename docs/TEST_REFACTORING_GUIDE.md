@@ -69,9 +69,11 @@ def test_displays_pool_status_in_human_readable_text(self, cli_runner, ok_result
     """When checking pools with default text format, it shows readable status."""
     # Single behavior: text output format
 
+
 def test_displays_pool_status_as_parseable_json(self, cli_runner, ok_result):
     """When checking pools with JSON format, it outputs valid structured data."""
     # Single behavior: JSON output format
+
 
 def test_reports_unexpected_errors_with_helpful_message(self, cli_runner):
     """When unexpected errors occur, show error message to user."""
@@ -112,14 +114,19 @@ Group related behaviors with descriptive class names:
 ```python
 class TestCheckCommandSucceedsWithHealthyPools:
     """When pools are healthy, the check command reports success."""
+
     # All tests here validate success scenarios
+
 
 class TestCheckCommandExitsWithMonitoringStatusCodes:
     """The check command exits with standard monitoring tool codes."""
+
     # All tests here validate exit code behavior
+
 
 class TestCheckCommandHandlesExpectedErrors:
     """The check command handles error conditions gracefully."""
+
     # All tests here validate error handling
 ```
 
@@ -186,6 +193,7 @@ def test_pool_status_creation(self):
 ```python
 # At top of file - OS marker
 pytestmark = pytest.mark.skipif(False, reason="OS-agnostic model tests")
+
 
 class TestPoolStatusRemembersItsProperties:
     """A pool status object remembers all the properties given to it."""
@@ -263,28 +271,16 @@ import pytest
 pytestmark = pytest.mark.skipif(False, reason="OS-agnostic tests")
 
 # Windows-only tests
-pytestmark = pytest.mark.skipif(
-    sys.platform != "win32",
-    reason="Windows-specific service installation tests"
-)
+pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific service installation tests")
 
 # macOS-only tests
-pytestmark = pytest.mark.skipif(
-    sys.platform != "darwin",
-    reason="macOS-specific launchd tests"
-)
+pytestmark = pytest.mark.skipif(sys.platform != "darwin", reason="macOS-specific launchd tests")
 
 # POSIX-only tests (Linux, macOS, BSD)
-pytestmark = pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="POSIX-specific systemd tests"
-)
+pytestmark = pytest.mark.skipif(sys.platform == "win32", reason="POSIX-specific systemd tests")
 
 # Linux-only tests
-pytestmark = pytest.mark.skipif(
-    not sys.platform.startswith("linux"),
-    reason="Linux-specific systemd tests"
-)
+pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux-specific systemd tests")
 ```
 
 ### Example: test_service_install.py
@@ -301,37 +297,31 @@ Service installation works differently on each platform:
 import sys
 import pytest
 
+
 class TestServiceInstallationOnLinux:
     """On Linux systems, services are installed via systemd."""
 
-    pytestmark = pytest.mark.skipif(
-        not sys.platform.startswith("linux"),
-        reason="Linux-specific systemd tests - run on Linux CI"
-    )
+    pytestmark = pytest.mark.skipif(not sys.platform.startswith("linux"), reason="Linux-specific systemd tests - run on Linux CI")
 
     def test_creates_systemd_unit_file_in_system_directory(self):
         """When installing service on Linux, creates systemd unit file."""
         # Real test that runs on Linux CI runners
 
+
 class TestServiceInstallationOnMacOS:
     """On macOS systems, services are installed via launchd."""
 
-    pytestmark = pytest.mark.skipif(
-        sys.platform != "darwin",
-        reason="macOS-specific launchd tests - run on macOS CI"
-    )
+    pytestmark = pytest.mark.skipif(sys.platform != "darwin", reason="macOS-specific launchd tests - run on macOS CI")
 
     def test_creates_launchd_plist_in_launch_agents(self):
         """When installing service on macOS, creates launchd plist file."""
         # Real test that runs on macOS CI runners
 
+
 class TestServiceInstallationOnWindows:
     """On Windows systems, services are installed via Windows Service API."""
 
-    pytestmark = pytest.mark.skipif(
-        sys.platform != "win32",
-        reason="Windows-specific service tests - run on Windows CI"
-    )
+    pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="Windows-specific service tests - run on Windows CI")
 
     def test_registers_windows_service_with_scm(self):
         """When installing service on Windows, registers with Service Control Manager."""

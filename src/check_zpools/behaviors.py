@@ -9,16 +9,16 @@ and delegates to domain services for actual work.
 Contents
 --------
 Legacy Template Functions (Deprecated):
-* :func:`emit_greeting` – success-path helper that writes the canonical scaffold
+* :func:`emit_greeting` - success-path helper that writes the canonical scaffold
   message.
-* :func:`raise_intentional_failure` – deterministic error hook used by tests and
+* :func:`raise_intentional_failure` - deterministic error hook used by tests and
   CLI flows to validate traceback handling.
-* :func:`noop_main` – placeholder entry used when callers expect a ``main``
+* :func:`noop_main` - placeholder entry used when callers expect a ``main``
   callable despite the domain layer being stubbed today.
 
 ZFS Monitoring Functions:
-* :func:`check_pools_once` – perform one-shot check of all pools
-* :func:`run_daemon` – start daemon mode for continuous monitoring
+* :func:`check_pools_once` - perform one-shot check of all pools
+* :func:`run_daemon` - start daemon mode for continuous monitoring
 
 System Role
 -----------
@@ -29,11 +29,10 @@ interfaces.
 
 from __future__ import annotations
 
-from typing import Any, TextIO
-
 import logging
 import sys
 from pathlib import Path
+from typing import Any, TextIO
 
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
@@ -45,8 +44,10 @@ from .monitor import MonitorConfig, PoolMonitor
 from .zfs_client import ZFSClient, ZFSNotAvailableError
 from .zfs_parser import ZFSParser
 
-
 CANONICAL_GREETING = "Hello World"
+
+#: Upper bound for capacity threshold percentages (0-100 inclusive).
+CAPACITY_PERCENT_MAX = 100
 
 #: Module logger using standard logging interface.
 logger = logging.getLogger(__name__)
@@ -157,7 +158,6 @@ def noop_main() -> None:
     """
 
     logger.debug("Executing noop_main placeholder")
-    return None
 
 
 def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
@@ -215,10 +215,9 @@ def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
         logger.error("ZFS not available on this system")
         raise
     except Exception as exc:
-        logger.error(
+        logger.exception(
             "Failed to fetch/parse pool data",
             extra={"error": str(exc), "error_type": type(exc).__name__},
-            exc_info=True,
         )
         raise RuntimeError(f"Failed to check pools: {exc}") from exc
 
@@ -316,7 +315,7 @@ def _initialize_daemon_components(
     return client, monitor, alerter, state_manager, daemon_config
 
 
-def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -> None:
+def run_daemon(config: dict[str, Any] | None = None, *, foreground: bool = False) -> None:
     """Start daemon mode for continuous ZFS pool monitoring.
 
     Why
@@ -365,10 +364,9 @@ def run_daemon(config: dict[str, Any] | None = None, foreground: bool = False) -
     except KeyboardInterrupt:
         logger.info("Daemon interrupted by user")
     except Exception as exc:
-        logger.error(
+        logger.exception(
             "Daemon failed",
             extra={"error": str(exc), "error_type": type(exc).__name__},
-            exc_info=True,
         )
         raise
 
@@ -402,9 +400,9 @@ def _build_monitor_config(config: dict[str, Any]) -> MonitorConfig:
     checksum_errors = zfs_config.get("checksum_errors_warning", 1)
 
     # Validate capacity thresholds
-    if not (0 < warning < 100):
+    if not (0 < warning < CAPACITY_PERCENT_MAX):
         raise ValueError(f"zfs.capacity_warning_percent must be between 0 and 100, got {warning}")
-    if not (0 < critical <= 100):
+    if not (0 < critical <= CAPACITY_PERCENT_MAX):
         raise ValueError(f"zfs.capacity_critical_percent must be between 0 and 100, got {critical}")
     if warning >= critical:
         raise ValueError(f"zfs.capacity_warning_percent ({warning}%) must be less than capacity_critical_percent ({critical}%)")
@@ -463,9 +461,9 @@ def _get_state_file_path(config: dict[str, Any]) -> Path:
 
 __all__ = [
     "CANONICAL_GREETING",
-    "emit_greeting",
-    "raise_intentional_failure",
-    "noop_main",
     "check_pools_once",
+    "emit_greeting",
+    "noop_main",
+    "raise_intentional_failure",
     "run_daemon",
 ]

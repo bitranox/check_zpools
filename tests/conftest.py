@@ -10,17 +10,20 @@ from __future__ import annotations
 
 import re
 import sys
-from collections.abc import Callable, Iterator
 from dataclasses import fields
 from datetime import datetime, timezone
 from pathlib import Path
-
-import pytest
-from click.testing import CliRunner
+from typing import TYPE_CHECKING
 
 import lib_cli_exit_tools
-from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
+import pytest
+from click.testing import CliRunner
 from smtp_sink import SmtpSink, running_smtp_sink, stub_client_fqdn, unreachable_smtp_host
+
+from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterator
 
 # ============================================================================
 # OS Detection Constants
@@ -333,6 +336,7 @@ def configurable_pool_status():
     def _create_pool(
         name: str = "rpool",
         capacity: float = 50.0,
+        *,
         scrub_in_progress: bool = False,
         last_scrub: datetime | None = None,
     ) -> PoolStatus:

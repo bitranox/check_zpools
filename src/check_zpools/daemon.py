@@ -27,16 +27,18 @@ import logging
 import signal
 import threading
 from datetime import datetime, timezone
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import __init__conf__
-from .alert_state import AlertStateManager
-from .alerting import EmailAlerter
 from .formatters import format_bytes_human
 from .models import CheckResult, DaemonConfig, PoolIssue, PoolStatus, Severity
-from .monitor import PoolMonitor
 from .zfs_client import ZFSClient, ZFSCommandError, ZFSNotAvailableError
 from .zfs_parser import ZFSParseError, ZFSParser
+
+if TYPE_CHECKING:
+    from .alert_state import AlertStateManager
+    from .alerting import EmailAlerter
+    from .monitor import PoolMonitor
 
 logger = logging.getLogger(__name__)
 
@@ -150,10 +152,9 @@ class ZPoolDaemon:
         except KeyboardInterrupt:
             logger.info("Received keyboard interrupt, shutting down")
         except Exception as exc:  # Intentional broad catch: last-resort crash logger before re-raise
-            logger.error(
+            logger.exception(
                 "Daemon crashed with unexpected error",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
             )
             raise
         finally:
@@ -215,7 +216,7 @@ class ZPoolDaemon:
                 Current stack frame (unused but required by signal API).
             """
             sig_name = signal.Signals(signum).name
-            logger.info(f"Received {sig_name}, initiating shutdown")
+            logger.info("Received %s, initiating shutdown", sig_name)
             self.stop()
 
         signal.signal(signal.SIGTERM, signal_handler)
@@ -240,10 +241,9 @@ class ZPoolDaemon:
             try:
                 self._run_check_cycle()
             except Exception as exc:  # Intentional broad catch: daemon must survive any single-cycle failure
-                logger.error(
+                logger.exception(
                     "Error during check cycle, continuing",
                     extra={"error": str(exc), "error_type": type(exc).__name__},
-                    exc_info=True,
                 )
 
             # Sleep with interruptible wait so shutdown is responsive
@@ -261,10 +261,9 @@ class ZPoolDaemon:
         try:
             status_data = self.zfs_client.get_pool_status()
         except (ZFSCommandError, ZFSNotAvailableError, OSError) as exc:
-            logger.error(
+            logger.exception(
                 "Failed to fetch ZFS data",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
             )
             return None
 
@@ -272,10 +271,9 @@ class ZPoolDaemon:
         try:
             return self.parser.parse_pool_status(status_data)
         except (ZFSParseError, KeyError, TypeError) as exc:
-            logger.error(
+            logger.exception(
                 "Failed to parse ZFS data",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
-                exc_info=True,
             )
             return None
 
@@ -524,13 +522,11 @@ class ZPoolDaemon:
         """
         for pool_name, pool in pools.items():
             # Format last scrub time
-            if pool.last_scrub:
-                last_scrub = pool.last_scrub.strftime("%Y-%m-%d %H:%M:%S")
-            else:
-                last_scrub = "Never"
+            last_scrub = pool.last_scrub.strftime("%Y-%m-%d %H:%M:%S") if pool.last_scrub else "Never"
 
             logger.info(
-                f"Pool: {pool_name}",
+                "Pool: %s",
+                pool_name,
                 extra={
                     "pool_name": pool_name,
                     "health": pool.health.value,

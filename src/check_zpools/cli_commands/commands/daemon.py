@@ -13,7 +13,7 @@ from ...zfs_client import ZFSNotAvailableError
 logger = logging.getLogger(__name__)
 
 
-def daemon_command(foreground: bool) -> None:
+def daemon_command(*, foreground: bool) -> None:
     """Execute daemon command logic."""
     with lib_log_rich.runtime.bind(
         job_id="cli-daemon",

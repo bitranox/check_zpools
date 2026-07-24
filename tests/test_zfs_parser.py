@@ -12,9 +12,10 @@ Tests use real ZFS JSON fixtures (not mocks).
 from __future__ import annotations
 
 import json
-import pytest
 from datetime import datetime
 from pathlib import Path
+
+import pytest
 
 from check_zpools.models import PoolHealth
 from check_zpools.zfs_parser import ZFSParser
@@ -35,21 +36,21 @@ def sample_data_dir() -> Path:
 @pytest.fixture
 def zpool_status_ok(sample_data_dir: Path) -> dict:
     """Load zpool status sample with healthy pools (--json-int format)."""
-    with open(sample_data_dir / "zpool_status_ok.json") as f:
+    with (sample_data_dir / "zpool_status_ok.json").open() as f:
         return json.load(f)
 
 
 @pytest.fixture
 def zpool_status_degraded(sample_data_dir: Path) -> dict:
     """Load zpool status sample with degraded pool (--json-int format)."""
-    with open(sample_data_dir / "zpool_status_degraded.json") as f:
+    with (sample_data_dir / "zpool_status_degraded.json").open() as f:
         return json.load(f)
 
 
 @pytest.fixture
 def zpool_status_with_errors(sample_data_dir: Path) -> dict:
     """Load zpool status sample with errors (--json-int format)."""
-    with open(sample_data_dir / "zpool_status_with_errors.json") as f:
+    with (sample_data_dir / "zpool_status_with_errors.json").open() as f:
         return json.load(f)
 
 

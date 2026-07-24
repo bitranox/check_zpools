@@ -17,11 +17,10 @@ from datetime import datetime, timezone
 
 import pytest
 
-from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
-
 # Import shared test helpers from conftest (centralized to avoid duplication)
 from conftest import a_healthy_pool_named, a_pool_with, an_issue_for_pool
 
+from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
 
 # ============================================================================
 # Tests: PoolHealth Enumeration

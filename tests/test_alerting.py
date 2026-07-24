@@ -28,18 +28,17 @@ Coverage Strategy
 
 from __future__ import annotations
 
-import rtoml
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import rtoml
 
 from check_zpools.alerting import EmailAlerter
 from check_zpools.mail import EmailConfig
 from check_zpools.models import AlertConfig, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
-
 
 # ============================================================================
 # Test Data Builders

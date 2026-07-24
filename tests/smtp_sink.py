@@ -35,12 +35,14 @@ import base64
 import socket
 import socketserver
 import threading
-from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from email import message_from_bytes
-from email.message import Message
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Generator
+    from email.message import Message
 
 # Credentials the authenticating sink accepts. Tests that exercise the
 # authenticated path must send exactly these.
@@ -191,7 +193,7 @@ class _SinkRequestHandler(socketserver.StreamRequestHandler):
             # Only mechanisms this server implements; advertising CRAM-MD5 would
             # make smtplib prefer a challenge we cannot answer.
             extensions.append("AUTH PLAIN LOGIN")
-        self._reply_multiline(f"{_SINK_DOMAIN}", extensions + ["HELP"])
+        self._reply_multiline(f"{_SINK_DOMAIN}", [*extensions, "HELP"])
 
     def _authenticate(self, argument: str) -> None:
         mechanism, _, initial = argument.partition(" ")

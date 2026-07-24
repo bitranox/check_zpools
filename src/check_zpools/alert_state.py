@@ -28,12 +28,14 @@ import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel, field_serializer
 
 from .models import IssueCategory, PoolIssue
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +105,35 @@ class AlertState:
     last_alerted: datetime | None
     alert_count: int
     last_severity: str | None
+
+
+def _parse_alert_state_entry(key: str, state_dict: Any) -> AlertState | None:
+    """Parse a single persisted alert-state entry, tolerating corrupt data.
+
+    Why
+        Keeps the try/except out of the caller's loop body (PERF203) while
+        preserving the same per-entry resilience: one malformed entry must
+        not abort loading the rest of the state file.
+
+    Returns
+    -------
+    AlertState | None:
+        The parsed state, or None if the entry is corrupt (already logged).
+    """
+    try:
+        model = AlertStateModel.model_validate(state_dict)
+    except Exception as exc:  # Catches ValidationError + KeyError + ValueError
+        logger.warning("Skipping corrupt state entry", extra={"key": key, "error": str(exc)})
+        return None
+
+    return AlertState(
+        pool_name=model.pool_name,
+        issue_category=model.issue_category,
+        first_seen=model.first_seen,
+        last_alerted=model.last_alerted,
+        alert_count=model.alert_count,
+        last_severity=model.last_severity,
+    )
 
 
 class AlertStateManager:
@@ -437,24 +468,9 @@ class AlertStateManager:
             # Parse alert states
             alerts = data.get("alerts", {})
             for key, state_dict in alerts.items():
-                try:
-                    # Use Pydantic for validation and parsing
-                    model = AlertStateModel.model_validate(state_dict)
-
-                    # Convert Pydantic model to dataclass for internal storage
-                    self.states[key] = AlertState(
-                        pool_name=model.pool_name,
-                        issue_category=model.issue_category,
-                        first_seen=model.first_seen,
-                        last_alerted=model.last_alerted,
-                        alert_count=model.alert_count,
-                        last_severity=model.last_severity,
-                    )
-                except Exception as exc:  # Catches ValidationError + KeyError + ValueError
-                    logger.warning(
-                        "Skipping corrupt state entry",
-                        extra={"key": key, "error": str(exc)},
-                    )
+                state = _parse_alert_state_entry(key, state_dict)
+                if state is not None:
+                    self.states[key] = state
 
             logger.info(
                 "Loaded alert state",

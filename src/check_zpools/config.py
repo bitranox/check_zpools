@@ -8,8 +8,8 @@ following a deterministic precedence order.
 
 Contents
 --------
-* :func:`get_config` – loads configuration with lib_layered_config
-* :func:`get_default_config_path` – returns path to bundled default config
+* :func:`get_config` - loads configuration with lib_layered_config
+* :func:`get_default_config_path` - returns path to bundled default config
 
 Configuration identifiers (vendor, app, slug) are imported from
 :mod:`check_zpools.__init__conf__` as LAYEREDCONF_* constants.

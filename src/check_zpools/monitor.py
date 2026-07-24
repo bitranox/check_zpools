@@ -7,8 +7,8 @@ Implements business logic for determining when pools require attention.
 
 Contents
 --------
-* :class:`MonitorConfig` – Configuration for monitoring thresholds
-* :class:`PoolMonitor` – Main monitoring logic coordinator
+* :class:`MonitorConfig` - Configuration for monitoring thresholds
+* :class:`PoolMonitor` - Main monitoring logic coordinator
 
 System Role
 -----------
@@ -30,9 +30,22 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from .models import CheckResult, DeviceState, DeviceStatus, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity  # noqa: F401 - PoolHealth, DeviceStatus used in doctests  # pyright: ignore[reportUnusedImport]
+from .models import (
+    CheckResult,
+    DeviceState,
+    DeviceStatus,
+    IssueCategory,
+    IssueDetails,
+    PoolHealth,  # noqa: F401 - used in doctests  # pyright: ignore[reportUnusedImport]
+    PoolIssue,
+    PoolStatus,
+    Severity,
+)
 
 logger = logging.getLogger(__name__)
+
+#: Upper bound for capacity threshold percentages (0-100 inclusive).
+CAPACITY_PERCENT_MAX = 100
 
 
 @dataclass
@@ -81,7 +94,7 @@ class MonitorConfig:
         if self.capacity_warning_percent >= self.capacity_critical_percent:
             raise ValueError("capacity_warning_percent must be less than capacity_critical_percent")
 
-        if self.capacity_warning_percent < 0 or self.capacity_critical_percent > 100:
+        if self.capacity_warning_percent < 0 or self.capacity_critical_percent > CAPACITY_PERCENT_MAX:
             raise ValueError("Capacity percentages must be between 0 and 100")
 
 
@@ -157,7 +170,7 @@ class PoolMonitor:
         """
         issues: list[PoolIssue] = []
 
-        logger.debug(f"Checking pool: {pool.name}")
+        logger.debug("Checking pool: %s", pool.name)
 
         # Check health state
         health_issue = self._check_health(pool)
@@ -183,7 +196,8 @@ class PoolMonitor:
             issues.append(scrub_issue)
 
         logger.debug(
-            f"Pool check complete: {pool.name}",
+            "Pool check complete: %s",
+            pool.name,
             extra={"pool_name": pool.name, "issues_found": len(issues)},
         )
 
@@ -219,7 +233,7 @@ class PoolMonitor:
         all_issues: list[PoolIssue] = []
         pool_list: list[PoolStatus] = []
 
-        logger.info(f"Checking {len(pools)} pools")
+        logger.info("Checking %s pools", len(pools))
 
         for pool_status in pools.values():
             pool_list.append(pool_status)
@@ -227,10 +241,7 @@ class PoolMonitor:
             all_issues.extend(pool_issues)
 
         # Determine overall severity
-        if not all_issues:
-            overall_severity = Severity.OK
-        else:
-            overall_severity = max(issue.severity for issue in all_issues)
+        overall_severity = Severity.OK if not all_issues else max(issue.severity for issue in all_issues)
 
         result = CheckResult(
             timestamp=timestamp,
@@ -267,10 +278,7 @@ class PoolMonitor:
             return None
 
         # Determine severity based on health state
-        if pool.health.is_critical():
-            severity = Severity.CRITICAL
-        else:
-            severity = Severity.WARNING
+        severity = Severity.CRITICAL if pool.health.is_critical() else Severity.WARNING
 
         return PoolIssue(
             pool_name=pool.name,

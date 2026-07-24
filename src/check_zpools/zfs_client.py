@@ -7,9 +7,9 @@ Handles command discovery, execution, error handling, and timeout management.
 
 Contents
 --------
-* :class:`ZFSCommandError` – Exception raised when ZFS commands fail
-* :class:`ZFSNotAvailableError` – Exception raised when ZFS tools not found
-* :class:`ZFSClient` – Main interface for executing ZFS commands
+* :class:`ZFSCommandError` - Exception raised when ZFS commands fail
+* :class:`ZFSNotAvailableError` - Exception raised when ZFS tools not found
+* :class:`ZFSClient` - Main interface for executing ZFS commands
 
 System Role
 -----------
@@ -163,9 +163,7 @@ class ZFSCommandResponse(BaseModel):
             return True
         # Check if it's in extra fields
         extra_fields = self.__pydantic_extra__
-        if extra_fields is not None and key in extra_fields:
-            return True
-        return False
+        return bool(extra_fields is not None and key in extra_fields)
 
     def keys(self) -> list[str]:
         """Support dict-like keys() method for backward compatibility.
@@ -305,7 +303,7 @@ class ZFSClient:
             self.zpool_path = Path(zpool_path)
 
         self.default_timeout = default_timeout
-        logger.debug(f"ZFSClient initialized with zpool at {self.zpool_path}")
+        logger.debug("ZFSClient initialized with zpool at %s", self.zpool_path)
 
     def check_zpool_available(self) -> bool:
         """Verify zpool command is available and executable.
@@ -373,7 +371,7 @@ class ZFSClient:
         if pool_name:
             command.append(pool_name)
 
-        logger.debug(f"Executing: {' '.join(command)}")
+        logger.debug("Executing: %s", " ".join(command))
         return self._execute_json_command(command, timeout=timeout, response_model=ZpoolStatusResponse)
 
     def get_pool_status_text(
@@ -418,7 +416,7 @@ class ZFSClient:
         if pool_name:
             command.append(pool_name)
 
-        logger.debug(f"Executing: {' '.join(command)}")
+        logger.debug("Executing: %s", " ".join(command))
         return self._execute_text_command(command, timeout=timeout)
 
     def _execute_command(
@@ -455,7 +453,7 @@ class ZFSClient:
         actual_timeout = timeout if timeout is not None else self.default_timeout
 
         try:
-            result = subprocess.run(  # nosec B603 - command is hardcoded zpool path with validated args
+            result = subprocess.run(  # noqa: S603  # nosec B603 - command is hardcoded zpool path with validated args
                 command,
                 capture_output=True,
                 text=True,
@@ -540,11 +538,11 @@ class ZFSClient:
         # Parse JSON output into Pydantic model
         try:
             data = json.loads(result.stdout)
-            logger.debug(f"Parsed JSON successfully, top-level keys: {list(data.keys())}")
+            logger.debug("Parsed JSON successfully, top-level keys: %s", list(data.keys()))
 
             # Validate and wrap in Pydantic model
             model_instance = response_model.model_validate(data)
-            logger.debug(f"Successfully validated response as {response_model.__name__}")
+            logger.debug("Successfully validated response as %s", response_model.__name__)
             return model_instance
         except json.JSONDecodeError as exc:
             logger.error(
@@ -591,7 +589,7 @@ class ZFSClient:
 __all__ = [
     "ZFSClient",
     "ZFSCommandError",
-    "ZFSNotAvailableError",
     "ZFSCommandResponse",
+    "ZFSNotAvailableError",
     "ZpoolStatusResponse",
 ]

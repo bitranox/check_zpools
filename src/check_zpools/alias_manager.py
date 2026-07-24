@@ -28,10 +28,12 @@ from __future__ import annotations
 
 import logging
 import os
+import platform
 import re
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+
+import rich_click as click
 
 # pwd module is only available on Unix-like systems
 if sys.platform != "win32":
@@ -39,8 +41,6 @@ if sys.platform != "win32":
 else:
     pwd = None  # type: ignore[assignment]
 
-if TYPE_CHECKING:
-    pass
 
 from . import __init__conf__
 
@@ -66,8 +66,6 @@ def _check_root_privileges(username: str | None = None) -> None:
         PermissionError: When not running as root.
         NotImplementedError: On Windows.
     """
-    import platform
-
     system = platform.system()
     if system == "Windows":
         raise NotImplementedError("Alias management is not supported on Windows")
@@ -103,10 +101,7 @@ def _get_user_info(username: str | None) -> tuple[str, Path]:
     if username is None:
         # Get the real user who invoked sudo (if applicable)
         sudo_user = os.environ.get("SUDO_USER")
-        if sudo_user:
-            username = sudo_user
-        else:
-            username = pwd.getpwuid(os.getuid()).pw_name  # type: ignore[union-attr, attr-defined]
+        username = sudo_user or pwd.getpwuid(os.getuid()).pw_name  # type: ignore[union-attr, attr-defined]
 
     # At this point username is guaranteed to be str (either from parameter, SUDO_USER, or getpwuid)
     # Cast for pyright on Windows where pwd functions have Unknown return types
@@ -145,7 +140,9 @@ def _build_exec_command() -> str:
     str:
         Full command string to execute check_zpools.
     """
-    from .service_install import _find_executable
+    # Deferred: keeps service_install's psutil/subprocess/systemd machinery out of the
+    # import graph for alias management, which only needs this one helper.
+    from .service_install import _find_executable  # noqa: PLC0415
 
     method, executable_path, uvx_version = _find_executable()
 
@@ -226,7 +223,7 @@ def _ensure_file_exists(path: Path) -> None:
         Path to bashrc file.
     """
     if not path.exists():
-        logger.info(f"Creating bashrc file: {path}")
+        logger.info("Creating bashrc file: %s", path)
         path.touch(mode=0o644)
 
 
@@ -259,10 +256,10 @@ def _write_bashrc(path: Path, content: str) -> None:
         Content to write.
     """
     path.write_text(content, encoding="utf-8")
-    logger.debug(f"Updated bashrc: {path}")
+    logger.debug("Updated bashrc: %s", path)
 
 
-def create_alias(username: str | None = None, all_users: bool = False) -> None:
+def create_alias(username: str | None = None, *, all_users: bool = False) -> None:
     """Create shell function alias in user's bashrc or system-wide bashrc.
 
     Creates a marked block in the appropriate bashrc file containing a shell
@@ -310,14 +307,14 @@ def create_alias(username: str | None = None, all_users: bool = False) -> None:
     if all_users:
         bashrc_path = SYSTEM_BASHRC
         resolved_username = "all users"
-        logger.info(f"Target: system-wide, bashrc: {bashrc_path}")
+        logger.info("Target: system-wide, bashrc: %s", bashrc_path)
     else:
         bashrc_path, resolved_username = _get_bashrc_path_for_user(username)
-        logger.info(f"Target user: {resolved_username}, bashrc: {bashrc_path}")
+        logger.info("Target user: %s, bashrc: %s", resolved_username, bashrc_path)
 
     # Build execution command
     exec_command = _build_exec_command()
-    logger.info(f"Executable command: {exec_command}")
+    logger.info("Executable command: %s", exec_command)
 
     # Ensure bashrc exists
     _ensure_file_exists(bashrc_path)
@@ -342,10 +339,10 @@ def create_alias(username: str | None = None, all_users: bool = False) -> None:
     # Write updated content
     _write_bashrc(bashrc_path, content)
 
-    _print_create_success(resolved_username, bashrc_path, exec_command, all_users)
+    _print_create_success(resolved_username, bashrc_path, exec_command, all_users=all_users)
 
 
-def _print_create_success(username: str, bashrc_path: Path, exec_command: str, all_users: bool = False) -> None:
+def _print_create_success(username: str, bashrc_path: Path, exec_command: str, *, all_users: bool = False) -> None:
     """Print success message after alias creation.
 
     Parameters
@@ -360,16 +357,16 @@ def _print_create_success(username: str, bashrc_path: Path, exec_command: str, a
         If True, alias was created for all users in /etc/bash.bashrc.
     """
     shell_command = __init__conf__.shell_command
-    print(f"\n✓ Alias created for '{shell_command}'\n")
-    print(f"  Target:   {username}")
-    print(f"  File:     {bashrc_path}")
-    print(f"  Command:  {exec_command}")
-    print("\nTo activate the alias in current shell:")
-    print(f"  source {bashrc_path}")
-    print("\nOr open a new terminal session.")
+    click.echo(f"\n✓ Alias created for '{shell_command}'\n")
+    click.echo(f"  Target:   {username}")
+    click.echo(f"  File:     {bashrc_path}")
+    click.echo(f"  Command:  {exec_command}")
+    click.echo("\nTo activate the alias in current shell:")
+    click.echo(f"  source {bashrc_path}")
+    click.echo("\nOr open a new terminal session.")
 
 
-def delete_alias(username: str | None = None, all_users: bool = False) -> None:
+def delete_alias(username: str | None = None, *, all_users: bool = False) -> None:
     """Remove shell function alias from user's bashrc or system-wide bashrc.
 
     Removes the marked block containing the check_zpools shell function
@@ -414,16 +411,16 @@ def delete_alias(username: str | None = None, all_users: bool = False) -> None:
     if all_users:
         bashrc_path = SYSTEM_BASHRC
         resolved_username = "all users"
-        logger.info(f"Target: system-wide, bashrc: {bashrc_path}")
+        logger.info("Target: system-wide, bashrc: %s", bashrc_path)
     else:
         bashrc_path, resolved_username = _get_bashrc_path_for_user(username)
-        logger.info(f"Target user: {resolved_username}, bashrc: {bashrc_path}")
+        logger.info("Target user: %s, bashrc: %s", resolved_username, bashrc_path)
 
     # Check if bashrc exists
     if not bashrc_path.exists():
-        logger.warning(f"Bashrc file not found: {bashrc_path}")
-        print(f"\n⚠ Bashrc file not found: {bashrc_path}")
-        print("No alias to remove.")
+        logger.warning("Bashrc file not found: %s", bashrc_path)
+        click.echo(f"\n⚠ Bashrc file not found: {bashrc_path}")
+        click.echo("No alias to remove.")
         return
 
     # Read current content
@@ -432,8 +429,8 @@ def delete_alias(username: str | None = None, all_users: bool = False) -> None:
     # Check if alias exists
     if not _has_existing_alias(content):
         logger.info("No alias block found in bashrc")
-        print(f"\n⚠ No {__init__conf__.shell_command} alias found in {bashrc_path}")
-        print("Nothing to remove.")
+        click.echo(f"\n⚠ No {__init__conf__.shell_command} alias found in {bashrc_path}")
+        click.echo("Nothing to remove.")
         return
 
     # Remove alias block
@@ -456,12 +453,12 @@ def _print_delete_success(username: str, bashrc_path: Path) -> None:
         Path to the modified bashrc file.
     """
     shell_command = __init__conf__.shell_command
-    print(f"\n✓ Alias removed for '{shell_command}'\n")
-    print(f"  User:     {username}")
-    print(f"  File:     {bashrc_path}")
-    print("\nThe alias will no longer be available in new terminal sessions.")
-    print("To remove from current shell, run:")
-    print(f"  unset -f {shell_command}")
+    click.echo(f"\n✓ Alias removed for '{shell_command}'\n")
+    click.echo(f"  User:     {username}")
+    click.echo(f"  File:     {bashrc_path}")
+    click.echo("\nThe alias will no longer be available in new terminal sessions.")
+    click.echo("To remove from current shell, run:")
+    click.echo(f"  unset -f {shell_command}")
 
 
 __all__ = [

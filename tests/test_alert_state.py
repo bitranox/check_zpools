@@ -15,13 +15,15 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from check_zpools.alert_state import AlertState, AlertStateManager
 from check_zpools.models import IssueCategory, IssueDetails, PoolIssue, Severity
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # ============================================================================
 # Test Helpers

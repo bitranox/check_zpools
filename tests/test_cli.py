@@ -3,17 +3,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from collections.abc import Callable, Sequence
-from typing import Any
-
-import pytest
-from click.testing import CliRunner, Result
+from typing import TYPE_CHECKING, Any
 
 import lib_cli_exit_tools
+import pytest
 
-from check_zpools import cli as cli_mod
 from check_zpools import __init__conf__
-from smtp_sink import SmtpSink
+from check_zpools import cli as cli_mod
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+    from pathlib import Path
+
+    from click.testing import CliRunner, Result
+    from lib_layered_config.domain.config import SourceInfo
+    from smtp_sink import SmtpSink
 
 
 def _config_stub_for_host(host: str, from_address: str) -> Any:
@@ -110,7 +114,7 @@ def test_when_we_snapshot_traceback_the_initial_state_is_quiet(isolated_tracebac
 
 @pytest.mark.os_agnostic
 def test_when_we_enable_traceback_the_config_sings_true(isolated_traceback_config: None) -> None:
-    cli_mod.apply_traceback_preferences(True)
+    cli_mod.apply_traceback_preferences(enabled=True)
 
     assert lib_cli_exit_tools.config.traceback is True
     assert lib_cli_exit_tools.config.traceback_force_color is True
@@ -119,7 +123,7 @@ def test_when_we_enable_traceback_the_config_sings_true(isolated_traceback_confi
 @pytest.mark.os_agnostic
 def test_when_we_restore_traceback_the_config_whispers_false(isolated_traceback_config: None) -> None:
     previous = cli_mod.snapshot_traceback_state()
-    cli_mod.apply_traceback_preferences(True)
+    cli_mod.apply_traceback_preferences(enabled=True)
 
     cli_mod.restore_traceback_state(previous)
 
@@ -322,7 +326,6 @@ def test_when_config_is_invoked_with_mocked_data_it_displays_sections(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from lib_layered_config import Config
-    from lib_layered_config.domain.config import SourceInfo
 
     # Create a mock Config with test data
     test_config_data = {
@@ -383,7 +386,6 @@ def test_when_config_is_invoked_with_json_format_and_section_it_shows_section(
 ) -> None:
     """Test JSON format with specific section."""
     from lib_layered_config import Config
-    from lib_layered_config.domain.config import SourceInfo
 
     test_config_data = {
         "email": {
@@ -430,7 +432,6 @@ def test_when_config_is_invoked_with_json_format_and_nonexistent_section_it_fail
 ) -> None:
     """Test JSON format with nonexistent section returns error."""
     from lib_layered_config import Config
-    from lib_layered_config.domain.config import SourceInfo
 
     test_config_data = {
         "email": {
@@ -474,7 +475,6 @@ def test_when_config_is_invoked_with_section_showing_complex_values(
 ) -> None:
     """Test human format with section containing lists and dicts."""
     from lib_layered_config import Config
-    from lib_layered_config.domain.config import SourceInfo
 
     test_config_data = {
         "email": {
@@ -530,7 +530,6 @@ def test_when_config_shows_all_sections_with_complex_values(
 ) -> None:
     """Test human format showing all sections with lists and dicts."""
     from lib_layered_config import Config
-    from lib_layered_config.domain.config import SourceInfo
 
     test_config_data = {
         "email": {
@@ -592,7 +591,6 @@ def test_when_config_deploy_is_invoked_it_deploys_configuration(
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pathlib import Path
 
     # Mock deploy_configuration to return a test path without actually deploying
     deployed_path = tmp_path / "config.toml"
@@ -618,7 +616,6 @@ def test_when_config_deploy_finds_no_files_to_create_it_informs_user(
     cli_runner: CliRunner,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pathlib import Path
 
     def mock_deploy(*, targets: Any, force: bool = False) -> list[Path]:
         return []  # No files created
@@ -659,7 +656,6 @@ def test_when_config_deploy_supports_multiple_targets(
     tmp_path: Any,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from pathlib import Path
 
     path1 = tmp_path / "config1.toml"
     path2 = tmp_path / "config2.toml"
@@ -696,7 +692,7 @@ def test_when_restore_is_disabled_the_traceback_choice_remains(
     isolated_traceback_config: None,
     preserve_traceback_state: None,
 ) -> None:
-    cli_mod.apply_traceback_preferences(False)
+    cli_mod.apply_traceback_preferences(enabled=False)
 
     cli_mod.main(["--traceback", "hello"], restore_traceback=False)
 
@@ -831,41 +827,43 @@ def test_when_send_email_has_attachments_it_sends(
     tmp_path: Any,
 ) -> None:
     """When attachments are provided, send-email should include them."""
-    from unittest.mock import patch, MagicMock
+    from unittest.mock import MagicMock, patch
 
     # Create test attachment
     attachment = tmp_path / "test.txt"
     attachment.write_text("Test content")
 
-    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        # Patch btx_send directly to bypass btx_lib_mail security checks
-        # which block /var on macOS where tmp_path resolves to /private/var/...
-        with patch("check_zpools.mail.btx_send", return_value=True):
-            mock_config_obj = MagicMock()
-            mock_config_obj.as_dict.return_value = {
-                "email": {
-                    "smtp_hosts": ["smtp.test.com:587"],
-                    "from_address": "sender@test.com",
-                }
+    # Patch btx_send directly to bypass btx_lib_mail security checks
+    # which block /var on macOS where tmp_path resolves to /private/var/...
+    with (
+        patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config,
+        patch("check_zpools.mail.btx_send", return_value=True),
+    ):
+        mock_config_obj = MagicMock()
+        mock_config_obj.as_dict.return_value = {
+            "email": {
+                "smtp_hosts": ["smtp.test.com:587"],
+                "from_address": "sender@test.com",
             }
-            mock_get_config.return_value = mock_config_obj
+        }
+        mock_get_config.return_value = mock_config_obj
 
-            result: Result = cli_runner.invoke(
-                cli_mod.cli,
-                [
-                    "send-email",
-                    "--to",
-                    "recipient@test.com",
-                    "--subject",
-                    "Test",
-                    "--body",
-                    "See attachment",
-                    "--attachment",
-                    str(attachment),
-                ],
-            )
+        result: Result = cli_runner.invoke(
+            cli_mod.cli,
+            [
+                "send-email",
+                "--to",
+                "recipient@test.com",
+                "--subject",
+                "Test",
+                "--body",
+                "See attachment",
+                "--attachment",
+                str(attachment),
+            ],
+        )
 
-            assert result.exit_code == 0
+        assert result.exit_code == 0
 
 
 @pytest.mark.os_agnostic

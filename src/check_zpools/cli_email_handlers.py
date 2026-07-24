@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def validate_smtp_configuration(email_config: "EmailConfig") -> None:
+def validate_smtp_configuration(email_config: EmailConfig) -> None:
     """Validate SMTP configuration is present.
 
     Why
@@ -112,6 +112,6 @@ def handle_send_email_error(exc: Exception, error_type: str) -> None:
 
 
 __all__ = [
-    "validate_smtp_configuration",
     "handle_send_email_error",
+    "validate_smtp_configuration",
 ]

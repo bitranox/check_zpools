@@ -281,12 +281,13 @@ Key design decisions:
 class PoolStatus:
     name: str
     health: PoolHealth
-    size: int                    # bytes
-    allocated: int               # bytes
-    free: int                    # bytes
-    capacity: int                # 0-100
-    fragmentation: int           # 0-100
+    size: int  # bytes
+    allocated: int  # bytes
+    free: int  # bytes
+    capacity: int  # 0-100
+    fragmentation: int  # 0-100
     # ... additional fields
+
 
 @dataclass(frozen=True)
 class CheckResult:

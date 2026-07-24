@@ -6,6 +6,26 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.7.7] 2026-07-24 17:27:25
+
+### Fixed
+- Latest ruff (floating `>=` dev pin) newly enforces its widened default rule set;
+  fixed the resulting violations at the root instead of suppressing them: raise
+  exceptions with `from exc` in CLI except blocks, `logging.exception` instead of
+  `logging.error(..., exc_info=True)`, lazy `%s` logging instead of f-strings,
+  keyword-only CLI/helper signatures instead of boolean-trap positional args,
+  named constants instead of magic comparison values, `print()` -> `click.echo()`
+  for user-facing CLI output, ASCII hyphens instead of ambiguous en-dashes in
+  docstrings, and split two over-long functions (`show_service_status`,
+  `AlertStateManager.load`/`ZFSParser.parse_pool_status` loop bodies) to stay
+  under the branch/statement thresholds.
+
+### Changed
+- Added the project's curated `[tool.ruff.lint].select` (previously unset, so
+  ruff silently used its full ~920-rule default set) plus matching
+  per-file-ignores, pinning the lint policy so a future ruff release cannot
+  reintroduce an unbounded rule explosion.
+
 ## [3.7.6] 2026-07-20
 
 ### Fixed

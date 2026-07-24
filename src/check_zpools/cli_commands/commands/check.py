@@ -15,14 +15,14 @@ from ...zfs_client import ZFSNotAvailableError
 logger = logging.getLogger(__name__)
 
 
-def check_command(format: str) -> None:
+def check_command(*, output_format: str) -> None:
     """Execute check command logic."""
-    with lib_log_rich.runtime.bind(job_id="cli-check", extra={"command": "check", "format": format}):
+    with lib_log_rich.runtime.bind(job_id="cli-check", extra={"command": "check", "format": output_format}):
         try:
             result = check_pools_once()
 
             # Format and display output
-            if format == "json":
+            if output_format == "json":
                 # JSON output - use click.echo for plain text
                 output = format_check_result_json(result)
                 click.echo(output)
@@ -34,7 +34,8 @@ def check_command(format: str) -> None:
             exit_code = get_exit_code_for_severity(result.overall_severity)
             if exit_code != 0:
                 logger.warning(
-                    f"Check completed with {result.overall_severity.name} severity",
+                    "Check completed with %s severity",
+                    result.overall_severity.name,
                     extra={
                         "exit_code": exit_code,
                         "severity": result.overall_severity.name,

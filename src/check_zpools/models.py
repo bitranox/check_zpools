@@ -8,11 +8,11 @@ type-safe containers for ZFS data.
 
 Contents
 --------
-* :class:`PoolHealth` – Enumeration of possible ZFS pool health states
-* :class:`Severity` – Enumeration of issue severity levels
-* :class:`PoolStatus` – Complete status snapshot of a single ZFS pool
-* :class:`PoolIssue` – Detected issue with a pool
-* :class:`CheckResult` – Aggregated result of checking all pools
+* :class:`PoolHealth` - Enumeration of possible ZFS pool health states
+* :class:`Severity` - Enumeration of issue severity levels
+* :class:`PoolStatus` - Complete status snapshot of a single ZFS pool
+* :class:`PoolIssue` - Detected issue with a pool
+* :class:`CheckResult` - Aggregated result of checking all pools
 
 System Role
 -----------
@@ -372,7 +372,7 @@ class DeviceState(str, Enum):
     REMOVED = "REMOVED"
 
     @classmethod
-    def from_string(cls, value: str) -> "DeviceState":
+    def from_string(cls, value: str) -> DeviceState:
         """Parse a string to DeviceState, defaulting to UNAVAIL for unknown values.
 
         Parameters
@@ -470,7 +470,7 @@ class ScanState(str, Enum):
     CANCELED = "CANCELED"
 
     @classmethod
-    def from_string(cls, value: str | None) -> "ScanState":
+    def from_string(cls, value: str | None) -> ScanState:
         """Parse a string to ScanState.
 
         Parameters
