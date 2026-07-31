@@ -32,18 +32,67 @@ import platform
 import re
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Protocol, cast
 
 import rich_click as click
 
-# pwd module is only available on Unix-like systems
-if sys.platform != "win32":
-    import pwd
-else:
-    pwd = None  # type: ignore[assignment]
-
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 from . import __init__conf__
 from .models import InstallMethod
+
+# pwd module is only available on Unix-like systems
+if sys.platform != "win32":
+    import pwd as _pwd
+else:
+    _pwd = None
+
+
+class _PasswdEntry(Protocol):
+    """The two passwd fields this module reads."""
+
+    pw_name: str
+    pw_dir: str
+
+
+class _PasswdModule(Protocol):
+    """The passwd lookups this module makes."""
+
+    def getpwuid(self, uid: int, /) -> _PasswdEntry: ...
+    def getpwnam(self, name: str, /) -> _PasswdEntry: ...
+
+
+def _passwd() -> _PasswdModule:
+    """Return the POSIX passwd database, refusing clearly where there is none.
+
+    Type-checking runs per platform, and on Windows `pwd` cannot be imported at all, so
+    every field read through it is Unknown there and the strict rules reject the module
+    on that lane alone. Stating the shape this file actually uses types both lanes
+    identically. Returning non-optional is what lets the call sites drop their narrowing:
+    the platforms without a passwd database are already refused by
+    `_check_root_privileges`, and if one is ever reached another way it raises here with
+    a sentence rather than an AttributeError on None.
+    """
+    if _pwd is None:
+        raise NotImplementedError("Alias management requires a POSIX passwd database")
+    return cast("_PasswdModule", _pwd)
+
+
+def _posix_uid_call(name: str) -> Callable[[], int]:
+    """Return `os.<name>`, refusing where that POSIX identity call does not exist.
+
+    `os.getuid` and `os.geteuid` are absent from the Windows stubs, so naming them
+    directly is an attribute error on that type-checking lane. A dynamic lookup plus a
+    cast states the signature instead, which types every lane the same way without
+    silencing a rule - a blanket `# type: ignore` here would also hide any real typing
+    error on the same line, and this file is the one that edits a user's bashrc.
+    """
+    call = cast("Callable[[], int] | None", getattr(os, name, None))
+    if call is None:
+        raise NotImplementedError(f"Alias management requires POSIX os.{name}")
+    return call
+
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +122,7 @@ def _check_root_privileges(username: str | None = None) -> None:
     if system == "Darwin":
         raise NotImplementedError("Alias management is not supported on macOS")
 
-    if not hasattr(os, "geteuid") or os.geteuid() != 0:  # type: ignore[attr-defined]
+    if _posix_uid_call("geteuid")() != 0:
         if username is not None:
             logger.error("--user flag requires root privileges")
             raise PermissionError(f"The --user flag requires root privileges.\nExample: sudo {__init__conf__.shell_command} alias-create --user {username}")
@@ -99,18 +148,15 @@ def _get_user_info(username: str | None) -> tuple[str, Path]:
     KeyError:
         When username not found in passwd database.
     """
+    passwd = _passwd()
     if username is None:
         # Get the real user who invoked sudo (if applicable)
         sudo_user = os.environ.get("SUDO_USER")
-        username = sudo_user or pwd.getpwuid(os.getuid()).pw_name  # type: ignore[union-attr, attr-defined]
-
-    # At this point username is guaranteed to be str (either from parameter, SUDO_USER, or getpwuid)
-    # Cast for pyright on Windows where pwd functions have Unknown return types
-    resolved_username: str = str(username)
+        username = sudo_user or passwd.getpwuid(_posix_uid_call("getuid")()).pw_name
 
     try:
-        pw_entry = pwd.getpwnam(resolved_username)  # type: ignore[union-attr, attr-defined]
-        return (resolved_username, Path(pw_entry.pw_dir))
+        pw_entry = passwd.getpwnam(username)
+        return (username, Path(pw_entry.pw_dir))
     except KeyError as exc:
         raise KeyError(f"User not found: {username}") from exc
 

@@ -35,8 +35,8 @@ from .models import CheckResult, CheckZpoolsConfig, DaemonConfig, ScrubCycleResu
 from .monitor import PoolMonitor
 from .scrub_report import send_scrub_summary
 from .scrub_runner import run_scrub_cycle
-from .zfs_client import ZFSClient, ZFSNotAvailableError
-from .zfs_parser import ZFSParser
+from .zfs_client import ZFSClient, ZFSCommandError, ZFSNotAvailableError
+from .zfs_parser import ZFSParseError, ZFSParser
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -74,9 +74,13 @@ def check_pools_once(config: CheckZpoolsConfig | None = None) -> CheckResult:
     Raises
     ------
     ZFSNotAvailableError
-        When zpool command is not available.
+        When the zpool command is not available.
+    ZFSCommandError
+        When zpool ran and failed; carries its exit code and stderr.
+    ZFSParseError
+        When zpool's output could not be read.
     RuntimeError
-        When ZFS commands fail or parsing errors occur.
+        When anything else goes wrong fetching or parsing pool data.
     """
     settings = config if config is not None else load_settings()
 
@@ -94,8 +98,13 @@ def check_pools_once(config: CheckZpoolsConfig | None = None) -> CheckResult:
 
         logger.info("Fetched pool data", extra={"pool_count": len(pools)})
 
-    except ZFSNotAvailableError:
-        logger.error("ZFS not available on this system")
+    except (ZFSNotAvailableError, ZFSCommandError, ZFSParseError):
+        # This package's own exceptions ARE the contract a caller branches on: the JSON
+        # error object reports the class name, so flattening them into RuntimeError
+        # leaves "zpool is missing", "zpool ran and refused" and "its output could not be
+        # read" distinguishable only by matching prose - and drops the exit_code and
+        # stderr that ZFSCommandError carries for exactly that purpose.
+        logger.exception("Failed to fetch pool data")
         raise
     except Exception as exc:
         logger.exception(

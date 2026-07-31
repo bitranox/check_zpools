@@ -6,6 +6,25 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`check` no longer flattens ZFS errors into a bare `RuntimeError`.** `check_pools_once`
+  caught every exception and re-raised it as `RuntimeError`, so `--format json` reported
+  `"type": "RuntimeError"` for all of them and a caller could tell "zpool is missing" from
+  "zpool ran and refused" from "its output was unreadable" only by matching the message
+  prose - and `ZFSCommandError`'s `exit_code` and `stderr` were discarded on the way.
+  `ZFSNotAvailableError` was already re-raised intact; the other two now are too.
+- **Type checking passes on Windows.** `pwd` and `os.getuid`/`os.geteuid` do not exist
+  there, so every value read through them was Unknown on that lane and the strict rules
+  rejected the module - a failure invisible to a Linux-only run. Typed facades state the
+  shape actually used, which also retired a blanket `# type: ignore` that would have
+  hidden any other typing error on its line.
+- **Quickstart notebook no longer references the deleted template commands.** It called
+  `hello`, `fail` and imported `CANONICAL_GREETING`/`emit_greeting`, all removed in this
+  same unreleased set, so CI's notebook run failed on import. It now demonstrates the
+  real surface: the merged configuration, the JSON envelope and its error object, and
+  `load_settings()`.
+
 ### Added
 
 - **Ships as its own Claude Code plugin/marketplace, carrying a usage skill.**

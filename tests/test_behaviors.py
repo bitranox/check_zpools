@@ -34,6 +34,8 @@ import pytest
 
 from check_zpools import behaviors
 from check_zpools.models import CheckResult, CheckZpoolsConfig, DaemonConfig, PoolStatus
+from check_zpools.zfs_client import ZFSCommandError, ZFSNotAvailableError
+from check_zpools.zfs_parser import ZFSParseError
 
 # =============================================================================
 # OS Markers
@@ -828,3 +830,54 @@ class TestRunDaemonLifecycle:
 
         with pytest.raises(RuntimeError, match="Daemon crashed"):
             behaviors.run_daemon(config=mock_config, foreground=True)
+
+
+@pytest.mark.os_agnostic
+class TestCheckPoolsOncePreservesTheExceptionClass:
+    """The class a caller branches on must survive the behaviour layer.
+
+    `check --format json` reports `type` as the exception's class name, and callers
+    (scripts, other monitors, agents) branch on it rather than matching the message
+    prose. A blanket `except Exception -> RuntimeError` here erases that distinction
+    while still looking like careful error handling.
+    """
+
+    @staticmethod
+    def _client_raising(exc: Exception) -> MagicMock:
+        client = MagicMock()
+        client.get_pool_status.side_effect = exc
+        return client
+
+    @pytest.mark.parametrize(
+        "raised",
+        [
+            ZFSNotAvailableError("zpool command not found"),
+            ZFSCommandError(["zpool", "status"], exit_code=1, stderr="no such pool"),
+            ZFSParseError("output was not the expected shape"),
+        ],
+        ids=["not-available", "command-failed", "unparseable"],
+    )
+    def test_the_packages_own_exceptions_reach_the_caller_intact(self, raised: Exception) -> None:
+        """Given zpool fails in one of the three known ways, that exact class propagates."""
+        with patch.object(behaviors, "ZFSClient", return_value=self._client_raising(raised)), pytest.raises(type(raised)) as exc:
+            behaviors.check_pools_once(CheckZpoolsConfig())
+
+        assert type(exc.value) is type(raised)
+
+    def test_a_failing_command_still_carries_its_exit_code_and_stderr(self) -> None:
+        """The diagnostic payload survives too - it is why the typed error exists."""
+        raised = ZFSCommandError(["zpool", "status"], exit_code=2, stderr="pool is busy")
+
+        with patch.object(behaviors, "ZFSClient", return_value=self._client_raising(raised)), pytest.raises(ZFSCommandError) as exc:
+            behaviors.check_pools_once(CheckZpoolsConfig())
+
+        assert exc.value.exit_code == 2
+        assert "pool is busy" in exc.value.stderr
+
+    def test_an_unexpected_failure_is_still_wrapped(self) -> None:
+        """An error this layer does not model stays wrapped, naming the operation."""
+        with (
+            patch.object(behaviors, "ZFSClient", return_value=self._client_raising(OSError("disk gone"))),
+            pytest.raises(RuntimeError, match="Failed to check pools"),
+        ):
+            behaviors.check_pools_once(CheckZpoolsConfig())

@@ -15,12 +15,13 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from check_zpools import __init__conf__
+from check_zpools import __init__conf__, alias_manager
 from check_zpools.alias_manager import (
     ALIAS_MARKER_END,
     ALIAS_MARKER_START,
@@ -644,21 +645,34 @@ class TestUserInfoEdgeCases:
     @pytest.mark.linux_only
     def test_falls_back_to_current_user_without_sudo_user(self) -> None:
         """Should use current user when SUDO_USER not set."""
-        mock_pw = MagicMock()
-        mock_pw.pw_name = "currentuser"
-        mock_pw.pw_dir = "/home/currentuser"
+        entry = SimpleNamespace(pw_name="currentuser", pw_dir="/home/currentuser")
+        looked_up: dict[str, object] = {}
 
-        # Need to patch at the module level where it's imported
+        class FakePasswd:
+            """Stands in for the POSIX passwd database, at the _PasswdModule shape."""
+
+            def getpwuid(self, uid: int) -> SimpleNamespace:
+                looked_up["uid"] = uid
+                return entry
+
+            def getpwnam(self, name: str) -> SimpleNamespace:
+                looked_up["name"] = name
+                return entry
+
+        # Substituted at the module's own seam rather than by reaching into `pwd` and
+        # `os`: those are the platform, and patching them tests the patch. `_passwd` and
+        # `_posix_uid_call` exist precisely so this path can be driven on any host.
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch("check_zpools.alias_manager.pwd.getpwuid", return_value=mock_pw),
-            patch("check_zpools.alias_manager.pwd.getpwnam", return_value=mock_pw),
-            patch("check_zpools.alias_manager.os.getuid", return_value=1000),
+            patch.object(alias_manager, "_passwd", return_value=FakePasswd()),
+            patch.object(alias_manager, "_posix_uid_call", return_value=lambda: 1000),
         ):
             username, home_dir = _get_user_info(None)
 
         assert username == "currentuser"
         assert home_dir == Path("/home/currentuser")
+        # The uid actually reached the passwd lookup - otherwise the fallback is untested.
+        assert looked_up == {"uid": 1000, "name": "currentuser"}
 
 
 class TestCreateAliasOutputMessages:
