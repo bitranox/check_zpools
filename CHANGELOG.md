@@ -6,15 +6,18 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [4.0.1] 2026-08-01 00:49:03
+
 ### Fixed
 
 - **Console output no longer crashes on a legacy codepage.** `alias-create` and `alias-delete`
   printed a Unicode check mark, which raises `UnicodeEncodeError: 'charmap' codec can't encode
   character '✓'` on a Windows console at codepage 1252 - exiting 1 *after* the alias was already
-  written. The new `check_zpools.console` module degrades at the sink: a UTF-8 terminal and every
-  email body still receive the glyph, and only a stream that cannot encode it sees `[OK]` / `[X]`
-  / `[!]`. All 113 `click.echo` call sites route through it, and `check`'s Rich table renders
-  through a wrapped writer for the same reason.
+  written. The new `check_zpools.safe_console` module degrades at the sink: a UTF-8 terminal and
+  every email body still receive the glyph, and only a stream that cannot encode it sees `[OK]` /
+  `[X]` / `[!]`. All 113 `click.echo` call sites route through it, and `check`'s Rich table
+  renders through a wrapped writer for the same reason. It is named `safe_console` because
+  `console` is the conventional name for a Rich `Console` instance and would shadow it.
 
 ## [4.0.0] 2026-07-31 19:31:08
 
