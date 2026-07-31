@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from check_zpools.models import PoolHealth
+from check_zpools.models import PoolHealth, PoolPayload, ScanStatsPayload, VdevPayload, ZpoolStatusPayload
 from check_zpools.zfs_parser import ZFSParser
 
 
@@ -61,18 +61,18 @@ class TestParsePoolStatus:
     def test_parse_empty_pools(self, parser: ZFSParser) -> None:
         """Verify parser handles empty pools dict."""
         data = {"output_version": {"command": "zpool status"}, "pools": {}}
-        pools = parser.parse_pool_status(data)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))
         assert len(pools) == 0
 
     def test_parse_missing_pools_key(self, parser: ZFSParser) -> None:
         """Verify parser handles missing pools key."""
         data = {"output_version": {"command": "zpool status"}}
-        pools = parser.parse_pool_status(data)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))
         assert len(pools) == 0
 
     def test_parse_single_healthy_pool(self, parser: ZFSParser, zpool_status_ok: dict) -> None:
         """Verify parser extracts pool from zpool status output."""
-        pools = parser.parse_pool_status(zpool_status_ok)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(zpool_status_ok))
 
         assert len(pools) > 0
         assert "rpool" in pools
@@ -87,7 +87,7 @@ class TestParsePoolStatus:
 
     def test_parse_multiple_pools(self, parser: ZFSParser, zpool_status_ok: dict) -> None:
         """Verify parser handles multiple pools."""
-        pools = parser.parse_pool_status(zpool_status_ok)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(zpool_status_ok))
 
         # Sample data has multiple pools
         assert len(pools) >= 1
@@ -101,7 +101,7 @@ class TestParsePoolStatus:
 
     def test_parse_degraded_pool(self, parser: ZFSParser, zpool_status_degraded: dict) -> None:
         """Verify parser detects degraded pool state."""
-        pools = parser.parse_pool_status(zpool_status_degraded)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(zpool_status_degraded))
 
         assert "rpool" in pools
         rpool = pools["rpool"]
@@ -114,7 +114,7 @@ class TestParsePoolStatus:
 
     def test_parse_pool_with_errors(self, parser: ZFSParser, zpool_status_with_errors: dict) -> None:
         """Verify parser extracts error counts."""
-        pools = parser.parse_pool_status(zpool_status_with_errors)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(zpool_status_with_errors))
 
         assert "zpool-data" in pools
         pool = pools["zpool-data"]
@@ -127,7 +127,7 @@ class TestParsePoolStatus:
 
     def test_parse_scrub_information(self, parser: ZFSParser, zpool_status_degraded: dict) -> None:
         """Verify parser extracts scrub timestamps."""
-        pools = parser.parse_pool_status(zpool_status_degraded)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(zpool_status_degraded))
 
         rpool = pools["rpool"]
         assert rpool.last_scrub is not None
@@ -140,7 +140,7 @@ class TestParsePoolStatus:
         """Given a pool scrubbing, when parsed, then scrub_in_progress is True."""
         data = {"pools": {"tank": {"scan_stats": {"function": "SCRUB", "state": "SCANNING"}}}}
 
-        pool = parser.parse_pool_status(data)["tank"]
+        pool = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))["tank"]
 
         assert pool.scrub_in_progress is True
         assert pool.resilver_in_progress is False
@@ -154,7 +154,7 @@ class TestParsePoolStatus:
         """
         data = {"pools": {"tank": {"scan_stats": {"function": "RESILVER", "state": "SCANNING"}}}}
 
-        pool = parser.parse_pool_status(data)["tank"]
+        pool = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))["tank"]
 
         assert pool.scrub_in_progress is False
         assert pool.resilver_in_progress is True
@@ -163,7 +163,7 @@ class TestParsePoolStatus:
         """Given a resilver that ended, when parsed, then nothing is reported as running."""
         data = {"pools": {"tank": {"scan_stats": {"function": "RESILVER", "state": "FINISHED"}}}}
 
-        pool = parser.parse_pool_status(data)["tank"]
+        pool = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))["tank"]
 
         assert pool.scrub_in_progress is False
         assert pool.resilver_in_progress is False
@@ -172,13 +172,13 @@ class TestParsePoolStatus:
         """Given a scan function this version does not model, when parsed, then it is not a scrub."""
         data = {"pools": {"tank": {"scan_stats": {"function": "ERRORSCRUB", "state": "SCANNING"}}}}
 
-        pool = parser.parse_pool_status(data)["tank"]
+        pool = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))["tank"]
 
         assert pool.scrub_in_progress is False
 
     def test_parse_scrub_errors(self, parser: ZFSParser, zpool_status_with_errors: dict) -> None:
         """Verify parser detects scrub errors."""
-        pools = parser.parse_pool_status(zpool_status_with_errors)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(zpool_status_with_errors))
 
         pool = pools["zpool-data"]
         assert pool.scrub_errors == 3
@@ -196,7 +196,7 @@ class TestParsePoolStatus:
             }
         }
 
-        pools = parser.parse_pool_status(data)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))
         assert pools["testpool"].health == PoolHealth.OFFLINE  # Default fallback
 
     def test_parse_pool_with_missing_vdev(self, parser: ZFSParser) -> None:
@@ -212,7 +212,7 @@ class TestParsePoolStatus:
             }
         }
 
-        pools = parser.parse_pool_status(data)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))
         assert len(pools) == 1
         assert pools["testpool"].name == "testpool"
         assert pools["testpool"].health == PoolHealth.ONLINE
@@ -241,7 +241,7 @@ class TestParsePoolStatus:
             }
         }
 
-        pools = parser.parse_pool_status(data)
+        pools = parser.parse_pool_status(ZpoolStatusPayload.model_validate(data))
         pool = pools["testpool"]
 
         assert pool.capacity_percent == 50.0  # 50% used
@@ -255,7 +255,7 @@ class TestHelperMethods:
 
     def test_parse_scrub_time_with_valid_timestamp(self, parser: ZFSParser) -> None:
         """Verify scrub time parsing from Unix timestamp."""
-        scan_info = {"end_time": 1700000000}  # Unix timestamp
+        scan_info = ScanStatsPayload(end_time=1700000000)
 
         scrub_time = parser._parse_scrub_time(scan_info)
         assert scrub_time is not None
@@ -264,22 +264,19 @@ class TestHelperMethods:
 
     def test_parse_scrub_time_with_no_end_time(self, parser: ZFSParser) -> None:
         """Verify None returned when no end_time."""
-        scan_info = {"state": "scanning"}
+        scan_info = ScanStatsPayload(state="scanning")
 
         scrub_time = parser._parse_scrub_time(scan_info)
         assert scrub_time is None
 
     def test_parse_scrub_time_with_empty_scan_info(self, parser: ZFSParser) -> None:
         """Verify None returned for empty scan info."""
-        scrub_time = parser._parse_scrub_time({})
+        scrub_time = parser._parse_scrub_time(ScanStatsPayload())
         assert scrub_time is None
 
     def test_extract_capacity_from_vdev(self, parser: ZFSParser) -> None:
         """Verify capacity extraction from vdev with integer values."""
-        root_vdev = {
-            "alloc_space": 100000000,
-            "total_space": 1000000000,
-        }
+        root_vdev = VdevPayload(alloc_space=100000000, total_space=1000000000)
 
         capacity = parser._extract_capacity_from_vdev(root_vdev)
 
@@ -290,7 +287,7 @@ class TestHelperMethods:
 
     def test_extract_capacity_empty_vdev(self, parser: ZFSParser) -> None:
         """Verify default values for empty vdev."""
-        capacity = parser._extract_capacity_from_vdev({})
+        capacity = parser._extract_capacity_from_vdev(VdevPayload())
 
         assert capacity.allocated_bytes == 0
         assert capacity.size_bytes == 0
@@ -299,11 +296,7 @@ class TestHelperMethods:
 
     def test_extract_errors_from_vdev(self, parser: ZFSParser) -> None:
         """Verify error extraction from vdev with integer values."""
-        root_vdev = {
-            "read_errors": 10,
-            "write_errors": 5,
-            "checksum_errors": 3,
-        }
+        root_vdev = VdevPayload(read_errors=10, write_errors=5, checksum_errors=3)
 
         errors = parser._extract_errors_from_vdev(root_vdev)
 
@@ -313,7 +306,7 @@ class TestHelperMethods:
 
     def test_extract_errors_empty_vdev(self, parser: ZFSParser) -> None:
         """Verify default values for empty vdev."""
-        errors = parser._extract_errors_from_vdev({})
+        errors = parser._extract_errors_from_vdev(VdevPayload())
 
         assert errors.read == 0
         assert errors.write == 0
@@ -321,27 +314,21 @@ class TestHelperMethods:
 
     def test_get_root_vdev(self, parser: ZFSParser) -> None:
         """Verify root vdev extraction from pool data."""
-        pool_data = {
-            "vdevs": {
-                "testpool": {
-                    "alloc_space": 100,
-                    "total_space": 1000,
-                }
-            }
-        }
+        pool_data = PoolPayload.model_validate({"name": "testpool", "vdevs": {"testpool": {"alloc_space": 100, "total_space": 1000}}})
 
-        root_vdev = parser._get_root_vdev(pool_data, "testpool")
+        root_vdev = pool_data.root_vdev()
 
-        assert root_vdev["alloc_space"] == 100
-        assert root_vdev["total_space"] == 1000
+        assert root_vdev.alloc_space == 100
+        assert root_vdev.total_space == 1000
 
     def test_get_root_vdev_missing(self, parser: ZFSParser) -> None:
-        """Verify empty dict returned when vdev missing."""
-        pool_data = {"vdevs": {}}
+        """Verify an empty vdev is returned when the root vdev is absent."""
+        pool_data = PoolPayload.model_validate({"name": "testpool", "vdevs": {}})
 
-        root_vdev = parser._get_root_vdev(pool_data, "testpool")
+        root_vdev = pool_data.root_vdev()
 
-        assert root_vdev == {}
+        assert root_vdev.alloc_space == 0
+        assert root_vdev.total_space == 0
 
     def test_parse_health_state_valid(self, parser: ZFSParser) -> None:
         """Verify valid health states are parsed correctly."""

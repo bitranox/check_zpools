@@ -22,6 +22,7 @@ from check_zpools.models import (
     ScanState,
     ScrubAction,
     ScrubCycleResult,
+    ZpoolStatusPayload,
 )
 from check_zpools.scrub_report import (
     build_scrub_subject,
@@ -44,7 +45,7 @@ def scan_fixture() -> dict[str, Any]:
 @pytest.fixture
 def scans(scan_fixture: dict[str, Any]) -> dict[str, ScanRun]:
     """Parse the fixture into scan records."""
-    return ZFSParser().parse_scan_runs(scan_fixture)
+    return ZFSParser().parse_scan_runs(ZpoolStatusPayload.model_validate(scan_fixture))
 
 
 @pytest.mark.os_agnostic

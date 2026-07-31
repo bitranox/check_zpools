@@ -18,9 +18,9 @@ from typing import Any
 
 import pytest
 
-from check_zpools.models import ScanState, ScrubAction, ScrubRunOptions
+from check_zpools.models import ScanState, ScrubAction, ScrubRunOptions, ZpoolStatusPayload
 from check_zpools.scrub_runner import run_scrub_cycle
-from check_zpools.zfs_client import ZFSCommandError, ZpoolStatusResponse
+from check_zpools.zfs_client import ZFSCommandError
 
 FIXED_NOW = datetime(2026, 7, 31, 7, 0, tzinfo=timezone.utc)
 
@@ -87,7 +87,7 @@ class ScriptedZFSClient:
         self.started: list[str] = []
         self.reads = 0
 
-    def get_pool_status(self) -> ZpoolStatusResponse:
+    def get_pool_status(self) -> ZpoolStatusPayload:
         """Return the next scripted snapshot, repeating the last one.
 
         Validated through the same model the real client returns, so the double
@@ -95,7 +95,7 @@ class ScriptedZFSClient:
         """
         self.reads += 1
         payload = self.snapshots.pop(0) if len(self.snapshots) > 1 else self.snapshots[0]
-        return ZpoolStatusResponse.model_validate(payload)
+        return ZpoolStatusPayload.model_validate(payload)
 
     def start_scrub(self, pool_name: str) -> None:
         """Record the start, or raise the scripted failure for this pool."""

@@ -38,9 +38,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone  # noqa: F401 - timezone used in doctests  # pyright: ignore[reportUnusedImport]
 from enum import Enum
 from functools import lru_cache
-from typing import Any
+from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -1702,6 +1702,132 @@ class CheckZpoolsConfig(BaseModel):
     scrub: ScrubSettings = ScrubSettings()
 
 
+# ============================================================================
+# ZFS Wire Payload (the shape `zpool status -j --json-int` actually emits)
+# ============================================================================
+
+
+def _tolerant_int(value: Any) -> Any:
+    """Coerce a numeric field, falling back to 0 when ZFS emits something odd.
+
+    Why
+        The parser has always degraded a malformed numeric field to 0 rather
+        than aborting the whole status read: one strange value on one vdev must
+        not blind the monitor to every other pool. Declaring that here keeps
+        the behaviour while letting the models describe the payload.
+
+    Examples
+    --------
+    >>> _tolerant_int(42), _tolerant_int("42")
+    (42, 42)
+    >>> _tolerant_int("not-a-number")
+    0
+    """
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        logger.warning("Ignoring non-numeric value %r in zpool status output, using 0", value)
+        return 0
+
+
+#: An integer field that degrades to 0 instead of failing the whole parse.
+TolerantInt = Annotated[int, BeforeValidator(_tolerant_int)]
+
+
+class ScanStatsPayload(BaseModel):
+    """The `scan_stats` block of one pool, as ZFS emits it."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    function: str | None = None
+    state: str | None = None
+    start_time: TolerantInt = 0
+    end_time: TolerantInt = 0
+    to_examine: TolerantInt = 0
+    examined: TolerantInt = 0
+    issued: TolerantInt = 0
+    skipped: TolerantInt = 0
+    processed: TolerantInt = 0
+    errors: TolerantInt = 0
+    pass_start: TolerantInt = 0
+    scrub_spent_paused: TolerantInt = 0
+
+
+class VdevPayload(BaseModel):
+    """One vdev in the tree: the root, a mirror/raidz container, or a leaf device."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = "unknown"
+    vdev_type: str = ""
+    state: str = "UNAVAIL"
+    alloc_space: TolerantInt = 0
+    total_space: TolerantInt = 0
+    read_errors: TolerantInt = 0
+    write_errors: TolerantInt = 0
+    checksum_errors: TolerantInt = 0
+    vdevs: dict[str, VdevPayload] = {}
+
+    @property
+    def is_leaf_device(self) -> bool:
+        """Return True for a device that holds data, not a container vdev.
+
+        Why
+            Only leaves are worth reporting individually: a mirror showing
+            DEGRADED is a summary of the disk underneath it, and reporting both
+            would double-count one failure.
+
+        Examples
+        --------
+        >>> VdevPayload(vdev_type="disk").is_leaf_device
+        True
+        >>> VdevPayload(vdev_type="mirror").is_leaf_device
+        False
+        """
+        return self.vdev_type.lower() in ("disk", "file", "spare", "cache", "log")
+
+    @property
+    def has_errors(self) -> bool:
+        """Return True when this vdev reports any I/O or checksum error."""
+        return self.read_errors > 0 or self.write_errors > 0 or self.checksum_errors > 0
+
+
+class PoolPayload(BaseModel):
+    """One pool as reported by `zpool status -j`."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    name: str = ""
+    state: str = "UNKNOWN"
+    vdevs: dict[str, VdevPayload] = {}
+    scan_stats: ScanStatsPayload | None = None
+    #: Older ZFS builds name the same block `scan`.
+    scan: ScanStatsPayload | None = None
+
+    @property
+    def scan_block(self) -> ScanStatsPayload:
+        """Return the scan block under whichever key this ZFS version used."""
+        return self.scan_stats or self.scan or ScanStatsPayload()
+
+    def root_vdev(self) -> VdevPayload:
+        """Return the pool's root vdev, or an empty one when absent.
+
+        Why
+            The root vdev carries the pool-wide capacity and error counters;
+            an absent one means a malformed payload, and an empty vdev keeps
+            the caller on the degraded path rather than raising.
+        """
+        return self.vdevs.get(self.name, VdevPayload())
+
+
+class ZpoolStatusPayload(BaseModel):
+    """The whole `zpool status -j --json-int` document."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    pools: dict[str, PoolPayload] = {}
+
+
 __all__ = [
     "CheckResult",
     "CheckZpoolsConfig",
@@ -1714,14 +1840,18 @@ __all__ = [
     "PoolDecision",
     "PoolHealth",
     "PoolIssue",
+    "PoolPayload",
     "PoolScrubOutcome",
     "PoolStatus",
     "ScanFunction",
     "ScanRun",
     "ScanState",
+    "ScanStatsPayload",
     "ScrubAction",
     "ScrubCycleResult",
     "ScrubRunOptions",
     "ScrubSettings",
     "Severity",
+    "VdevPayload",
+    "ZpoolStatusPayload",
 ]

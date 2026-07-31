@@ -37,8 +37,8 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Protocol
 
 from .formatters import format_bytes_human
-from .models import PoolDecision, PoolScrubOutcome, ScanRun, ScrubAction, ScrubCycleResult, ScrubRunOptions
-from .zfs_client import ZFSCommandError, ZpoolStatusResponse
+from .models import PoolDecision, PoolScrubOutcome, ScanRun, ScrubAction, ScrubCycleResult, ScrubRunOptions, ZpoolStatusPayload
+from .zfs_client import ZFSCommandError
 from .zfs_parser import ZFSParser
 
 if TYPE_CHECKING:
@@ -59,7 +59,7 @@ class ZFSScrubPort(Protocol):
         internals.
     """
 
-    def get_pool_status(self) -> ZpoolStatusResponse:
+    def get_pool_status(self) -> ZpoolStatusPayload:
         """Return the validated `zpool status -j --json-int` response."""
         ...
 

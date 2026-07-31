@@ -29,9 +29,22 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Protocol
 
-from .models import CapacityInfo, DeviceState, DeviceStatus, PoolHealth, PoolStatus, ScanFunction, ScanRun, ScanState, ScrubInfo
+from .models import (
+    CapacityInfo,
+    DeviceState,
+    DeviceStatus,
+    PoolHealth,
+    PoolPayload,
+    PoolStatus,
+    ScanFunction,
+    ScanRun,
+    ScanState,
+    ScanStatsPayload,
+    ScrubInfo,
+    VdevPayload,
+    ZpoolStatusPayload,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -58,25 +71,6 @@ class ErrorCounts:
     read: int = 0
     write: int = 0
     checksum: int = 0
-
-
-class DictLike(Protocol):
-    """Protocol for dict-like objects supporting basic dict operations.
-
-    Why
-        Enables parser to accept both dict[str, Any] and Pydantic models
-        that implement dict-like interface, maintaining backward compatibility
-        while supporting new type-safe responses.
-    """
-
-    # Position-only, because dict's own methods declare them that way. With
-    # named parameters a plain dict does NOT satisfy this protocol, which is
-    # what forced callers into a redundant `dict[str, Any] | DictLike` union.
-    def get(self, key: str, default: Any = None, /) -> Any: ...
-
-    def __getitem__(self, key: str, /) -> Any: ...
-
-    def __contains__(self, key: str, /) -> bool: ...
 
 
 class ZFSParseError(ValueError):
@@ -123,7 +117,7 @@ class ZFSParser:
     'rpool'
     """
 
-    def parse_pool_status(self, json_data: DictLike) -> dict[str, PoolStatus]:
+    def parse_pool_status(self, json_data: ZpoolStatusPayload) -> dict[str, PoolStatus]:
         """Parse `zpool status -j --json-int` JSON output into PoolStatus objects.
 
         Why
@@ -148,12 +142,11 @@ class ZFSParser:
         pools: dict[str, PoolStatus] = {}
 
         try:
-            pools_data = json_data.get("pools", {})
-            if not pools_data:
+            if not json_data.pools:
                 logger.warning("No pools found in zpool status output")
                 return pools
 
-            for pool_name, pool_data in pools_data.items():
+            for pool_name, pool_data in json_data.pools.items():
                 pool_status = self._try_parse_pool(pool_name, pool_data)
                 if pool_status is not None:
                     pools[pool_name] = pool_status
@@ -164,7 +157,7 @@ class ZFSParser:
             logger.exception("Failed to parse zpool status output")
             raise ZFSParseError(f"Failed to parse zpool status output: {exc}") from exc
 
-    def parse_scan_runs(self, json_data: DictLike) -> dict[str, ScanRun]:
+    def parse_scan_runs(self, json_data: ZpoolStatusPayload) -> dict[str, ScanRun]:
         """Parse the `scan_stats` block of every pool into ScanRun objects.
 
         Why
@@ -175,8 +168,7 @@ class ZFSParser:
         Parameters
         ----------
         json_data:
-            The validated `zpool status -j --json-int` response (or any
-            mapping with the same shape - a plain dict satisfies DictLike).
+            The validated `zpool status -j --json-int` payload.
 
         Returns
         -------
@@ -192,11 +184,12 @@ class ZFSParser:
 
         Examples
         --------
+        >>> from check_zpools.models import ZpoolStatusPayload
         >>> parser = ZFSParser()
-        >>> data = {"pools": {"rpool": {"scan_stats": {
+        >>> data = ZpoolStatusPayload.model_validate({"pools": {"rpool": {"scan_stats": {
         ...     "function": "SCRUB", "state": "SCANNING",
         ...     "to_examine": 200, "examined": 100, "issued": 50, "errors": 0,
-        ... }}}}
+        ... }}}})
         >>> runs = parser.parse_scan_runs(data)
         >>> runs["rpool"].is_running, runs["rpool"].progress_percent
         (True, 25.0)
@@ -204,15 +197,14 @@ class ZFSParser:
         runs: dict[str, ScanRun] = {}
 
         try:
-            pools_data = json_data.get("pools", {})
-            for pool_name, pool_data in pools_data.items():
+            for pool_name, pool_data in json_data.pools.items():
                 runs[pool_name] = self._parse_scan_run(pool_name, pool_data)
             return runs
         except Exception as exc:
             logger.exception("Failed to parse scan stats from zpool status output")
             raise ZFSParseError(f"Failed to parse scan stats: {exc}") from exc
 
-    def _parse_scan_run(self, pool_name: str, pool_data: dict[str, Any]) -> ScanRun:
+    def _parse_scan_run(self, pool_name: str, pool_data: PoolPayload) -> ScanRun:
         """Build a ScanRun from one pool's `scan_stats` block.
 
         Why
@@ -232,22 +224,22 @@ class ZFSParser:
         ScanRun:
             Typed scan record for the pool.
         """
-        scan_info = pool_data.get("scan_stats", pool_data.get("scan", {})) or {}
+        scan = pool_data.scan_block
 
         return ScanRun(
             pool_name=pool_name,
-            function=ScanFunction.from_string(scan_info.get("function")),
-            state=ScanState.from_string(scan_info.get("state")),
-            start_time=self._parse_unix_time(scan_info.get("start_time")),
-            end_time=self._parse_unix_time(scan_info.get("end_time")),
-            to_examine_bytes=self._safe_int(scan_info.get("to_examine", 0)),
-            examined_bytes=self._safe_int(scan_info.get("examined", 0)),
-            issued_bytes=self._safe_int(scan_info.get("issued", 0)),
-            errors=self._safe_int(scan_info.get("errors", 0)),
-            paused_seconds=self._safe_int(scan_info.get("scrub_spent_paused", 0)),
+            function=ScanFunction.from_string(scan.function),
+            state=ScanState.from_string(scan.state),
+            start_time=self._parse_unix_time(scan.start_time),
+            end_time=self._parse_unix_time(scan.end_time),
+            to_examine_bytes=scan.to_examine,
+            examined_bytes=scan.examined,
+            issued_bytes=scan.issued,
+            errors=scan.errors,
+            paused_seconds=scan.scrub_spent_paused,
         )
 
-    def _parse_unix_time(self, value: Any) -> datetime | None:
+    def _parse_unix_time(self, value: int) -> datetime | None:
         """Convert a `--json-int` Unix timestamp to an aware datetime.
 
         Why
@@ -257,26 +249,22 @@ class ZFSParser:
         Parameters
         ----------
         value:
-            Raw timestamp value from the JSON.
+            Unix timestamp from the payload; 0 means "not set".
 
         Returns
         -------
         datetime | None:
             UTC timestamp, or None when unset or unparseable.
         """
-        try:
-            timestamp = int(value)
-        except (ValueError, TypeError):
-            return None
-        if timestamp <= 0:
+        if value <= 0:
             return None
         try:
-            return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+            return datetime.fromtimestamp(value, tz=timezone.utc)
         except (OverflowError, OSError) as exc:
-            logger.debug("Failed to convert timestamp %s: %s", timestamp, exc)
+            logger.debug("Failed to convert timestamp %s: %s", value, exc)
             return None
 
-    def _try_parse_pool(self, pool_name: str, pool_data: dict[str, Any]) -> PoolStatus | None:
+    def _try_parse_pool(self, pool_name: str, pool_data: PoolPayload) -> PoolStatus | None:
         """Parse a single pool, tolerating and logging per-pool failures.
 
         Why
@@ -302,7 +290,7 @@ class ZFSParser:
 
         return pool_status
 
-    def _parse_pool(self, pool_name: str, pool_data: dict[str, Any]) -> PoolStatus:
+    def _parse_pool(self, pool_name: str, pool_data: PoolPayload) -> PoolStatus:
         """Parse single pool from zpool status --json-int output.
 
         Parameters
@@ -318,11 +306,10 @@ class ZFSParser:
             Complete pool status with all metrics
         """
         # Extract health state
-        state = pool_data.get("state", "UNKNOWN")
-        health = self._parse_health_state(state, pool_name)
+        health = self._parse_health_state(pool_data.state, pool_name)
 
         # Extract capacity and error counts from root vdev
-        root_vdev = self._get_root_vdev(pool_data, pool_name)
+        root_vdev = pool_data.root_vdev()
         capacity_info = self._extract_capacity_from_vdev(root_vdev)
         errors = self._extract_errors_from_vdev(root_vdev)
 
@@ -350,25 +337,7 @@ class ZFSParser:
             scan_state=scrub_info.scan_state,
         )
 
-    def _get_root_vdev(self, pool_data: dict[str, Any], pool_name: str) -> dict[str, Any]:
-        """Get the root vdev for a pool.
-
-        Parameters
-        ----------
-        pool_data:
-            Pool data from JSON
-        pool_name:
-            Name of the pool (root vdev has same name)
-
-        Returns
-        -------
-        dict[str, Any]:
-            Root vdev data, or empty dict if not found
-        """
-        vdevs = pool_data.get("vdevs", {})
-        return vdevs.get(pool_name, {})
-
-    def _extract_capacity_from_vdev(self, root_vdev: dict[str, Any]) -> CapacityInfo:
+    def _extract_capacity_from_vdev(self, root_vdev: VdevPayload) -> CapacityInfo:
         """Extract capacity metrics from root vdev.
 
         With --json-int, values are already integers (bytes).
@@ -383,21 +352,8 @@ class ZFSParser:
         CapacityInfo:
             Typed container with capacity_percent, size_bytes, allocated_bytes, free_bytes
         """
-        # Get integer values directly (no string parsing needed)
-        alloc_space = root_vdev.get("alloc_space", 0)
-        total_space = root_vdev.get("total_space", 0)
-
-        # Ensure we have integers
-        try:
-            allocated_bytes = int(alloc_space)
-            size_bytes = int(total_space)
-        except (ValueError, TypeError):
-            logger.warning(
-                "Invalid capacity values in vdev",
-                extra={"alloc_space": alloc_space, "total_space": total_space},
-            )
-            allocated_bytes = 0
-            size_bytes = 0
+        allocated_bytes = root_vdev.alloc_space
+        size_bytes = root_vdev.total_space
 
         # Calculate derived values
         free_bytes = size_bytes - allocated_bytes if size_bytes > 0 else 0
@@ -410,7 +366,7 @@ class ZFSParser:
             free_bytes=free_bytes,
         )
 
-    def _extract_errors_from_vdev(self, root_vdev: dict[str, Any]) -> ErrorCounts:
+    def _extract_errors_from_vdev(self, root_vdev: VdevPayload) -> ErrorCounts:
         """Extract error counts from root vdev.
 
         With --json-int, values are already integers.
@@ -425,17 +381,13 @@ class ZFSParser:
         ErrorCounts:
             Type-safe container with read, write, and checksum error counts
         """
-        try:
-            return ErrorCounts(
-                read=int(root_vdev.get("read_errors", 0)),
-                write=int(root_vdev.get("write_errors", 0)),
-                checksum=int(root_vdev.get("checksum_errors", 0)),
-            )
-        except (ValueError, TypeError) as exc:
-            logger.warning("Invalid error counts in vdev: %s", exc)
-            return ErrorCounts()
+        return ErrorCounts(
+            read=root_vdev.read_errors,
+            write=root_vdev.write_errors,
+            checksum=root_vdev.checksum_errors,
+        )
 
-    def _extract_scrub_info(self, pool_data: dict[str, Any]) -> ScrubInfo:
+    def _extract_scrub_info(self, pool_data: PoolPayload) -> ScrubInfo:
         """Extract scrub information from pool status data.
 
         With --json-int, timestamps are Unix integers.
@@ -451,24 +403,18 @@ class ZFSParser:
             Typed container with last_scrub, scrub_errors, scrub_in_progress
             and the scan function those fields describe.
         """
-        scan_info = pool_data.get("scan_stats", pool_data.get("scan", {}))
+        scan_info = pool_data.scan_block
 
         # Parse scrub time from integer timestamp
         last_scrub = self._parse_scrub_time(scan_info)
 
-        # Get scrub errors (already integer with --json-int)
-        scrub_errors_raw = scan_info.get("errors", 0)
-        try:
-            scrub_errors = int(scrub_errors_raw)
-        except (ValueError, TypeError):
-            logger.warning("Invalid scrub_errors value '%s', using 0", scrub_errors_raw)
-            scrub_errors = 0
+        scrub_errors = scan_info.errors
 
         # A resilver occupies the same scan slot as a scrub, so SCANNING alone does
         # not mean "scrubbing" - a rebuilding pool would otherwise be reported as a
         # scrub in progress. Both the state AND the function have to agree.
-        scan_state = ScanState.from_string(scan_info.get("state"))
-        scan_function = ScanFunction.from_string(scan_info.get("function"))
+        scan_state = ScanState.from_string(scan_info.state)
+        scan_function = ScanFunction.from_string(scan_info.function)
         scrub_in_progress = scan_state == ScanState.SCANNING and scan_function == ScanFunction.SCRUB
 
         return ScrubInfo(
@@ -479,7 +425,7 @@ class ZFSParser:
             scan_state=scan_state,
         )
 
-    def _parse_scrub_time(self, scan_info: dict[str, Any]) -> datetime | None:
+    def _parse_scrub_time(self, scan_info: ScanStatsPayload) -> datetime | None:
         """Parse scrub completion time from scan info.
 
         With --json-int, timestamps are Unix integers.
@@ -494,21 +440,12 @@ class ZFSParser:
         datetime | None:
             Timestamp of last completed scrub in UTC, or None if never scrubbed
         """
-        if not scan_info:
-            return None
-
-        # Try timestamp fields in order of preference
-        # With --json-int these are already integers
-        for field in ["end_time", "pass_start", "start_time"]:
-            time_value = scan_info.get(field)
-            if time_value is not None:
-                try:
-                    timestamp = int(time_value)
-                    if timestamp > 0:
-                        return datetime.fromtimestamp(timestamp, tz=timezone.utc)
-                except (ValueError, TypeError, OSError) as exc:
-                    logger.debug("Failed to parse timestamp field '%s': %s", field, exc)
-                    continue
+        # In order of preference: when the scan ended, when this pass began,
+        # and finally when it started.
+        for timestamp in (scan_info.end_time, scan_info.pass_start, scan_info.start_time):
+            parsed = self._parse_unix_time(timestamp)
+            if parsed is not None:
+                return parsed
 
         return None
 
@@ -533,7 +470,7 @@ class ZFSParser:
             logger.warning("Unknown health state '%s' for pool %s, using OFFLINE", health_value, pool_name)
             return PoolHealth.OFFLINE
 
-    def _find_problematic_devices(self, vdev: dict[str, Any]) -> list[DeviceStatus]:
+    def _find_problematic_devices(self, vdev: VdevPayload) -> list[DeviceStatus]:
         """Recursively find devices that are faulted, degraded, or have errors.
 
         Why
@@ -554,29 +491,18 @@ class ZFSParser:
         """
         problematic: list[DeviceStatus] = []
 
-        # Check if this vdev itself is problematic (only for disk/leaf devices)
-        vdev_type = str(vdev.get("vdev_type", "")).lower()
-        state_str = str(vdev.get("state", "UNAVAIL")).upper()
-        device_state = DeviceState.from_string(state_str)
-        name = str(vdev.get("name", "unknown"))
-
-        # Get error counts
-        read_errors = self._safe_int(vdev.get("read_errors", 0))
-        write_errors = self._safe_int(vdev.get("write_errors", 0))
-        checksum_errors = self._safe_int(vdev.get("checksum_errors", 0))
+        vdev_type = vdev.vdev_type.lower()
+        device_state = DeviceState.from_string(vdev.state.upper())
+        name = vdev.name
 
         # Only report leaf devices (disks) - not containers like mirror/raidz
-        is_leaf = vdev_type in ("disk", "file", "spare", "cache", "log")
-        is_problematic = device_state.is_problematic()
-        has_errors = read_errors > 0 or write_errors > 0 or checksum_errors > 0
-
-        if is_leaf and (is_problematic or has_errors):
+        if vdev.is_leaf_device and (device_state.is_problematic() or vdev.has_errors):
             device = DeviceStatus(
                 name=name,
                 state=device_state,
-                read_errors=read_errors,
-                write_errors=write_errors,
-                checksum_errors=checksum_errors,
+                read_errors=vdev.read_errors,
+                write_errors=vdev.write_errors,
+                checksum_errors=vdev.checksum_errors,
                 vdev_type=vdev_type,
             )
             problematic.append(device)
@@ -586,38 +512,17 @@ class ZFSParser:
                 extra={
                     "device": name,
                     "state": device_state.value,
-                    "read_errors": read_errors,
-                    "write_errors": write_errors,
-                    "checksum_errors": checksum_errors,
+                    "read_errors": vdev.read_errors,
+                    "write_errors": vdev.write_errors,
+                    "checksum_errors": vdev.checksum_errors,
                 },
             )
 
         # Recursively check child vdevs
-        children = vdev.get("vdevs", {})
-        if isinstance(children, dict):
-            for child_vdev in children.values():
-                if isinstance(child_vdev, dict):
-                    problematic.extend(self._find_problematic_devices(child_vdev))
+        for child_vdev in vdev.vdevs.values():
+            problematic.extend(self._find_problematic_devices(child_vdev))
 
         return problematic
-
-    def _safe_int(self, value: Any) -> int:
-        """Safely convert value to int.
-
-        Parameters
-        ----------
-        value:
-            Value to convert.
-
-        Returns
-        -------
-        int:
-            Integer value, or 0 if conversion fails.
-        """
-        try:
-            return int(value)
-        except (ValueError, TypeError):
-            return 0
 
 
 __all__ = [

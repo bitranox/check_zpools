@@ -35,7 +35,7 @@ from unittest.mock import Mock
 import pytest
 
 from check_zpools.daemon import ZPoolDaemon
-from check_zpools.models import CheckResult, DaemonConfig, IssueCategory, IssueDetails, PoolIssue, PoolStatus, Severity
+from check_zpools.models import CheckResult, DaemonConfig, IssueCategory, IssueDetails, PoolIssue, PoolStatus, Severity, ZpoolStatusPayload
 
 # =============================================================================
 # OS Markers
@@ -180,7 +180,7 @@ def mock_zfs_client(healthy_pool_json: dict) -> Mock:
         Mock with get_pool_status method (single command with --json-int).
     """
     client = Mock()
-    client.get_pool_status.return_value = healthy_pool_json
+    client.get_pool_status.return_value = ZpoolStatusPayload.model_validate(healthy_pool_json)
     return client
 
 
@@ -533,7 +533,7 @@ class TestCheckCycleRecoversFromErrors:
         When: Running _run_check_cycle
         Then: Does not crash (returns normally)
         """
-        mock_zfs_client.get_pool_status.return_value = {"invalid": "data"}
+        mock_zfs_client.get_pool_status.return_value = ZpoolStatusPayload.model_validate({"invalid": "data"})
 
         # Should not raise
         daemon._run_check_cycle()
