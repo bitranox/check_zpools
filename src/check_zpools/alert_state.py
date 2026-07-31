@@ -397,19 +397,19 @@ class AlertStateManager:
         bool
             True if any state was cleared, False if no state existed.
         """
-        # For device category without specific device, clear all device issues for this pool
-        # Accept both string "device" and IssueCategory.DEVICE enum value
-        category_str = category.value if isinstance(category, IssueCategory) else category
-        if category_str == IssueCategory.DEVICE.value and device_name is None:
+        # Callers pass either the enum or its value; normalise once, at the
+        # edge, then compare enums rather than strings.
+        issue_category = category if isinstance(category, IssueCategory) else IssueCategory(category)
+        if issue_category is IssueCategory.DEVICE and device_name is None:
             return self._clear_all_device_issues(pool_name)
 
-        key = self._make_key(pool_name, category_str, device_name)
+        key = self._make_key(pool_name, issue_category, device_name)
         if key in self.states:
             del self.states[key]
             self.save_state()
             logger.info(
                 "Cleared resolved issue",
-                extra={"pool": pool_name, "category": category_str, "device": device_name},
+                extra={"pool": pool_name, "category": issue_category.value, "device": device_name},
             )
             return True
         return False

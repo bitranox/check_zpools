@@ -40,7 +40,7 @@ from enum import Enum
 from functools import lru_cache
 from typing import Annotated, Any
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +55,132 @@ HOST_PORT_PARTS_COUNT = 2
 
 
 # ============================================================================
-# Scan Enums (declared first: the boundary models below carry them)
+# Enums (declared first: the boundary models below carry them)
 # ============================================================================
+
+
+class Severity(str, Enum):
+    """Issue severity levels for monitoring alerts.
+
+    Why
+        Different issues require different response urgency. Severity levels
+        enable filtering, routing, and prioritization of alerts.
+
+    Values
+        OK: No issues detected
+        INFO: Informational message, no action required
+        WARNING: Issue detected, should be addressed soon
+        CRITICAL: Serious issue requiring immediate attention
+
+    Examples
+    --------
+    >>> Severity.CRITICAL
+    <Severity.CRITICAL: 'CRITICAL'>
+    >>> Severity.WARNING.value
+    'WARNING'
+    """
+
+    OK = "OK"
+    INFO = "INFO"
+    WARNING = "WARNING"
+    CRITICAL = "CRITICAL"
+
+    @lru_cache(maxsize=4)
+    def _order_value(self) -> int:
+        """Return numeric value for ordering comparisons.
+
+        Why Cached
+        ----------
+        Called frequently during severity comparisons (e.g., max() to find highest severity).
+        Only 4 possible enum values, perfect for caching with maxsize=4.
+        Eliminates repeated dict construction and lookup.
+        """
+        order = {
+            Severity.OK: 0,
+            Severity.INFO: 1,
+            Severity.WARNING: 2,
+            Severity.CRITICAL: 3,
+        }
+        return order[self]
+
+    def __lt__(self, other: object) -> bool:
+        """Compare severity levels for ordering.
+
+        Why
+            Enables finding the highest severity in a collection.
+
+        Examples
+        --------
+        >>> Severity.WARNING < Severity.CRITICAL
+        True
+        >>> max([Severity.INFO, Severity.CRITICAL, Severity.WARNING])
+        <Severity.CRITICAL: 'CRITICAL'>
+        """
+        if not isinstance(other, Severity):
+            return NotImplemented
+        return self._order_value() < other._order_value()
+
+    def __le__(self, other: object) -> bool:
+        """Less than or equal comparison."""
+        if not isinstance(other, Severity):
+            return NotImplemented
+        return self._order_value() <= other._order_value()
+
+    def __gt__(self, other: object) -> bool:
+        """Greater than comparison."""
+        if not isinstance(other, Severity):
+            return NotImplemented
+        return self._order_value() > other._order_value()
+
+    def __ge__(self, other: object) -> bool:
+        """Greater than or equal comparison."""
+        if not isinstance(other, Severity):
+            return NotImplemented
+        return self._order_value() >= other._order_value()
+
+    @lru_cache(maxsize=4)
+    def is_critical(self) -> bool:
+        """Return True if this severity level is critical.
+
+        Why
+        ----
+        Determines if immediate action is required based on severity.
+
+        Why Cached
+        ----------
+        Called frequently during alert processing. Only 4 possible enum values,
+        perfect for caching. Eliminates repeated comparisons.
+
+        Returns
+        -------
+        bool
+            True if severity is CRITICAL, False otherwise.
+
+        Examples
+        --------
+        >>> Severity.CRITICAL.is_critical()
+        True
+        >>> Severity.WARNING.is_critical()
+        False
+        """
+        return self == Severity.CRITICAL
+
+    def is_warning(self) -> bool:
+        """Return True if this severity level is warning.
+
+        Returns
+        -------
+        bool
+            True if severity is WARNING, False otherwise.
+
+        Examples
+        --------
+        >>> Severity.WARNING.is_warning()
+        True
+        >>> Severity.CRITICAL.is_warning()
+        False
+        """
+        return self == Severity.WARNING
 
 
 class ScanState(str, Enum):
@@ -294,15 +418,37 @@ class AlertConfig(BaseModel):
         Whether to send emails when issues are resolved (default: True).
     alert_on_severities:
         Which severity levels trigger alerts (default: CRITICAL, WARNING).
+        Parsed from the config file's strings by pydantic, so the wire format
+        is unchanged.
     """
 
     subject_prefix: str = "[ZFS Alert]"
     alert_recipients: list[str] = []
     send_ok_emails: bool = False
     send_recovery_emails: bool = True
-    alert_on_severities: list[str] = ["CRITICAL", "WARNING"]
+    alert_on_severities: list[Severity] = [Severity.CRITICAL, Severity.WARNING]
 
     model_config = ConfigDict(extra="ignore")
+
+    @field_validator("alert_on_severities", mode="before")
+    @classmethod
+    def _accept_any_case(cls, value: Any) -> Any:
+        """Accept severities in any case, as this setting always has.
+
+        Why
+            Severity names are upper case, but the config file is written by
+            hand and `alert_on_severities = ["critical"]` used to work - the
+            alerter upper-cased them before comparing. Folding case here keeps
+            that true while the field itself stays typed.
+
+        Examples
+        --------
+        >>> AlertConfig.model_validate({"alert_on_severities": ["critical"]}).alert_on_severities
+        [<Severity.CRITICAL: 'CRITICAL'>]
+        """
+        if isinstance(value, list):
+            return [item.upper() if isinstance(item, str) else item for item in value]
+        return value
 
 
 class ScrubSettings(BaseModel):
@@ -463,130 +609,6 @@ class PoolHealth(str, Enum):
         False
         """
         return self in (PoolHealth.FAULTED, PoolHealth.UNAVAIL, PoolHealth.REMOVED)
-
-
-class Severity(str, Enum):
-    """Issue severity levels for monitoring alerts.
-
-    Why
-        Different issues require different response urgency. Severity levels
-        enable filtering, routing, and prioritization of alerts.
-
-    Values
-        OK: No issues detected
-        INFO: Informational message, no action required
-        WARNING: Issue detected, should be addressed soon
-        CRITICAL: Serious issue requiring immediate attention
-
-    Examples
-    --------
-    >>> Severity.CRITICAL
-    <Severity.CRITICAL: 'CRITICAL'>
-    >>> Severity.WARNING.value
-    'WARNING'
-    """
-
-    OK = "OK"
-    INFO = "INFO"
-    WARNING = "WARNING"
-    CRITICAL = "CRITICAL"
-
-    @lru_cache(maxsize=4)
-    def _order_value(self) -> int:
-        """Return numeric value for ordering comparisons.
-
-        Why Cached
-        ----------
-        Called frequently during severity comparisons (e.g., max() to find highest severity).
-        Only 4 possible enum values, perfect for caching with maxsize=4.
-        Eliminates repeated dict construction and lookup.
-        """
-        order = {
-            Severity.OK: 0,
-            Severity.INFO: 1,
-            Severity.WARNING: 2,
-            Severity.CRITICAL: 3,
-        }
-        return order[self]
-
-    def __lt__(self, other: object) -> bool:
-        """Compare severity levels for ordering.
-
-        Why
-            Enables finding the highest severity in a collection.
-
-        Examples
-        --------
-        >>> Severity.WARNING < Severity.CRITICAL
-        True
-        >>> max([Severity.INFO, Severity.CRITICAL, Severity.WARNING])
-        <Severity.CRITICAL: 'CRITICAL'>
-        """
-        if not isinstance(other, Severity):
-            return NotImplemented
-        return self._order_value() < other._order_value()
-
-    def __le__(self, other: object) -> bool:
-        """Less than or equal comparison."""
-        if not isinstance(other, Severity):
-            return NotImplemented
-        return self._order_value() <= other._order_value()
-
-    def __gt__(self, other: object) -> bool:
-        """Greater than comparison."""
-        if not isinstance(other, Severity):
-            return NotImplemented
-        return self._order_value() > other._order_value()
-
-    def __ge__(self, other: object) -> bool:
-        """Greater than or equal comparison."""
-        if not isinstance(other, Severity):
-            return NotImplemented
-        return self._order_value() >= other._order_value()
-
-    @lru_cache(maxsize=4)
-    def is_critical(self) -> bool:
-        """Return True if this severity level is critical.
-
-        Why
-        ----
-        Determines if immediate action is required based on severity.
-
-        Why Cached
-        ----------
-        Called frequently during alert processing. Only 4 possible enum values,
-        perfect for caching. Eliminates repeated comparisons.
-
-        Returns
-        -------
-        bool
-            True if severity is CRITICAL, False otherwise.
-
-        Examples
-        --------
-        >>> Severity.CRITICAL.is_critical()
-        True
-        >>> Severity.WARNING.is_critical()
-        False
-        """
-        return self == Severity.CRITICAL
-
-    def is_warning(self) -> bool:
-        """Return True if this severity level is warning.
-
-        Returns
-        -------
-        bool
-            True if severity is WARNING, False otherwise.
-
-        Examples
-        --------
-        >>> Severity.WARNING.is_warning()
-        True
-        >>> Severity.CRITICAL.is_warning()
-        False
-        """
-        return self == Severity.WARNING
 
 
 class DeviceState(str, Enum):

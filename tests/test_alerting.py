@@ -695,9 +695,13 @@ def an_alerter_with_severity_config(alert_on_severities: list[str]) -> EmailAler
         smtp_password="pass",
         use_starttls=True,
     )
-    alert_config = AlertConfig(
-        alert_recipients=["admin@example.com"],
-        alert_on_severities=alert_on_severities,
+    # Validated rather than constructed: these come in as config-shaped
+    # strings, including the mixed-case ones the case-insensitivity test uses.
+    alert_config = AlertConfig.model_validate(
+        {
+            "alert_recipients": ["admin@example.com"],
+            "alert_on_severities": alert_on_severities,
+        }
     )
     return EmailAlerter(email_config, alert_config)
 
