@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import lib_log_rich.runtime
 import rich_click as click
@@ -12,46 +12,27 @@ from ...cli_email_handlers import handle_send_email_error, validate_smtp_configu
 from ...config import load_settings
 from ...mail import send_email
 
+if TYPE_CHECKING:
+    from ...models import EmailMessage
+
 logger = logging.getLogger(__name__)
 
 
-def _prepare_attachments(attachments: tuple[str, ...]) -> list[Path] | None:
-    """Convert attachment strings to Path objects.
+def _log_send_email_request(message: EmailMessage) -> None:
+    """Log the outgoing request.
 
-    Parameters
-    ----------
-    attachments:
-        Tuple of attachment file paths.
-
-    Returns
-    -------
-    list[Path] | None:
-        List of Path objects, or None if no attachments.
-    """
-    return [Path(p) for p in attachments] if attachments else None
-
-
-def _log_send_email_request(recipients: tuple[str, ...], subject: str, body_html: str, attachments: tuple[str, ...]) -> None:
-    """Log email send request details.
-
-    Parameters
-    ----------
-    recipients:
-        Email recipients.
-    subject:
-        Email subject.
-    body_html:
-        HTML body content.
-    attachments:
-        Attachment file paths.
+    Why
+        Takes the message rather than four of its fields: the group travels
+        together everywhere else, and splitting it here was the last place that
+        re-derived it.
     """
     logger.info(
-        "Sending email",
+        "Sending email via CLI",
         extra={
-            "recipients": list(recipients),
-            "subject": subject,
-            "has_html": bool(body_html),
-            "attachment_count": len(attachments) if attachments else 0,
+            "recipients": message.recipients,
+            "subject": message.subject,
+            "has_html": bool(message.body_html),
+            "attachment_count": len(message.attachments),
         },
     )
 
@@ -79,40 +60,22 @@ def _handle_send_result(*, result: bool, recipients: tuple[str, ...]) -> None:
         raise SystemExit(1)
 
 
-def send_email_command(
-    recipients: tuple[str, ...],
-    *,
-    subject: str,
-    body: str,
-    body_html: str,
-    from_address: str | None,
-    attachments: tuple[str, ...],
-) -> None:
+def send_email_command(message: EmailMessage) -> None:
     """Execute send-email command logic."""
     with lib_log_rich.runtime.bind(
         job_id="cli-send-email",
-        extra={"command": "send-email", "recipients": list(recipients), "subject": subject},
+        extra={"command": "send-email", "recipients": message.recipients, "subject": message.subject},
     ):
         try:
             # Load and validate email configuration
             email_config = load_settings().email
             validate_smtp_configuration(email_config)
 
-            # Prepare and send email
-            attachment_paths = _prepare_attachments(attachments)
-            _log_send_email_request(recipients, subject, body_html, attachments)
+            _log_send_email_request(message)
 
-            result = send_email(
-                config=email_config,
-                recipients=list(recipients),
-                subject=subject,
-                body=body,
-                body_html=body_html,
-                from_address=from_address,
-                attachments=attachment_paths,
-            )
+            result = send_email(config=email_config, message=message)
 
-            _handle_send_result(result=result, recipients=recipients)
+            _handle_send_result(result=result, recipients=tuple(message.recipients))
 
         except (ValueError, FileNotFoundError, RuntimeError) as exc:
             handle_send_email_error(exc, type(exc).__name__)

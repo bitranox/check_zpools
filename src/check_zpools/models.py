@@ -38,6 +38,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone  # noqa: F401 - timezone used in doctests  # pyright: ignore[reportUnusedImport]
 from enum import Enum
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated, Any, cast
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
@@ -1740,6 +1741,63 @@ class MonitorConfig(BaseModel):
         return self
 
 
+class EmailMessage(BaseModel):
+    """One outgoing message: everything except how to connect.
+
+    Why
+        These six fields travelled together through the CLI, the command layer
+        and the mail adapter - three signatures of six and seven parameters,
+        forwarding most of them unread. That group is an object; naming it also
+        removes the chance of transposing two same-typed arguments, which no
+        type checker would have caught.
+
+    Attributes
+    ----------
+    recipients:
+        Where the message goes.
+    subject:
+        Subject line.
+    body:
+        Plain-text body.
+    body_html:
+        Optional HTML body, sent as an alternative part.
+    from_address:
+        Override for the configured sender.
+    attachments:
+        Files to attach.
+
+    Examples
+    --------
+    >>> EmailMessage(recipients=["a@example.com"], subject="hi").body
+    ''
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    @field_validator("recipients", mode="before")
+    @classmethod
+    def _accept_a_single_address(cls, value: Any) -> Any:
+        """Wrap a bare address in a list, as this interface has always allowed.
+
+        The declared type stays `list[str]`, so type-checked callers are held to
+        the honest shape; this only rescues runtime input that arrives as a
+        single address - a config value, or the `send_notification` wrapper.
+
+        Examples
+        --------
+        >>> EmailMessage(recipients="a@example.com", subject="hi").recipients
+        ['a@example.com']
+        """
+        return [value] if isinstance(value, str) else value
+
+    recipients: list[str]
+    subject: str
+    body: str = ""
+    body_html: str = ""
+    from_address: str | None = None
+    attachments: list[Path] = []
+
+
 class CheckZpoolsConfig(BaseModel):
     """The whole application configuration, parsed once at the boundary.
 
@@ -1930,6 +1988,7 @@ __all__ = [
     "DeviceState",
     "DeviceStatus",
     "EmailConfig",
+    "EmailMessage",
     "ErrorKind",
     "InstallMethod",
     "IssueCategory",

@@ -404,9 +404,10 @@ class TestAlertSendingCallsSMTPWithFormattedContent:
         # Verify call parameters
         call_kwargs = mock_send.call_args.kwargs
         assert call_kwargs["config"] == alerter.email_config
-        assert call_kwargs["recipients"] == ["admin@example.com"]
-        assert "WARNING" in call_kwargs["subject"]
-        assert "rpool" in call_kwargs["body"]
+        message = call_kwargs["message"]
+        assert message.recipients == ["admin@example.com"]
+        assert "WARNING" in message.subject
+        assert "rpool" in message.body
 
     @patch("check_zpools.alerting.send_email")
     def test_returns_false_when_smtp_connection_fails(
@@ -503,8 +504,8 @@ class TestRecoverySendingRespectsConfiguration:
         mock_send.assert_called_once()
 
         call_kwargs = mock_send.call_args.kwargs
-        assert "RECOVERY" in call_kwargs["subject"]
-        assert "rpool" in call_kwargs["body"]
+        assert "RECOVERY" in call_kwargs["message"].subject
+        assert "rpool" in call_kwargs["message"].body
 
     def test_skips_sending_when_recovery_emails_disabled(self, email_config: EmailConfig) -> None:
         """When send_recovery_emails disabled, skips sending.

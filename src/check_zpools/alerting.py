@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 from . import __init__conf__
 from .formatters import format_bytes_human
 from .mail import EmailConfig, send_email
-from .models import AlertConfig, IssueCategory, PoolIssue, PoolStatus, Severity
+from .models import AlertConfig, EmailMessage, IssueCategory, PoolIssue, PoolStatus, Severity
 from .zfs_client import ZFSCommandError
 
 if TYPE_CHECKING:
@@ -147,9 +147,7 @@ class EmailAlerter:
         try:
             return send_email(
                 config=self.email_config,
-                recipients=self.recipients,
-                subject=subject,
-                body=body,
+                message=EmailMessage(recipients=self.recipients, subject=subject, body=body),
             )
         except Exception as exc:
             logger.exception(
@@ -212,9 +210,7 @@ class EmailAlerter:
         try:
             return send_email(
                 config=self.email_config,
-                recipients=self.recipients,
-                subject=subject,
-                body=body,
+                message=EmailMessage(recipients=self.recipients, subject=subject, body=body),
             )
         except Exception as exc:
             logger.exception(

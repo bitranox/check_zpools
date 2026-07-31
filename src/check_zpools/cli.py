@@ -18,6 +18,7 @@ targets register the console script defined in :mod:`check_zpools.__init__conf__
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import lib_cli_exit_tools
@@ -47,7 +48,7 @@ from .cli_traceback import (
     snapshot_traceback_state,
 )
 from .logging_setup import init_logging
-from .models import ConfigOutputFormat, OutputFormat
+from .models import ConfigOutputFormat, EmailMessage, OutputFormat
 from .typed_click import option, version_option
 
 if TYPE_CHECKING:
@@ -181,13 +182,17 @@ def cli_send_email(
     attachments: tuple[str, ...],
 ) -> None:
     """Send an email using configured SMTP settings."""
+    # Click hands over one parameter per option; the message is assembled here,
+    # at the boundary, so nothing below carries the six fields separately.
     send_email_command(
-        recipients,
-        subject=subject,
-        body=body,
-        body_html=body_html,
-        from_address=from_address,
-        attachments=attachments,
+        EmailMessage(
+            recipients=list(recipients),
+            subject=subject,
+            body=body,
+            body_html=body_html,
+            from_address=from_address,
+            attachments=[Path(a) for a in attachments],
+        )
     )
 
 

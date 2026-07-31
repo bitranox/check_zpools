@@ -28,7 +28,7 @@ from btx_lib_mail.lib_mail import ConfMail
 from btx_lib_mail.lib_mail import send as btx_send
 from pydantic import SecretStr
 
-from .models import EmailConfig
+from .models import EmailConfig, EmailMessage
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -172,16 +172,7 @@ def _log_email_failure(error: Exception, sender: str, recipients: str | Sequence
     )
 
 
-def send_email(
-    *,
-    config: EmailConfig,
-    recipients: str | Sequence[str],
-    subject: str,
-    body: str = "",
-    body_html: str = "",
-    from_address: str | None = None,
-    attachments: Sequence[Path] | None = None,
-) -> bool:
+def send_email(*, config: EmailConfig, message: EmailMessage) -> bool:
     """Send an email using configured SMTP settings.
 
     Why
@@ -192,6 +183,8 @@ def send_email(
     ----------
     config:
         Email configuration containing SMTP settings and defaults.
+    message:
+        The message to send.
     recipients:
         Single recipient address or sequence of addresses.
     subject:
@@ -235,40 +228,36 @@ def send_email(
     ...     smtp_hosts=["smtp.example.com"],
     ...     from_address="sender@example.com"
     ... )
+    >>> message = EmailMessage(recipients="recipient@example.com", subject="Test", body="Hello")
     >>> with patch("check_zpools.mail.btx_send", return_value=True):
-    ...     result = send_email(
-    ...         config=config,
-    ...         recipients="recipient@example.com",
-    ...         subject="Test",
-    ...         body="Hello"
-    ...     )
+    ...     result = send_email(config=config, message=message)
     >>> result
     True
     """
-    sender = _determine_sender(from_address, config)
-    _log_email_send_attempt(sender, recipients, subject, body_html, attachments)
+    sender = _determine_sender(message.from_address, config)
+    _log_email_send_attempt(sender, message.recipients, message.subject, message.body_html, message.attachments)
 
     try:
         credentials = _resolve_credentials(config)
 
         result = btx_send(
             mail_from=sender,
-            mail_recipients=recipients,
-            mail_subject=subject,
-            mail_body=body,
-            mail_body_html=body_html,
+            mail_recipients=message.recipients,
+            mail_subject=message.subject,
+            mail_body=message.body,
+            mail_body_html=message.body_html,
             smtphosts=config.smtp_hosts,
-            attachment_file_paths=attachments,
+            attachment_file_paths=message.attachments or None,
             credentials=credentials,
             use_starttls=config.use_starttls,
             timeout=config.timeout,
         )
 
-        _log_email_success(sender, recipients)
+        _log_email_success(sender, message.recipients)
         return result
 
     except Exception as e:
-        _log_email_failure(e, sender, recipients)
+        _log_email_failure(e, sender, message.recipients)
         raise
 
 
@@ -330,9 +319,7 @@ def send_notification(
     """
     return send_email(
         config=config,
-        recipients=recipients,
-        subject=subject,
-        body=message,
+        message=EmailMessage(recipients=list(recipients) if not isinstance(recipients, str) else [recipients], subject=subject, body=message),
     )
 
 

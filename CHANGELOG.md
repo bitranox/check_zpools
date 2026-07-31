@@ -38,6 +38,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Changed
 
+- `send_email()` takes an `EmailMessage` instead of six separate parameters,
+  and `send_notification()` builds one. Those six fields travelled together
+  through the CLI, the command layer and the mail adapter - a seven-parameter
+  function forwarding to a six-parameter one - and most were never read in
+  between. **This changes a public signature**; callers pass
+  `message=EmailMessage(...)`. A single address is still accepted where a list
+  is expected. The CLI surface is unchanged.
 - The configuration is parsed once into a typed `CheckZpoolsConfig` root model
   instead of an untyped mapping re-parsed by each consumer. This fixed a real
   disagreement: `behaviors` defaulted `alert_resend_interval_hours` to 24 while

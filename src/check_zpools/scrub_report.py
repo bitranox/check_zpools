@@ -31,7 +31,7 @@ from pydantic import BaseModel
 from . import __init__conf__
 from .formatters import format_bytes_human
 from .mail import send_email
-from .models import PoolScrubOutcome, ScanFunction, ScanRun, ScanState, ScrubAction, ScrubCycleResult
+from .models import EmailMessage, PoolScrubOutcome, ScanFunction, ScanRun, ScanState, ScrubAction, ScrubCycleResult
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -323,7 +323,7 @@ def send_scrub_summary(
     subject = build_scrub_subject(result, subject_prefix=subject_prefix, hostname=hostname)
     body = format_scrub_summary_text(result, hostname=hostname)
     logger.info("Sending scrub summary", extra={"recipients": recipients, "subject": subject})
-    return send_email(config=email_config, recipients=recipients, subject=subject, body=body)
+    return send_email(config=email_config, message=EmailMessage(recipients=recipients, subject=subject, body=body))
 
 
 __all__ = [

@@ -29,7 +29,7 @@ from check_zpools.mail import (
     send_notification,
     to_conf_mail,
 )
-from check_zpools.models import CheckZpoolsConfig
+from check_zpools.models import CheckZpoolsConfig, EmailMessage
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -221,12 +221,7 @@ class TestSendEmail:
         """Should deliver an email carrying the given subject and body."""
         config = _config_for(smtp_sink, from_address="sender@test.com")
 
-        result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Test body",
-        )
+        result = send_email(config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test Subject", body="Test body"))
 
         assert result is True
         mail = smtp_sink.only_mail
@@ -240,11 +235,7 @@ class TestSendEmail:
         config = _config_for(smtp_sink, from_address="sender@test.com")
 
         result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Plain text",
-            body_html="<h1>HTML</h1>",
+            config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test Subject", body="Plain text", body_html="<h1>HTML</h1>")
         )
 
         assert result is True
@@ -256,12 +247,7 @@ class TestSendEmail:
         """Should deliver to every recipient given."""
         config = _config_for(smtp_sink, from_address="sender@test.com")
 
-        result = send_email(
-            config=config,
-            recipients=["user1@test.com", "user2@test.com"],
-            subject="Test Subject",
-            body="Test body",
-        )
+        result = send_email(config=config, message=EmailMessage(recipients=["user1@test.com", "user2@test.com"], subject="Test Subject", body="Test body"))
 
         assert result is True
         # btx_lib_mail opens one envelope per recipient, so each arrives separately.
@@ -273,11 +259,7 @@ class TestSendEmail:
         config = _config_for(smtp_sink, from_address="default@test.com")
 
         result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Test body",
-            from_address="override@test.com",
+            config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test Subject", body="Test body", from_address="override@test.com")
         )
 
         assert result is True
@@ -300,11 +282,7 @@ class TestSendEmail:
         )
 
         result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Test body",
-            attachments=[attachment],
+            config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test Subject", body="Test body", attachments=[attachment])
         )
 
         assert result is True
@@ -322,12 +300,7 @@ class TestSendEmail:
             smtp_password=SINK_PASSWORD,
         )
 
-        result = send_email(
-            config=config,
-            recipients="recipient@test.com",
-            subject="Test Subject",
-            body="Test body",
-        )
+        result = send_email(config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test Subject", body="Test body"))
 
         assert result is True
         assert authenticating_smtp_sink.logins == [(SINK_USERNAME, SINK_PASSWORD)]
@@ -385,12 +358,7 @@ class TestEmailErrorScenarios:
 
         # btx_lib_mail wraps connection errors in RuntimeError
         with pytest.raises(RuntimeError, match=r"failed.*on all of following hosts"):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-            )
+            send_email(config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test", body="Hello"))
 
     def test_send_email_authentication_failure(self, authenticating_smtp_sink: SmtpSink) -> None:
         """Should raise RuntimeError when the server rejects the credentials."""
@@ -403,12 +371,7 @@ class TestEmailErrorScenarios:
 
         # btx_lib_mail wraps auth errors in RuntimeError
         with pytest.raises(RuntimeError, match=r"failed.*on all of following hosts"):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-            )
+            send_email(config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test", body="Hello"))
 
         assert authenticating_smtp_sink.delivered == []
 
@@ -429,13 +392,7 @@ class TestEmailErrorScenarios:
         )
 
         with pytest.raises(FileNotFoundError):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-                attachments=[nonexistent],
-            )
+            send_email(config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test", body="Hello", attachments=[nonexistent]))
 
     def test_send_email_all_smtp_hosts_fail(self, dead_smtp_host: str, dead_smtp_host_2: str) -> None:
         """Should raise RuntimeError when every configured SMTP host refuses."""
@@ -446,12 +403,7 @@ class TestEmailErrorScenarios:
         )
 
         with pytest.raises(RuntimeError, match="following recipients failed"):
-            send_email(
-                config=config,
-                recipients="recipient@test.com",
-                subject="Test",
-                body="Hello",
-            )
+            send_email(config=config, message=EmailMessage(recipients=["recipient@test.com"], subject="Test", body="Hello"))
 
 
 class TestLoadEmailConfigEdgeCases:
@@ -541,9 +493,11 @@ class TestRealSMTPIntegration:
 
         result = send_email(
             config=smtp_config,
-            recipients=smtp_config.from_address,  # Send to self
-            subject="Test Email from check_zpools",
-            body="This is a test email sent from the integration test suite.\n\nIf you receive this, the email functionality is working correctly.",
+            message=EmailMessage(
+                recipients=[smtp_config.from_address],  # Send to self
+                subject="Test Email from check_zpools",
+                body="This is a test email sent from the integration test suite.\n\nIf you receive this, the email functionality is working correctly.",
+            ),
         )
 
         assert result is True
@@ -555,10 +509,12 @@ class TestRealSMTPIntegration:
 
         result = send_email(
             config=smtp_config,
-            recipients=smtp_config.from_address,
-            subject="Test HTML Email from check_zpools",
-            body="This is the plain text version.",
-            body_html="<html><body><h1>Test Email</h1><p>This is a <strong>HTML</strong> test email.</p></body></html>",
+            message=EmailMessage(
+                recipients=[smtp_config.from_address],
+                subject="Test HTML Email from check_zpools",
+                body="This is the plain text version.",
+                body_html="<html><body><h1>Test Email</h1><p>This is a <strong>HTML</strong> test email.</p></body></html>",
+            ),
         )
 
         assert result is True
