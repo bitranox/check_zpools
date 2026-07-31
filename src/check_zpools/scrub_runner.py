@@ -34,12 +34,12 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from .formatters import format_bytes_human
-from .models import PoolScrubOutcome, ScanRun, ScrubAction, ScrubCycleResult, ScrubRunOptions
-from .zfs_client import ZFSCommandError
-from .zfs_parser import DictLike, ZFSParser
+from .models import PoolDecision, PoolScrubOutcome, ScanRun, ScrubAction, ScrubCycleResult, ScrubRunOptions
+from .zfs_client import ZFSCommandError, ZpoolStatusResponse
+from .zfs_parser import ZFSParser
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -59,8 +59,8 @@ class ZFSScrubPort(Protocol):
         internals.
     """
 
-    def get_pool_status(self) -> dict[str, Any] | DictLike:
-        """Return parsed `zpool status -j --json-int` output."""
+    def get_pool_status(self) -> ZpoolStatusResponse:
+        """Return the validated `zpool status -j --json-int` response."""
         ...
 
     def start_scrub(self, pool_name: str) -> None:
@@ -139,8 +139,8 @@ def run_scrub_cycle(
         extra={"pools": list(targets), "wait": active_options.wait, "dry_run": active_options.dry_run},
     )
 
-    actions = {
-        pool: _begin_pool(
+    decisions = [
+        _begin_pool(
             client,
             pool_name=pool,
             scan=scans.get(pool),
@@ -148,9 +148,9 @@ def run_scrub_cycle(
             dry_run=active_options.dry_run,
         )
         for pool in targets
-    }
+    ]
 
-    awaited = [pool for pool, (action, _) in actions.items() if action in (ScrubAction.STARTED, ScrubAction.ADOPTED)]
+    awaited = [d.pool_name for d in decisions if d.action in (ScrubAction.STARTED, ScrubAction.ADOPTED)]
     waited = active_options.wait and not active_options.dry_run
     if waited and awaited:
         scans = _wait_for_scans(
@@ -163,12 +163,12 @@ def run_scrub_cycle(
 
     outcomes = [
         PoolScrubOutcome(
-            pool_name=pool,
-            action=action,
-            reason=reason,
-            final_scan=scans.get(pool),
+            pool_name=decision.pool_name,
+            action=decision.action,
+            reason=decision.reason,
+            final_scan=scans.get(decision.pool_name),
         )
-        for pool, (action, reason) in actions.items()
+        for decision in decisions
     ]
 
     result = ScrubCycleResult(
@@ -214,7 +214,7 @@ def _begin_pool(
     scan: ScanRun | None,
     skip_if_other_scan_running: bool,
     dry_run: bool,
-) -> tuple[ScrubAction, str]:
+) -> PoolDecision:
     """Decide what to do with one pool and do it.
 
     Why
@@ -225,30 +225,31 @@ def _begin_pool(
 
     Returns
     -------
-    tuple[ScrubAction, str]:
-        The action taken and the reason (empty when nothing went wrong).
+    PoolDecision:
+        The pool, the action taken, and the reason (empty when nothing went
+        wrong).
     """
     if scan is None:
-        return ScrubAction.FAILED_TO_START, "pool not found on this host"
+        return PoolDecision(pool_name=pool_name, action=ScrubAction.FAILED_TO_START, reason="pool not found on this host")
 
     if scan.is_running:
         if scan.is_scrub:
             logger.info("Scrub already running, adopting it", extra={"pool": pool_name})
-            return ScrubAction.ADOPTED, ""
+            return PoolDecision(pool_name=pool_name, action=ScrubAction.ADOPTED)
         if skip_if_other_scan_running:
             reason = f"a {scan.function.value} is already running on this pool"
             logger.warning("Skipping pool", extra={"pool": pool_name, "reason": reason})
-            return ScrubAction.SKIPPED, reason
+            return PoolDecision(pool_name=pool_name, action=ScrubAction.SKIPPED, reason=reason)
 
     if dry_run:
-        return ScrubAction.DRY_RUN, ""
+        return PoolDecision(pool_name=pool_name, action=ScrubAction.DRY_RUN)
 
     try:
         client.start_scrub(pool_name)
     except ZFSCommandError as exc:
         logger.error("Failed to start scrub", extra={"pool": pool_name, "error": str(exc)})
-        return ScrubAction.FAILED_TO_START, str(exc)
-    return ScrubAction.STARTED, ""
+        return PoolDecision(pool_name=pool_name, action=ScrubAction.FAILED_TO_START, reason=str(exc))
+    return PoolDecision(pool_name=pool_name, action=ScrubAction.STARTED)
 
 
 def _wait_for_scans(

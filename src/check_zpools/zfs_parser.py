@@ -69,11 +69,14 @@ class DictLike(Protocol):
         while supporting new type-safe responses.
     """
 
-    def get(self, key: str, default: Any = None) -> Any: ...
+    # Position-only, because dict's own methods declare them that way. With
+    # named parameters a plain dict does NOT satisfy this protocol, which is
+    # what forced callers into a redundant `dict[str, Any] | DictLike` union.
+    def get(self, key: str, default: Any = None, /) -> Any: ...
 
-    def __getitem__(self, key: str) -> Any: ...
+    def __getitem__(self, key: str, /) -> Any: ...
 
-    def __contains__(self, key: str) -> bool: ...
+    def __contains__(self, key: str, /) -> bool: ...
 
 
 class ZFSParseError(ValueError):
@@ -120,7 +123,7 @@ class ZFSParser:
     'rpool'
     """
 
-    def parse_pool_status(self, json_data: dict[str, Any] | DictLike) -> dict[str, PoolStatus]:
+    def parse_pool_status(self, json_data: DictLike) -> dict[str, PoolStatus]:
         """Parse `zpool status -j --json-int` JSON output into PoolStatus objects.
 
         Why
@@ -161,7 +164,7 @@ class ZFSParser:
             logger.exception("Failed to parse zpool status output")
             raise ZFSParseError(f"Failed to parse zpool status output: {exc}") from exc
 
-    def parse_scan_runs(self, json_data: dict[str, Any] | DictLike) -> dict[str, ScanRun]:
+    def parse_scan_runs(self, json_data: DictLike) -> dict[str, ScanRun]:
         """Parse the `scan_stats` block of every pool into ScanRun objects.
 
         Why
@@ -172,7 +175,8 @@ class ZFSParser:
         Parameters
         ----------
         json_data:
-            Parsed JSON from `zpool status -j --json-int` command.
+            The validated `zpool status -j --json-int` response (or any
+            mapping with the same shape - a plain dict satisfies DictLike).
 
         Returns
         -------

@@ -1084,6 +1084,27 @@ class ScrubAction(str, Enum):
 
 
 @dataclass(frozen=True)
+class PoolDecision:
+    """What the runner decided to do with one pool, before it is known how it ended.
+
+    Why
+        The decision is a named triple, not a positional pair: carrying it as
+        `tuple[ScrubAction, str]` forced every reader to remember which slot
+        held the reason and left the pool name implicit in a surrounding dict
+        key.
+
+    Examples
+    --------
+    >>> PoolDecision(pool_name="rpool", action=ScrubAction.ADOPTED).reason
+    ''
+    """
+
+    pool_name: str
+    action: ScrubAction
+    reason: str = ""
+
+
+@dataclass(frozen=True)
 class PoolScrubOutcome:
     """Result of one pool's participation in a scrub cycle.
 
@@ -1346,6 +1367,7 @@ __all__ = [
     "DeviceStatus",
     "IssueCategory",
     "IssueDetails",
+    "PoolDecision",
     "PoolHealth",
     "PoolIssue",
     "PoolScrubOutcome",

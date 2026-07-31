@@ -21,20 +21,22 @@ a problem is decided by the domain model, not here.
 
 from __future__ import annotations
 
-import json
 import logging
 import socket
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel
 
 from . import __init__conf__
 from .formatters import format_bytes_human
 from .mail import send_email
+from .models import PoolScrubOutcome, ScanFunction, ScanRun, ScanState, ScrubAction, ScrubCycleResult
 
 if TYPE_CHECKING:
     from datetime import timedelta
 
     from .mail import EmailConfig
-    from .models import PoolScrubOutcome, ScrubCycleResult
 
 logger = logging.getLogger(__name__)
 
@@ -167,6 +169,91 @@ def _format_outcome(outcome: PoolScrubOutcome) -> list[str]:
     return lines
 
 
+class ScanReport(BaseModel):
+    """Serialisable view of one scan, for the JSON summary."""
+
+    function: ScanFunction
+    state: ScanState
+    start_time: datetime | None
+    end_time: datetime | None
+    progress_percent: float
+    examined_bytes: int
+    to_examine_bytes: int
+    issued_bytes: int
+    duration_seconds: float | None
+    errors: int
+
+    @classmethod
+    def from_scan(cls, scan: ScanRun) -> ScanReport:
+        """Build the report view from a domain scan record."""
+        return cls(
+            function=scan.function,
+            state=scan.state,
+            start_time=scan.start_time,
+            end_time=scan.end_time,
+            progress_percent=round(scan.progress_percent, 2),
+            examined_bytes=scan.examined_bytes,
+            to_examine_bytes=scan.to_examine_bytes,
+            issued_bytes=scan.issued_bytes,
+            duration_seconds=None if scan.duration is None else scan.duration.total_seconds(),
+            errors=scan.errors,
+        )
+
+
+class PoolReport(BaseModel):
+    """Serialisable view of one pool's outcome."""
+
+    pool: str
+    action: ScrubAction
+    reason: str
+    is_problem: bool
+    scan: ScanReport | None
+
+    @classmethod
+    def from_outcome(cls, outcome: PoolScrubOutcome) -> PoolReport:
+        """Build the report view from a domain outcome."""
+        return cls(
+            pool=outcome.pool_name,
+            action=outcome.action,
+            reason=outcome.reason,
+            is_problem=outcome.is_problem,
+            scan=None if outcome.final_scan is None else ScanReport.from_scan(outcome.final_scan),
+        )
+
+
+class ScrubSummaryReport(BaseModel):
+    """The whole scrub cycle as a serialisable document.
+
+    Why
+        The JSON a monitoring system consumes is an output boundary, so it is
+        declared as a model and emitted with `model_dump_json` rather than
+        assembled as a dict - the shape is then checked, not merely intended.
+    """
+
+    hostname: str
+    started_at: datetime
+    finished_at: datetime
+    duration_seconds: float
+    waited: bool
+    dry_run: bool
+    has_problems: bool
+    pools: list[PoolReport]
+
+    @classmethod
+    def from_result(cls, result: ScrubCycleResult, *, hostname: str) -> ScrubSummaryReport:
+        """Build the report document from a finished cycle."""
+        return cls(
+            hostname=hostname,
+            started_at=result.started_at,
+            finished_at=result.finished_at,
+            duration_seconds=result.duration.total_seconds(),
+            waited=result.waited,
+            dry_run=result.dry_run,
+            has_problems=result.has_problems(),
+            pools=[PoolReport.from_outcome(outcome) for outcome in result.outcomes],
+        )
+
+
 def format_scrub_summary_json(result: ScrubCycleResult, *, hostname: str | None = None) -> str:
     """Render the scrub cycle as JSON.
 
@@ -188,42 +275,7 @@ def format_scrub_summary_json(result: ScrubCycleResult, *, hostname: str | None 
     ('pbs', True, [])
     """
     host = hostname if hostname is not None else socket.gethostname()
-    payload: dict[str, Any] = {
-        "hostname": host,
-        "started_at": result.started_at.isoformat(),
-        "finished_at": result.finished_at.isoformat(),
-        "duration_seconds": result.duration.total_seconds(),
-        "waited": result.waited,
-        "dry_run": result.dry_run,
-        "has_problems": result.has_problems(),
-        "pools": [_outcome_as_dict(outcome) for outcome in result.outcomes],
-    }
-    return json.dumps(payload, indent=2)
-
-
-def _outcome_as_dict(outcome: PoolScrubOutcome) -> dict[str, Any]:
-    """Convert one outcome to a JSON-ready dict."""
-    scan = outcome.final_scan
-    return {
-        "pool": outcome.pool_name,
-        "action": outcome.action.value,
-        "reason": outcome.reason,
-        "is_problem": outcome.is_problem,
-        "scan": None
-        if scan is None
-        else {
-            "function": scan.function.value,
-            "state": scan.state.value,
-            "start_time": None if scan.start_time is None else scan.start_time.isoformat(),
-            "end_time": None if scan.end_time is None else scan.end_time.isoformat(),
-            "progress_percent": round(scan.progress_percent, 2),
-            "examined_bytes": scan.examined_bytes,
-            "to_examine_bytes": scan.to_examine_bytes,
-            "issued_bytes": scan.issued_bytes,
-            "duration_seconds": None if scan.duration is None else scan.duration.total_seconds(),
-            "errors": scan.errors,
-        },
-    }
+    return ScrubSummaryReport.from_result(result, hostname=host).model_dump_json(indent=2)
 
 
 def send_scrub_summary(

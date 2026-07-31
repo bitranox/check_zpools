@@ -20,7 +20,7 @@ import pytest
 
 from check_zpools.models import ScanState, ScrubAction, ScrubRunOptions
 from check_zpools.scrub_runner import run_scrub_cycle
-from check_zpools.zfs_client import ZFSCommandError
+from check_zpools.zfs_client import ZFSCommandError, ZpoolStatusResponse
 
 FIXED_NOW = datetime(2026, 7, 31, 7, 0, tzinfo=timezone.utc)
 
@@ -87,12 +87,15 @@ class ScriptedZFSClient:
         self.started: list[str] = []
         self.reads = 0
 
-    def get_pool_status(self) -> dict[str, Any]:
-        """Return the next scripted snapshot, repeating the last one."""
+    def get_pool_status(self) -> ZpoolStatusResponse:
+        """Return the next scripted snapshot, repeating the last one.
+
+        Validated through the same model the real client returns, so the double
+        cannot drift into a shape ZFSClient could never produce.
+        """
         self.reads += 1
-        if len(self.snapshots) > 1:
-            return self.snapshots.pop(0)
-        return self.snapshots[0]
+        payload = self.snapshots.pop(0) if len(self.snapshots) > 1 else self.snapshots[0]
+        return ZpoolStatusResponse.model_validate(payload)
 
     def start_scrub(self, pool_name: str) -> None:
         """Record the start, or raise the scripted failure for this pool."""
