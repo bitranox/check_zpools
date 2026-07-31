@@ -210,6 +210,12 @@ Extracts scrub information from pool status data:
 - `last_scrub` (datetime | None)
 - `scrub_errors` (int)
 - `scrub_in_progress` (bool)
+- `scan_function` / `scan_state` (enums)
+
+`scrub_in_progress` requires BOTH `state == SCANNING` and `function == SCRUB`. A
+resilver occupies the same scan slot, so testing the state alone reported a pool
+rebuilding redundancy as running a routine scrub. `PoolStatus.resilver_in_progress`
+covers the other case rather than leaving it invisible.
 
 These helpers eliminate duplication between `_parse_pool_from_list()` and `_parse_pool_from_status()`.
 

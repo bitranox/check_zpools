@@ -381,6 +381,8 @@ class EmailAlerter:
 
         if pool.scrub_in_progress:
             scrub_info += " [SCRUB IN PROGRESS]"
+        elif pool.resilver_in_progress:
+            scrub_info += " [RESILVER IN PROGRESS]"
 
         return [
             "",
@@ -601,6 +603,10 @@ class EmailAlerter:
 
         if pool.scrub_in_progress:
             lines.append("  NOTE: A scrub is currently in progress")
+        elif pool.resilver_in_progress:
+            # Worth its own line: a resilver means the pool is rebuilding
+            # redundancy, not running a routine integrity check.
+            lines.append("  NOTE: A resilver is currently in progress")
 
         lines.append("")
 

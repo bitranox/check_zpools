@@ -6,6 +6,22 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.8.1] 2026-07-31 14:52:28
+
+### Fixed
+- A resilver is no longer reported as a scrub in progress. `scan_stats` uses one
+  slot for both, and `PoolStatus.scrub_in_progress` was set by any `SCANNING`
+  state regardless of the scan function, so a pool rebuilding redundancy after a
+  device failure was described in alerts as running a routine integrity check.
+  It now requires the function to be `SCRUB` as well.
+- `PoolStatus` carries `scan_function` and `scan_state`, and gains a
+  `resilver_in_progress` property, so the distinction is available to consumers
+  rather than merely suppressed. Alert bodies say "RESILVER IN PROGRESS" and
+  "NOTE: A resilver is currently in progress" where they previously claimed a
+  scrub, and the daemon's per-pool state gains `resilver_in_progress`.
+- The scan enums (`ScanState`, `ScanFunction`) are declared before the boundary
+  models that now carry them; no behaviour change.
+
 ## [3.8.0] 2026-07-31 14:27:34
 
 ### Added
@@ -39,7 +55,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   still reads as a scrub in progress in the monitor and alerting path. The new
   scrub command does not rely on it (it reads `ScanRun.function`), and the flag
   is left unchanged here to avoid altering monitor behaviour in a feature
-  release.
+  release. Fixed in 3.8.1.
 
 ## [3.7.7] 2026-07-24 17:27:25
 

@@ -540,6 +540,7 @@ class ZPoolDaemon:
                     "last_scrub": last_scrub,
                     "scrub_errors": pool.scrub_errors,
                     "scrub_in_progress": pool.scrub_in_progress,
+                    "resilver_in_progress": pool.resilver_in_progress,
                 },
             )
 

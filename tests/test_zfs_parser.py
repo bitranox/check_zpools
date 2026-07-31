@@ -136,6 +136,46 @@ class TestParsePoolStatus:
         assert rpool.scrub_errors == 0
         assert rpool.scrub_in_progress is False
 
+    def test_a_running_scrub_sets_scrub_in_progress(self, parser: ZFSParser) -> None:
+        """Given a pool scrubbing, when parsed, then scrub_in_progress is True."""
+        data = {"pools": {"tank": {"scan_stats": {"function": "SCRUB", "state": "SCANNING"}}}}
+
+        pool = parser.parse_pool_status(data)["tank"]
+
+        assert pool.scrub_in_progress is True
+        assert pool.resilver_in_progress is False
+
+    def test_a_resilver_does_not_count_as_a_scrub_in_progress(self, parser: ZFSParser) -> None:
+        """Given a pool resilvering, when parsed, then it is not reported as scrubbing.
+
+        A resilver occupies the same scan slot as a scrub. Reporting it as
+        "scrub in progress" told operators the pool was running a routine
+        integrity check while it was actually rebuilding redundancy.
+        """
+        data = {"pools": {"tank": {"scan_stats": {"function": "RESILVER", "state": "SCANNING"}}}}
+
+        pool = parser.parse_pool_status(data)["tank"]
+
+        assert pool.scrub_in_progress is False
+        assert pool.resilver_in_progress is True
+
+    def test_a_finished_resilver_is_not_in_progress(self, parser: ZFSParser) -> None:
+        """Given a resilver that ended, when parsed, then nothing is reported as running."""
+        data = {"pools": {"tank": {"scan_stats": {"function": "RESILVER", "state": "FINISHED"}}}}
+
+        pool = parser.parse_pool_status(data)["tank"]
+
+        assert pool.scrub_in_progress is False
+        assert pool.resilver_in_progress is False
+
+    def test_an_unmodelled_scan_is_not_reported_as_a_scrub(self, parser: ZFSParser) -> None:
+        """Given a scan function this version does not model, when parsed, then it is not a scrub."""
+        data = {"pools": {"tank": {"scan_stats": {"function": "ERRORSCRUB", "state": "SCANNING"}}}}
+
+        pool = parser.parse_pool_status(data)["tank"]
+
+        assert pool.scrub_in_progress is False
+
     def test_parse_scrub_errors(self, parser: ZFSParser, zpool_status_with_errors: dict) -> None:
         """Verify parser detects scrub errors."""
         pools = parser.parse_pool_status(zpool_status_with_errors)

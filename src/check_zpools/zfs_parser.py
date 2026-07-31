@@ -342,6 +342,8 @@ class ZFSParser:
             scrub_errors=scrub_info.scrub_errors,
             scrub_in_progress=scrub_info.scrub_in_progress,
             faulted_devices=tuple(faulted_devices),
+            scan_function=scrub_info.scan_function,
+            scan_state=scrub_info.scan_state,
         )
 
     def _get_root_vdev(self, pool_data: dict[str, Any], pool_name: str) -> dict[str, Any]:
@@ -443,6 +445,7 @@ class ZFSParser:
         -------
         ScrubInfo:
             Typed container with last_scrub, scrub_errors, scrub_in_progress
+            and the scan function those fields describe.
         """
         scan_info = pool_data.get("scan_stats", pool_data.get("scan", {}))
 
@@ -457,14 +460,19 @@ class ZFSParser:
             logger.warning("Invalid scrub_errors value '%s', using 0", scrub_errors_raw)
             scrub_errors = 0
 
-        # Check if scrub is in progress using ScanState enum
+        # A resilver occupies the same scan slot as a scrub, so SCANNING alone does
+        # not mean "scrubbing" - a rebuilding pool would otherwise be reported as a
+        # scrub in progress. Both the state AND the function have to agree.
         scan_state = ScanState.from_string(scan_info.get("state"))
-        scrub_in_progress = scan_state == ScanState.SCANNING
+        scan_function = ScanFunction.from_string(scan_info.get("function"))
+        scrub_in_progress = scan_state == ScanState.SCANNING and scan_function == ScanFunction.SCRUB
 
         return ScrubInfo(
             last_scrub=last_scrub,
             scrub_errors=scrub_errors,
             scrub_in_progress=scrub_in_progress,
+            scan_function=scan_function,
+            scan_state=scan_state,
         )
 
     def _parse_scrub_time(self, scan_info: dict[str, Any]) -> datetime | None:

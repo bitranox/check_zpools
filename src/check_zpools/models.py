@@ -45,6 +45,119 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# Scan Enums (declared first: the boundary models below carry them)
+# ============================================================================
+
+
+class ScanState(str, Enum):
+    """ZFS scan (scrub/resilver) states.
+
+    Why
+        Scan states indicate the current scrub/resilver activity status.
+        Using an enum provides type safety for state comparisons.
+
+    Values
+        NONE: No scan has ever been run
+        SCANNING: Scan is currently in progress
+        FINISHED: Last scan completed successfully
+        CANCELED: Last scan was canceled
+    """
+
+    NONE = "NONE"
+    SCANNING = "SCANNING"
+    FINISHED = "FINISHED"
+    CANCELED = "CANCELED"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> ScanState:
+        """Parse a string to ScanState.
+
+        Parameters
+        ----------
+        value:
+            String representation of the scan state.
+
+        Returns
+        -------
+        ScanState:
+            The corresponding enum value.
+        """
+        if value is None:
+            return cls.NONE
+        try:
+            return cls(value.upper())
+        except ValueError:
+            return cls.NONE
+
+
+class ScanFunction(str, Enum):
+    """Which kind of scan `scan_stats` describes.
+
+    Why
+        `ScanState.SCANNING` alone does not say WHAT is running. A resilver and
+        an error scrub occupy the same scan slot as a scrub, so a caller that
+        wants to start a scrub must be able to tell them apart - starting a
+        scrub while another scan owns the slot fails.
+
+    Values
+        NONE: No scan recorded
+        SCRUB: Regular data scrub
+        RESILVER: Device resilver after a replacement or a reattached device
+        ERRORSCRUB: Error-log scrub (OpenZFS 2.2+)
+        REBUILD: Sequential resilver / rebuild
+        UNKNOWN: A scan function this version does not model
+
+    Examples
+    --------
+    >>> ScanFunction.from_string("SCRUB")
+    <ScanFunction.SCRUB: 'SCRUB'>
+    >>> ScanFunction.from_string(None)
+    <ScanFunction.NONE: 'NONE'>
+    """
+
+    NONE = "NONE"
+    SCRUB = "SCRUB"
+    RESILVER = "RESILVER"
+    ERRORSCRUB = "ERRORSCRUB"
+    REBUILD = "REBUILD"
+    UNKNOWN = "UNKNOWN"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> ScanFunction:
+        """Parse a string to ScanFunction.
+
+        Why UNKNOWN rather than NONE for an unrecognised value
+            NONE means "nothing is running". Mapping an unmodelled function to
+            it would let a caller start a scrub while some other scan already
+            owns the slot. UNKNOWN keeps "something is running" true.
+
+        Parameters
+        ----------
+        value:
+            String representation of the scan function.
+
+        Returns
+        -------
+        ScanFunction:
+            The corresponding enum value.
+
+        Examples
+        --------
+        >>> ScanFunction.from_string("resilver")
+        <ScanFunction.RESILVER: 'RESILVER'>
+        >>> ScanFunction.from_string("SOMETHING_NEW")
+        <ScanFunction.UNKNOWN: 'UNKNOWN'>
+        """
+        if value is None:
+            return cls.NONE
+        try:
+            return cls(value.upper())
+        except ValueError:
+            logger.debug("Unknown scan function '%s', treating as UNKNOWN", value)
+            return cls.UNKNOWN
+
+
+# ============================================================================
 # Configuration Models (Pydantic for external boundary parsing)
 # ============================================================================
 
@@ -158,11 +271,27 @@ class ScrubInfo(BaseModel):
     Why
         Replaces dict[str, Any] returned by _extract_scrub_info.
         Provides type-safe container for scrub values.
+
+    Attributes
+    ----------
+    last_scrub:
+        Timestamp of the last completed scan, or None if never scanned.
+    scrub_errors:
+        Errors the scan reported.
+    scrub_in_progress:
+        Whether a SCRUB specifically is running. A resilver occupies the same
+        scan slot but is not a scrub, so it does not set this flag.
+    scan_function:
+        Which kind of scan the fields above describe.
+    scan_state:
+        The state of that scan.
     """
 
     last_scrub: datetime | None
     scrub_errors: int
     scrub_in_progress: bool
+    scan_function: ScanFunction = ScanFunction.NONE
+    scan_state: ScanState = ScanState.NONE
 
 
 # ============================================================================
@@ -484,114 +613,6 @@ class IssueCategory(str, Enum):
     DEVICE = "device"
 
 
-class ScanState(str, Enum):
-    """ZFS scan (scrub/resilver) states.
-
-    Why
-        Scan states indicate the current scrub/resilver activity status.
-        Using an enum provides type safety for state comparisons.
-
-    Values
-        NONE: No scan has ever been run
-        SCANNING: Scan is currently in progress
-        FINISHED: Last scan completed successfully
-        CANCELED: Last scan was canceled
-    """
-
-    NONE = "NONE"
-    SCANNING = "SCANNING"
-    FINISHED = "FINISHED"
-    CANCELED = "CANCELED"
-
-    @classmethod
-    def from_string(cls, value: str | None) -> ScanState:
-        """Parse a string to ScanState.
-
-        Parameters
-        ----------
-        value:
-            String representation of the scan state.
-
-        Returns
-        -------
-        ScanState:
-            The corresponding enum value.
-        """
-        if value is None:
-            return cls.NONE
-        try:
-            return cls(value.upper())
-        except ValueError:
-            return cls.NONE
-
-
-class ScanFunction(str, Enum):
-    """Which kind of scan `scan_stats` describes.
-
-    Why
-        `ScanState.SCANNING` alone does not say WHAT is running. A resilver and
-        an error scrub occupy the same scan slot as a scrub, so a caller that
-        wants to start a scrub must be able to tell them apart - starting a
-        scrub while another scan owns the slot fails.
-
-    Values
-        NONE: No scan recorded
-        SCRUB: Regular data scrub
-        RESILVER: Device resilver after a replacement or a reattached device
-        ERRORSCRUB: Error-log scrub (OpenZFS 2.2+)
-        REBUILD: Sequential resilver / rebuild
-        UNKNOWN: A scan function this version does not model
-
-    Examples
-    --------
-    >>> ScanFunction.from_string("SCRUB")
-    <ScanFunction.SCRUB: 'SCRUB'>
-    >>> ScanFunction.from_string(None)
-    <ScanFunction.NONE: 'NONE'>
-    """
-
-    NONE = "NONE"
-    SCRUB = "SCRUB"
-    RESILVER = "RESILVER"
-    ERRORSCRUB = "ERRORSCRUB"
-    REBUILD = "REBUILD"
-    UNKNOWN = "UNKNOWN"
-
-    @classmethod
-    def from_string(cls, value: str | None) -> ScanFunction:
-        """Parse a string to ScanFunction.
-
-        Why UNKNOWN rather than NONE for an unrecognised value
-            NONE means "nothing is running". Mapping an unmodelled function to
-            it would let a caller start a scrub while some other scan already
-            owns the slot. UNKNOWN keeps "something is running" true.
-
-        Parameters
-        ----------
-        value:
-            String representation of the scan function.
-
-        Returns
-        -------
-        ScanFunction:
-            The corresponding enum value.
-
-        Examples
-        --------
-        >>> ScanFunction.from_string("resilver")
-        <ScanFunction.RESILVER: 'RESILVER'>
-        >>> ScanFunction.from_string("SOMETHING_NEW")
-        <ScanFunction.UNKNOWN: 'UNKNOWN'>
-        """
-        if value is None:
-            return cls.NONE
-        try:
-            return cls(value.upper())
-        except ValueError:
-            logger.debug("Unknown scan function '%s', treating as UNKNOWN", value)
-            return cls.UNKNOWN
-
-
 class IssueDetails(BaseModel):
     """Structured details for a pool issue.
 
@@ -820,6 +841,8 @@ class PoolStatus:
     scrub_errors: int
     scrub_in_progress: bool
     faulted_devices: tuple[DeviceStatus, ...] = ()
+    scan_function: ScanFunction = ScanFunction.NONE
+    scan_state: ScanState = ScanState.NONE
 
     def has_errors(self) -> bool:
         """Return True if pool has any I/O or checksum errors.
@@ -839,6 +862,39 @@ class PoolStatus:
         True
         """
         return self.read_errors > 0 or self.write_errors > 0 or self.checksum_errors > 0
+
+    @property
+    def resilver_in_progress(self) -> bool:
+        """Return True while this pool is resilvering.
+
+        Why
+            A resilver and a scrub share one scan slot in ZFS, so before this
+            existed the only signal, `scrub_in_progress`, was set by both and a
+            rebuilding pool was reported as "scrub in progress". They need
+            different words: a scrub is routine, a resilver means the pool is
+            rebuilding redundancy after a device failure or replacement.
+
+        Examples
+        --------
+        >>> pool = PoolStatus(
+        ...     name="test", health=PoolHealth.DEGRADED, capacity_percent=50.0,
+        ...     size_bytes=1000, allocated_bytes=500, free_bytes=500,
+        ...     read_errors=0, write_errors=0, checksum_errors=0,
+        ...     last_scrub=None, scrub_errors=0, scrub_in_progress=False,
+        ...     scan_function=ScanFunction.RESILVER, scan_state=ScanState.SCANNING,
+        ... )
+        >>> pool.resilver_in_progress
+        True
+        >>> pool.scrub_in_progress
+        False
+
+        A resilver that has already finished is not in progress:
+
+        >>> import dataclasses
+        >>> dataclasses.replace(pool, scan_state=ScanState.FINISHED).resilver_in_progress
+        False
+        """
+        return self.scan_function == ScanFunction.RESILVER and self.scan_state == ScanState.SCANNING
 
 
 @dataclass(frozen=True)

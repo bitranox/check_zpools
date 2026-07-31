@@ -38,7 +38,17 @@ import rtoml
 
 from check_zpools.alerting import EmailAlerter
 from check_zpools.mail import EmailConfig
-from check_zpools.models import AlertConfig, IssueCategory, IssueDetails, PoolHealth, PoolIssue, PoolStatus, Severity
+from check_zpools.models import (
+    AlertConfig,
+    IssueCategory,
+    IssueDetails,
+    PoolHealth,
+    PoolIssue,
+    PoolStatus,
+    ScanFunction,
+    ScanState,
+    Severity,
+)
 
 # ============================================================================
 # Test Data Builders
@@ -603,6 +613,35 @@ class TestAlertBodyHandlesScrubEdgeCases:
         body = alerter._format_body(sample_issue, pool)
 
         assert "SCRUB IN PROGRESS" in body or "scrub" in body.lower()
+
+    def test_names_a_resilver_as_a_resilver(self, alerter: EmailAlerter, sample_issue: PoolIssue) -> None:
+        """When the pool is resilvering, the body says resilver, not scrub.
+
+        Given: Pool rebuilding redundancy after a device replacement
+        When: Formatting alert body
+        Then: Body reports a resilver in progress, not a scrub in progress
+        """
+        pool = PoolStatus(
+            name="rpool",
+            health=PoolHealth.DEGRADED,
+            capacity_percent=50.0,
+            size_bytes=1024**4,
+            allocated_bytes=int(0.5 * 1024**4),
+            free_bytes=int(0.5 * 1024**4),
+            read_errors=0,
+            write_errors=0,
+            checksum_errors=0,
+            last_scrub=datetime.now(timezone.utc),
+            scrub_errors=0,
+            scrub_in_progress=False,
+            scan_function=ScanFunction.RESILVER,
+            scan_state=ScanState.SCANNING,
+        )
+
+        body = alerter._format_body(sample_issue, pool)
+
+        assert "RESILVER IN PROGRESS" in body
+        assert "SCRUB IN PROGRESS" not in body
 
     def test_shows_never_scrubbed_status(self, alerter: EmailAlerter, sample_issue: PoolIssue) -> None:
         """When pool was never scrubbed, shows 'Never' in body.
