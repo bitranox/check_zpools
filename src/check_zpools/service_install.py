@@ -40,6 +40,8 @@ from typing import TYPE_CHECKING, Any
 
 import rich_click as click
 
+from .models import DaemonConfig
+
 if TYPE_CHECKING:
     import psutil
 
@@ -883,27 +885,29 @@ def _load_alert_state() -> dict[str, Any]:
         return {}
 
 
-def _get_daemon_config() -> dict[str, Any]:
-    """Load daemon configuration from layered config.
+def _get_daemon_config() -> DaemonConfig:
+    """Load the daemon configuration section.
 
     Why
-        Uses the project's existing config adapter to read the daemon section,
-        ensuring service status displays the same thresholds used at runtime.
+        Reads the same validated section the daemon itself runs on, so the
+        status display cannot show thresholds that differ from the running
+        ones. Falls back to defaults rather than failing: this only feeds a
+        status screen, and an unrelated config problem must not break
+        install/uninstall.
 
     Returns
     -------
-    dict
-        Daemon configuration section, or empty dict on error.
+    DaemonConfig
+        The daemon section, or its defaults when the config cannot be read.
     """
     try:
         # Deferred: isolates config-loading failures to the status display path
         # instead of risking install/uninstall on an unrelated config import error.
-        from .config import get_config  # noqa: PLC0415
+        from .config import load_settings  # noqa: PLC0415
 
-        config_dict = get_config().as_dict()
-        return config_dict.get("daemon", {})
-    except (ImportError, KeyError, OSError):
-        return {}
+        return load_settings().daemon
+    except (ImportError, KeyError, OSError, ValueError):
+        return DaemonConfig()
 
 
 def _get_pool_status_summary() -> tuple[int, int, list[str]]:
@@ -962,8 +966,8 @@ def _display_daemon_config() -> float:
         the resend interval is also needed by _display_alert_states_section.
     """
     daemon_config = _get_daemon_config()
-    check_interval = daemon_config.get("check_interval_seconds", 300)
-    resend_hours = daemon_config.get("alert_resend_interval_hours", 2)
+    check_interval = daemon_config.check_interval_seconds
+    resend_hours = daemon_config.alert_resend_interval_hours
 
     click.echo("\nDaemon Configuration:")
     click.echo("-" * 56)

@@ -35,7 +35,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from check_zpools import behaviors
-from check_zpools.models import CheckResult, DaemonConfig, PoolStatus
+from check_zpools.models import CheckResult, CheckZpoolsConfig, DaemonConfig, PoolStatus
 
 # =============================================================================
 # OS Markers
@@ -159,7 +159,7 @@ class TestMonitorConfigurationBuildsWithDefaults:
         """
         config: dict = {}
 
-        result = behaviors._build_monitor_config(config)
+        result = CheckZpoolsConfig.model_validate(config).zfs
 
         assert result.capacity_warning_percent == 80, "Default warning should be 80%"
         assert result.capacity_critical_percent == 90, "Default critical should be 90%"
@@ -173,7 +173,7 @@ class TestMonitorConfigurationBuildsWithDefaults:
         """
         config: dict = {}
 
-        result = behaviors._build_monitor_config(config)
+        result = CheckZpoolsConfig.model_validate(config).zfs
 
         assert result.scrub_max_age_days == 30, "Default scrub age should be 30 days"
 
@@ -186,7 +186,7 @@ class TestMonitorConfigurationBuildsWithDefaults:
         """
         config: dict = {}
 
-        result = behaviors._build_monitor_config(config)
+        result = CheckZpoolsConfig.model_validate(config).zfs
 
         assert result.read_errors_warning == 1, "Default read errors should be 1"
         assert result.write_errors_warning == 1, "Default write errors should be 1"
@@ -210,7 +210,7 @@ class TestMonitorConfigurationAcceptsCustomValues:
             }
         }
 
-        result = behaviors._build_monitor_config(config)
+        result = CheckZpoolsConfig.model_validate(config).zfs
 
         assert result.capacity_warning_percent == 70, "Custom warning should be used"
         assert result.capacity_critical_percent == 85, "Custom critical should be used"
@@ -224,7 +224,7 @@ class TestMonitorConfigurationAcceptsCustomValues:
         """
         config = {"zfs": {"scrub_max_age_days": 60}}
 
-        result = behaviors._build_monitor_config(config)
+        result = CheckZpoolsConfig.model_validate(config).zfs
 
         assert result.scrub_max_age_days == 60, "Custom scrub age should be used"
 
@@ -243,7 +243,7 @@ class TestMonitorConfigurationAcceptsCustomValues:
             }
         }
 
-        result = behaviors._build_monitor_config(config)
+        result = CheckZpoolsConfig.model_validate(config).zfs
 
         assert result.read_errors_warning == 5, "Custom read errors should be used"
         assert result.write_errors_warning == 3, "Custom write errors should be used"
@@ -263,7 +263,7 @@ class TestMonitorConfigurationRejectsInvalidCapacityThresholds:
         config = {"zfs": {"capacity_warning_percent": -1}}
 
         with pytest.raises(ValueError, match="capacity_warning_percent must be between 0 and 100"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_rejects_warning_threshold_of_zero(self) -> None:
         """When warning threshold is exactly zero, raises ValueError.
@@ -275,7 +275,7 @@ class TestMonitorConfigurationRejectsInvalidCapacityThresholds:
         config = {"zfs": {"capacity_warning_percent": 0}}
 
         with pytest.raises(ValueError, match="capacity_warning_percent must be between 0 and 100"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_rejects_warning_threshold_above_100(self) -> None:
         """When warning threshold exceeds 100, raises ValueError.
@@ -287,7 +287,7 @@ class TestMonitorConfigurationRejectsInvalidCapacityThresholds:
         config = {"zfs": {"capacity_warning_percent": 101}}
 
         with pytest.raises(ValueError, match="capacity_warning_percent must be between 0 and 100"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_rejects_critical_threshold_of_zero(self) -> None:
         """When critical threshold is exactly zero, raises ValueError.
@@ -299,7 +299,7 @@ class TestMonitorConfigurationRejectsInvalidCapacityThresholds:
         config = {"zfs": {"capacity_critical_percent": 0}}
 
         with pytest.raises(ValueError, match="capacity_critical_percent must be between 0 and 100"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_rejects_critical_threshold_above_100(self) -> None:
         """When critical threshold exceeds 100, raises ValueError.
@@ -311,7 +311,7 @@ class TestMonitorConfigurationRejectsInvalidCapacityThresholds:
         config = {"zfs": {"capacity_critical_percent": 101}}
 
         with pytest.raises(ValueError, match="capacity_critical_percent must be between 0 and 100"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_allows_critical_threshold_of_exactly_100(self) -> None:
         """When critical threshold is exactly 100, accepts it.
@@ -327,7 +327,7 @@ class TestMonitorConfigurationRejectsInvalidCapacityThresholds:
             }
         }
 
-        result = behaviors._build_monitor_config(config)
+        result = CheckZpoolsConfig.model_validate(config).zfs
 
         assert result.capacity_critical_percent == 100, "100% critical should be allowed"
 
@@ -350,7 +350,7 @@ class TestMonitorConfigurationRejectsInconsistentThresholds:
         }
 
         with pytest.raises(ValueError, match=r"capacity_warning_percent.*must be less than capacity_critical_percent"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_rejects_warning_equal_to_critical(self) -> None:
         """When warning threshold equals critical, raises ValueError.
@@ -367,7 +367,7 @@ class TestMonitorConfigurationRejectsInconsistentThresholds:
         }
 
         with pytest.raises(ValueError, match=r"capacity_warning_percent.*must be less than capacity_critical_percent"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
 
 class TestMonitorConfigurationRejectsInvalidErrorThresholds:
@@ -383,7 +383,7 @@ class TestMonitorConfigurationRejectsInvalidErrorThresholds:
         config = {"zfs": {"scrub_max_age_days": -1}}
 
         with pytest.raises(ValueError, match="scrub_max_age_days must be non-negative"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_allows_scrub_age_of_zero(self) -> None:
         """When scrub age is zero, accepts it (disables scrub checking).
@@ -394,7 +394,7 @@ class TestMonitorConfigurationRejectsInvalidErrorThresholds:
         """
         config = {"zfs": {"scrub_max_age_days": 0}}
 
-        result = behaviors._build_monitor_config(config)
+        result = CheckZpoolsConfig.model_validate(config).zfs
 
         assert result.scrub_max_age_days == 0, "Zero scrub age should be allowed"
 
@@ -408,7 +408,7 @@ class TestMonitorConfigurationRejectsInvalidErrorThresholds:
         config = {"zfs": {"read_errors_warning": -1}}
 
         with pytest.raises(ValueError, match="read_errors_warning must be non-negative"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_rejects_negative_write_error_threshold(self) -> None:
         """When write error threshold is negative, raises ValueError.
@@ -420,7 +420,7 @@ class TestMonitorConfigurationRejectsInvalidErrorThresholds:
         config = {"zfs": {"write_errors_warning": -1}}
 
         with pytest.raises(ValueError, match="write_errors_warning must be non-negative"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
     def test_rejects_negative_checksum_error_threshold(self) -> None:
         """When checksum error threshold is negative, raises ValueError.
@@ -432,7 +432,7 @@ class TestMonitorConfigurationRejectsInvalidErrorThresholds:
         config = {"zfs": {"checksum_errors_warning": -1}}
 
         with pytest.raises(ValueError, match="checksum_errors_warning must be non-negative"):
-            behaviors._build_monitor_config(config)
+            CheckZpoolsConfig.model_validate(config)
 
 
 # =============================================================================
@@ -443,7 +443,7 @@ class TestMonitorConfigurationRejectsInvalidErrorThresholds:
 class TestCheckPoolsOnceSucceedsWithValidPools:
     """The check_pools_once behavior succeeds when ZFS pools are healthy."""
 
-    @patch("check_zpools.behaviors.get_config")
+    @patch("check_zpools.behaviors.load_settings")
     @patch("check_zpools.behaviors.ZFSClient")
     @patch("check_zpools.behaviors.ZFSParser")
     @patch("check_zpools.behaviors.PoolMonitor")
@@ -452,7 +452,7 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
         mock_monitor_class: MagicMock,
         mock_parser_class: MagicMock,
         mock_client_class: MagicMock,
-        mock_get_config: MagicMock,
+        mock_load_settings: MagicMock,
         *,
         healthy_pool_status: PoolStatus,
         ok_check_result: CheckResult,
@@ -466,7 +466,7 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
         # Setup config
         mock_config = MagicMock()
         mock_config.as_dict.return_value = {"zfs": {}}
-        mock_get_config.return_value = mock_config
+        mock_load_settings.return_value = mock_config
 
         # Setup ZFS client (single command with --json-int)
         mock_client = MagicMock()
@@ -489,12 +489,12 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
         mock_client.get_pool_status.assert_called_once()
         mock_monitor.check_all_pools.assert_called_once()
 
-    @patch("check_zpools.behaviors.get_config")
+    @patch("check_zpools.behaviors.load_settings")
     @patch("check_zpools.behaviors.ZFSClient")
     def test_uses_custom_config_when_provided(
         self,
         mock_client_class: MagicMock,
-        mock_get_config: MagicMock,
+        mock_load_settings: MagicMock,
     ) -> None:
         """When custom config is provided, does not load default config.
 
@@ -510,9 +510,9 @@ class TestCheckPoolsOnceSucceedsWithValidPools:
 
         # May fail due to incomplete mocking, but we verify get_config not called
         with contextlib.suppress(Exception):
-            behaviors.check_pools_once(config=custom_config)
+            behaviors.check_pools_once(config=CheckZpoolsConfig.model_validate(custom_config))
 
-        mock_get_config.assert_not_called()
+        mock_load_settings.assert_not_called()
 
 
 class TestCheckPoolsOnceHandlesZFSErrors:
@@ -536,7 +536,7 @@ class TestCheckPoolsOnceHandlesZFSErrors:
         mock_client_class.return_value = mock_client
 
         with pytest.raises(ZFSNotAvailableError, match="ZFS not found"):
-            behaviors.check_pools_once(config={})
+            behaviors.check_pools_once(config=CheckZpoolsConfig())
 
     @patch("check_zpools.behaviors.ZFSClient")
     def test_wraps_generic_errors_in_runtime_error(
@@ -554,7 +554,7 @@ class TestCheckPoolsOnceHandlesZFSErrors:
         mock_client_class.return_value = mock_client
 
         with pytest.raises(RuntimeError, match="Failed to check pools"):
-            behaviors.check_pools_once(config={})
+            behaviors.check_pools_once(config=CheckZpoolsConfig())
 
     @patch("check_zpools.behaviors.ZFSClient")
     @patch("check_zpools.behaviors.ZFSParser")
@@ -578,7 +578,7 @@ class TestCheckPoolsOnceHandlesZFSErrors:
         mock_parser_class.return_value = mock_parser
 
         with pytest.raises(RuntimeError, match="Failed to check pools"):
-            behaviors.check_pools_once(config={})
+            behaviors.check_pools_once(config=CheckZpoolsConfig())
 
 
 # =============================================================================
@@ -598,7 +598,7 @@ class TestStateFilePathResolutionWithCustomPath:
         """
         config = {"daemon": {"state_file": "/custom/path/state.json"}}
 
-        result = behaviors._get_state_file_path(config)
+        result = behaviors._get_state_file_path(CheckZpoolsConfig.model_validate(config))
 
         assert result == Path("/custom/path/state.json"), "Must use custom path from config"
 
@@ -616,7 +616,7 @@ class TestStateFilePathResolutionWithDefaults:
         """
         config: dict = {}
 
-        result = behaviors._get_state_file_path(config)
+        result = behaviors._get_state_file_path(CheckZpoolsConfig.model_validate(config))
 
         assert result == Path("/var/cache/check_zpools/alert_state.json"), "Must use Linux cache directory"
 
@@ -630,7 +630,7 @@ class TestStateFilePathResolutionWithDefaults:
         """
         config: dict = {}
 
-        result = behaviors._get_state_file_path(config)
+        result = behaviors._get_state_file_path(CheckZpoolsConfig.model_validate(config))
 
         expected = Path.home() / "Library" / "Caches" / "check_zpools" / "alert_state.json"
         assert result == expected, "Must use macOS cache directory"
@@ -645,7 +645,7 @@ class TestStateFilePathResolutionWithDefaults:
         """
         config: dict = {}
 
-        result = behaviors._get_state_file_path(config)
+        result = behaviors._get_state_file_path(CheckZpoolsConfig.model_validate(config))
 
         expected = Path.home() / ".cache" / "check_zpools" / "alert_state.json"
         assert result == expected, "Must use generic cache directory"
@@ -666,16 +666,16 @@ class TestConfigLoadingWithLogging:
         When: Loading config with logging
         Then: Returns same dict without calling get_config
         """
-        custom_config = {"zfs": {"capacity_warning_percent": 70}}
+        custom_config = CheckZpoolsConfig.model_validate({"zfs": {"capacity_warning_percent": 70}})
 
         result = behaviors._load_config_with_logging(custom_config)
 
         assert result is custom_config, "Must return provided config unchanged"
 
-    @patch("check_zpools.behaviors.get_config")
+    @patch("check_zpools.behaviors.load_settings")
     def test_loads_from_layered_config_when_none_provided(
         self,
-        mock_get_config: MagicMock,
+        mock_load_settings: MagicMock,
     ) -> None:
         """When no config provided, loads from layered config system.
 
@@ -683,15 +683,13 @@ class TestConfigLoadingWithLogging:
         When: Loading config with logging
         Then: Calls get_config and returns result
         """
-        expected_config = {"zfs": {}, "email": {}, "alerts": {}}
-        mock_config_obj = MagicMock()
-        mock_config_obj.as_dict.return_value = expected_config
-        mock_get_config.return_value = mock_config_obj
+        expected_config = CheckZpoolsConfig()
+        mock_load_settings.return_value = expected_config
 
         result = behaviors._load_config_with_logging(None)
 
         assert result == expected_config, "Must return layered config"
-        mock_get_config.assert_called_once()
+        mock_load_settings.assert_called_once()
 
 
 # =============================================================================
@@ -722,18 +720,16 @@ class TestDaemonComponentInitialization:
         config = {"zfs": {}, "alerts": {}, "daemon": {}}
 
         with pytest.raises(ZFSNotAvailableError, match="zpool command not found"):
-            behaviors._initialize_daemon_components(config)
+            behaviors._initialize_daemon_components(CheckZpoolsConfig.model_validate(config))
 
     @patch("check_zpools.behaviors.ZFSClient")
     @patch("check_zpools.behaviors.PoolMonitor")
-    @patch("check_zpools.behaviors.load_email_config_from_dict")
     @patch("check_zpools.behaviors.EmailAlerter")
     @patch("check_zpools.behaviors.AlertStateManager")
     def test_returns_all_initialized_components(
         self,
         mock_state_class: MagicMock,
         mock_alerter_class: MagicMock,
-        mock_load_email: MagicMock,
         mock_monitor_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -751,9 +747,6 @@ class TestDaemonComponentInitialization:
         mock_monitor = MagicMock()
         mock_monitor_class.return_value = mock_monitor
 
-        mock_email_config = MagicMock()
-        mock_load_email.return_value = mock_email_config
-
         mock_alerter = MagicMock()
         mock_alerter_class.return_value = mock_alerter
 
@@ -766,7 +759,7 @@ class TestDaemonComponentInitialization:
             "daemon": {"check_interval_seconds": 300, "alert_resend_interval_hours": 24},
         }
 
-        client, monitor, alerter, state_manager, daemon_config = behaviors._initialize_daemon_components(config)
+        client, monitor, alerter, state_manager, daemon_config = behaviors._initialize_daemon_components(CheckZpoolsConfig.model_validate(config))
 
         assert client is mock_client, "Must return client"
         assert monitor is mock_monitor, "Must return monitor"
@@ -777,14 +770,12 @@ class TestDaemonComponentInitialization:
 
     @patch("check_zpools.behaviors.ZFSClient")
     @patch("check_zpools.behaviors.PoolMonitor")
-    @patch("check_zpools.behaviors.load_email_config_from_dict")
     @patch("check_zpools.behaviors.EmailAlerter")
     @patch("check_zpools.behaviors.AlertStateManager")
     def test_uses_alert_resend_interval_hours_config_key(
         self,
         mock_state_class: MagicMock,
         mock_alerter_class: MagicMock,
-        mock_load_email: MagicMock,
         mock_monitor_class: MagicMock,
         mock_client_class: MagicMock,
     ) -> None:
@@ -800,7 +791,6 @@ class TestDaemonComponentInitialization:
         mock_client_class.return_value = mock_client
 
         mock_monitor_class.return_value = MagicMock()
-        mock_load_email.return_value = MagicMock()
         mock_alerter_class.return_value = MagicMock()
         mock_state_class.return_value = MagicMock()
 
@@ -810,7 +800,7 @@ class TestDaemonComponentInitialization:
             "daemon": {"alert_resend_interval_hours": 6},
         }
 
-        behaviors._initialize_daemon_components(config)
+        behaviors._initialize_daemon_components(CheckZpoolsConfig.model_validate(config))
 
         # Verify AlertStateManager was called with correct resend interval
         mock_state_class.assert_called_once()
@@ -842,7 +832,7 @@ class TestRunDaemonLifecycle:
         Then: ZPoolDaemon is created and started
         """
         # Setup mocks
-        mock_config = {"zfs": {}, "daemon": {}}
+        mock_config = CheckZpoolsConfig()
         mock_load_config.return_value = mock_config
 
         mock_client = MagicMock()
@@ -876,7 +866,7 @@ class TestRunDaemonLifecycle:
         Then: Daemon exits without re-raising exception
         """
         # Setup mocks
-        mock_config = {"zfs": {}, "daemon": {}}
+        mock_config = CheckZpoolsConfig()
         mock_load_config.return_value = mock_config
 
         mock_client = MagicMock()
@@ -909,7 +899,7 @@ class TestRunDaemonLifecycle:
         Then: RuntimeError is propagated to caller
         """
         # Setup mocks
-        mock_config = {"zfs": {}, "daemon": {}}
+        mock_config = CheckZpoolsConfig()
         mock_load_config.return_value = mock_config
 
         mock_client = MagicMock()

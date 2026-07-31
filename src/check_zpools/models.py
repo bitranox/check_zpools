@@ -38,10 +38,20 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone  # noqa: F401 - timezone used in doctests  # pyright: ignore[reportUnusedImport]
 from enum import Enum
 from functools import lru_cache
+from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError, model_validator
 
 logger = logging.getLogger(__name__)
+
+#: Upper bound for capacity threshold percentages (0-100 inclusive).
+CAPACITY_PERCENT_MAX = 100
+
+#: Highest valid TCP port number.
+MAX_PORT_NUMBER = 65535
+
+#: Expected number of parts when splitting a "host:port" string.
+HOST_PORT_PARTS_COUNT = 2
 
 
 # ============================================================================
@@ -173,6 +183,10 @@ class DaemonConfig(BaseModel):
     ----------
     check_interval_seconds:
         How often to check pools (default: 300 seconds = 5 minutes).
+    alert_resend_interval_hours:
+        Hours before re-sending an alert whose severity has not changed.
+    state_file:
+        Path to the alert-state file; empty means the platform cache dir.
     pools_to_monitor:
         List of pool names to monitor. Empty means all pools.
     send_ok_emails:
@@ -182,6 +196,8 @@ class DaemonConfig(BaseModel):
     """
 
     check_interval_seconds: int = 300
+    alert_resend_interval_hours: int = 2
+    state_file: str = ""
     pools_to_monitor: list[str] = []
     send_ok_emails: bool = False
     send_recovery_emails: bool = True
@@ -1361,12 +1377,340 @@ class CheckResult:
         return [issue for issue in self.issues if issue.severity == Severity.WARNING]
 
 
+# ============================================================================
+# Application Configuration (bottom layer: every consumer may import these)
+# ============================================================================
+
+
+def _default_smtp_hosts() -> list[str]:
+    """Factory function for default SMTP hosts list."""
+    return []
+
+
+class EmailConfig(BaseModel):
+    """Email configuration container.
+
+    Why
+        Provides a domain-appropriate configuration object that maps cleanly
+        to lib_layered_config while remaining independent of btx_lib_mail's
+        internal structure.
+
+    Fields
+    ------
+    smtp_hosts:
+        List of SMTP servers in 'host[:port]' format. Tried in order until
+        one succeeds.
+    from_address:
+        Default sender address for outgoing emails.
+    smtp_username:
+        Optional SMTP authentication username.
+    smtp_password:
+        Optional SMTP authentication password.
+    use_starttls:
+        Enable STARTTLS negotiation.
+    timeout:
+        Socket timeout in seconds for SMTP operations.
+    raise_on_missing_attachments:
+        When True, missing attachment files raise FileNotFoundError.
+    raise_on_invalid_recipient:
+        When True, invalid email addresses raise ValueError.
+
+    Examples
+    --------
+    >>> config = EmailConfig(
+    ...     smtp_hosts=["smtp.example.com:587"],
+    ...     from_address="noreply@example.com"
+    ... )
+    >>> config.smtp_hosts
+    ['smtp.example.com:587']
+    """
+
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_uncoercible_values(cls, data: Any) -> Any:
+        """Drop config values that cannot become their declared type, so the default applies.
+
+        Why
+            This model parses an operator-edited config file that a monitoring
+            daemon loads at startup on every node. A single typo (`timeout =
+            "abc"`) must not turn that daemon into a crash loop, so an
+            unusable value falls back to the field default - the long-standing
+            behaviour of this loader. Unlike the silent fallback it replaces,
+            each dropped value is logged, so the typo is still discoverable.
+
+        Examples
+        --------
+        >>> EmailConfig.model_validate({"timeout": "not_a_number"}).timeout
+        30.0
+        >>> EmailConfig.model_validate({"timeout": 5.0}).timeout
+        5.0
+        """
+        if not isinstance(data, dict):
+            return data
+        usable: dict[str, Any] = {}
+        for name, field_info in cls.model_fields.items():
+            if name not in data:
+                continue
+            value = data[name]
+            try:
+                TypeAdapter(field_info.annotation).validate_python(value)
+            except ValidationError:
+                logger.warning(
+                    "Ignoring unusable value for email.%s, using default",
+                    name,
+                    extra={"field": name, "value_type": type(value).__name__},
+                )
+                continue
+            usable[name] = value
+        return usable
+
+    smtp_hosts: list[str] = Field(default_factory=_default_smtp_hosts)
+    from_address: str = "noreply@localhost"
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    use_starttls: bool = True
+    timeout: float = 30.0
+    raise_on_missing_attachments: bool = True
+    raise_on_invalid_recipient: bool = True
+
+    def _validate_timeout(self) -> None:
+        """Validate timeout is positive.
+
+        Raises
+        ------
+        ValueError: If timeout is not positive.
+        """
+        if self.timeout <= 0:
+            raise ValueError(f"timeout must be positive, got {self.timeout}")
+
+    def _validate_from_address(self) -> None:
+        """Validate from_address contains @.
+
+        Raises
+        ------
+        ValueError: If from_address doesn't contain @.
+        """
+        if "@" not in self.from_address:
+            raise ValueError(f"from_address must contain @, got {self.from_address!r}")
+
+    def _validate_smtp_host_port(self, host: str, port_str: str) -> None:
+        """Validate SMTP host port is numeric and in valid range.
+
+        Parameters
+        ----------
+        host:
+            Full host string (for error messages).
+        port_str:
+            Port string to validate.
+
+        Raises
+        ------
+        ValueError: If port is invalid.
+        """
+        try:
+            port = int(port_str)
+            if not (1 <= port <= MAX_PORT_NUMBER):
+                raise ValueError(f"Port must be 1-65535 in {host!r}")
+        except ValueError as e:
+            if "invalid literal" in str(e):
+                raise ValueError(f"Port must be numeric in {host!r}") from e
+            raise
+
+    def _validate_smtp_host(self, host: str) -> None:
+        """Validate single SMTP host format.
+
+        Parameters
+        ----------
+        host:
+            SMTP host string, optionally with :port.
+
+        Raises
+        ------
+        ValueError: If host format is invalid.
+        """
+        if ":" not in host:
+            return
+
+        parts = host.split(":")
+        if len(parts) != HOST_PORT_PARTS_COUNT:
+            raise ValueError(f"Invalid SMTP host format (expected 'host:port'): {host!r}")
+
+        self._validate_smtp_host_port(host, parts[1])
+
+    @model_validator(mode="after")
+    def _validate(self) -> EmailConfig:
+        """Validate configuration values.
+
+        Why
+            Catch common configuration mistakes early with clear error messages
+            rather than allowing invalid values to cause obscure failures later.
+
+        Raises
+            ValueError: When configuration values are invalid.
+
+        Examples
+        --------
+        Pydantic wraps the failure, and its ValidationError is a ValueError, so
+        callers catching ValueError keep working:
+
+        >>> EmailConfig(timeout=-5.0)  # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+        ...
+        pydantic_core._pydantic_core.ValidationError: timeout must be positive
+
+        >>> try:
+        ...     EmailConfig(from_address="not-an-email")
+        ... except ValueError as exc:
+        ...     "from_address must contain @" in str(exc)
+        True
+        """
+        self._validate_timeout()
+        self._validate_from_address()
+        for host in self.smtp_hosts:
+            self._validate_smtp_host(host)
+        return self
+
+
+class MonitorConfig(BaseModel):
+    """Configuration for pool monitoring thresholds.
+
+    Why
+        Centralizes threshold configuration, making it easy to override
+        via config files or environment variables.
+
+    Attributes
+    ----------
+    capacity_warning_percent:
+        Capacity percentage triggering WARNING (default: 80)
+    capacity_critical_percent:
+        Capacity percentage triggering CRITICAL (default: 90)
+    scrub_max_age_days:
+        Maximum days since last scrub before WARNING (default: 30)
+    read_errors_warning:
+        Read error count triggering WARNING (default: 1)
+    write_errors_warning:
+        Write error count triggering WARNING (default: 1)
+    checksum_errors_warning:
+        Checksum error count triggering WARNING (default: 1)
+
+    Examples
+    --------
+    >>> config = MonitorConfig(
+    ...     capacity_warning_percent=75,
+    ...     capacity_critical_percent=85,
+    ...     scrub_max_age_days=7,
+    ... )
+    >>> config.capacity_warning_percent
+    75
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    capacity_warning_percent: int = 80
+    capacity_critical_percent: int = 90
+    scrub_max_age_days: int = 30
+    read_errors_warning: int = 1
+    write_errors_warning: int = 1
+    checksum_errors_warning: int = 1
+
+    @model_validator(mode="after")
+    def _validate_thresholds(self) -> MonitorConfig:
+        """Validate thresholds are in range and correctly ordered.
+
+        Why
+            These bounds used to be re-checked by hand wherever the config
+            dict was unpacked. Declaring them on the model means the section
+            cannot be constructed invalid - from a config file or from code -
+            and there is one copy of the rule rather than one per call site.
+
+        Raises
+        ------
+        ValueError:
+            When a threshold is out of range or the two capacity thresholds
+            are not strictly ordered.
+        """
+        if not 0 < self.capacity_warning_percent < CAPACITY_PERCENT_MAX:
+            raise ValueError(f"zfs.capacity_warning_percent must be between 0 and 100, got {self.capacity_warning_percent}")
+        if not 0 < self.capacity_critical_percent <= CAPACITY_PERCENT_MAX:
+            raise ValueError(f"zfs.capacity_critical_percent must be between 0 and 100, got {self.capacity_critical_percent}")
+        if self.capacity_warning_percent >= self.capacity_critical_percent:
+            raise ValueError(
+                f"zfs.capacity_warning_percent ({self.capacity_warning_percent}%) "
+                f"must be less than capacity_critical_percent ({self.capacity_critical_percent}%)"
+            )
+        for name in ("scrub_max_age_days", "read_errors_warning", "write_errors_warning", "checksum_errors_warning"):
+            if getattr(self, name) < 0:
+                raise ValueError(f"zfs.{name} must be non-negative, got {getattr(self, name)}")
+        return self
+
+
+class CheckZpoolsConfig(BaseModel):
+    """The whole application configuration, parsed once at the boundary.
+
+    Why
+        `lib_layered_config` hands back an untyped mapping. Before this model
+        existed that mapping travelled into the behaviour layer and every
+        consumer re-parsed its own section, so the same file was parsed five
+        times with five sets of defaults, and a section nobody happened to read
+        was never validated at all. Parsing once means a misconfiguration is
+        caught at startup rather than on the first code path that looks.
+
+    Examples
+    --------
+    >>> settings = CheckZpoolsConfig()
+    >>> settings.zfs.capacity_warning_percent, settings.scrub.poll_interval_seconds
+    (80, 60.0)
+    >>> CheckZpoolsConfig.model_validate({"zfs": {"capacity_warning_percent": 70}}).zfs.capacity_warning_percent
+    70
+    """
+
+    model_config = ConfigDict(extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_non_mapping_sections(cls, data: Any) -> Any:
+        """Ignore a section that is not a table, so its defaults apply.
+
+        Why
+            Same reason the individual values tolerate junk: this is parsed at
+            startup on every node from a file a human edits. A section written
+            as a scalar (`email = "smtp.example.com"`) is a mistake, but it
+            must not stop the daemon starting - it is logged, and the section
+            falls back to defaults.
+
+        Examples
+        --------
+        >>> CheckZpoolsConfig.model_validate({"email": "oops"}).email.timeout
+        30.0
+        """
+        if not isinstance(data, dict):
+            return data
+        cleaned: dict[str, Any] = {}
+        for key, value in data.items():
+            if key in cls.model_fields and not isinstance(value, dict):
+                logger.warning("Ignoring malformed config section %r, using defaults", key)
+                continue
+            cleaned[key] = value
+        return cleaned
+
+    zfs: MonitorConfig = MonitorConfig()
+    daemon: DaemonConfig = DaemonConfig()
+    alerts: AlertConfig = AlertConfig()
+    email: EmailConfig = EmailConfig()
+    scrub: ScrubSettings = ScrubSettings()
+
+
 __all__ = [
     "CheckResult",
+    "CheckZpoolsConfig",
     "DeviceState",
     "DeviceStatus",
+    "EmailConfig",
     "IssueCategory",
     "IssueDetails",
+    "MonitorConfig",
     "PoolDecision",
     "PoolHealth",
     "PoolIssue",

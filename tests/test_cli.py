@@ -21,22 +21,23 @@ if TYPE_CHECKING:
 
 
 def _config_stub_for_host(host: str, from_address: str) -> Any:
-    """Return a ``get_config`` stub whose email section points at ``host``.
+    """Return a ``load_settings`` stub whose email section points at ``host``.
 
-    The send commands only ever call ``as_dict()``, so a minimal stub is enough.
-    STARTTLS is off because the test SMTP sink speaks plain SMTP.
+    Built through the real root model, so the stub cannot describe a
+    configuration the application could not actually load. STARTTLS is off
+    because the test SMTP sink speaks plain SMTP.
     """
-    from unittest.mock import MagicMock
+    from check_zpools.models import CheckZpoolsConfig
 
-    config_obj = MagicMock()
-    config_obj.as_dict.return_value = {
-        "email": {
-            "smtp_hosts": [host],
-            "from_address": from_address,
-            "use_starttls": False,
+    return CheckZpoolsConfig.model_validate(
+        {
+            "email": {
+                "smtp_hosts": [host],
+                "from_address": from_address,
+                "use_starttls": False,
+            }
         }
-    }
-    return config_obj
+    )
 
 
 def _config_stub_for(sink: SmtpSink, from_address: str) -> Any:
@@ -733,8 +734,8 @@ def test_when_send_email_is_invoked_with_valid_config_it_sends(
     """When SMTP is configured, send-email should successfully send."""
     from unittest.mock import patch
 
-    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        mock_get_config.return_value = _config_stub_for(smtp_sink, "sender@test.com")
+    with patch("check_zpools.cli_commands.commands.send_email.load_settings") as mock_load_settings:
+        mock_load_settings.return_value = _config_stub_for(smtp_sink, "sender@test.com")
 
         result: Result = cli_runner.invoke(
             cli_mod.cli,
@@ -766,8 +767,8 @@ def test_when_send_email_receives_multiple_recipients_it_accepts_them(
     """When multiple --to flags are provided, send-email should accept them."""
     from unittest.mock import patch
 
-    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        mock_get_config.return_value = _config_stub_for(smtp_sink, "sender@test.com")
+    with patch("check_zpools.cli_commands.commands.send_email.load_settings") as mock_load_settings:
+        mock_load_settings.return_value = _config_stub_for(smtp_sink, "sender@test.com")
 
         result: Result = cli_runner.invoke(
             cli_mod.cli,
@@ -797,8 +798,8 @@ def test_when_send_email_includes_html_body_it_sends(
     """When HTML body is provided, send-email should include it."""
     from unittest.mock import patch
 
-    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        mock_get_config.return_value = _config_stub_for(smtp_sink, "sender@test.com")
+    with patch("check_zpools.cli_commands.commands.send_email.load_settings") as mock_load_settings:
+        mock_load_settings.return_value = _config_stub_for(smtp_sink, "sender@test.com")
 
         result: Result = cli_runner.invoke(
             cli_mod.cli,
@@ -836,7 +837,7 @@ def test_when_send_email_has_attachments_it_sends(
     # Patch btx_send directly to bypass btx_lib_mail security checks
     # which block /var on macOS where tmp_path resolves to /private/var/...
     with (
-        patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config,
+        patch("check_zpools.cli_commands.commands.send_email.load_settings") as mock_load_settings,
         patch("check_zpools.mail.btx_send", return_value=True),
     ):
         mock_config_obj = MagicMock()
@@ -846,7 +847,7 @@ def test_when_send_email_has_attachments_it_sends(
                 "from_address": "sender@test.com",
             }
         }
-        mock_get_config.return_value = mock_config_obj
+        mock_load_settings.return_value = mock_config_obj
 
         result: Result = cli_runner.invoke(
             cli_mod.cli,
@@ -874,8 +875,8 @@ def test_when_send_email_smtp_fails_it_reports_error(
     """When the SMTP host refuses the connection, send-email should show an error."""
     from unittest.mock import patch
 
-    with patch("check_zpools.cli_commands.commands.send_email.get_config") as mock_get_config:
-        mock_get_config.return_value = _config_stub_for_host(dead_smtp_host, "sender@test.com")
+    with patch("check_zpools.cli_commands.commands.send_email.load_settings") as mock_load_settings:
+        mock_load_settings.return_value = _config_stub_for_host(dead_smtp_host, "sender@test.com")
 
         result: Result = cli_runner.invoke(
             cli_mod.cli,
@@ -924,8 +925,8 @@ def test_when_send_notification_is_invoked_with_valid_config_it_sends(
     """When SMTP is configured, send-notification should successfully send."""
     from unittest.mock import patch
 
-    with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
-        mock_get_config.return_value = _config_stub_for(smtp_sink, "alerts@test.com")
+    with patch("check_zpools.cli_commands.commands.send_notification.load_settings") as mock_load_settings:
+        mock_load_settings.return_value = _config_stub_for(smtp_sink, "alerts@test.com")
 
         result: Result = cli_runner.invoke(
             cli_mod.cli,
@@ -956,8 +957,8 @@ def test_when_send_notification_receives_multiple_recipients_it_accepts_them(
     """When multiple --to flags are provided, send-notification should accept them."""
     from unittest.mock import patch
 
-    with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
-        mock_get_config.return_value = _config_stub_for(smtp_sink, "alerts@test.com")
+    with patch("check_zpools.cli_commands.commands.send_notification.load_settings") as mock_load_settings:
+        mock_load_settings.return_value = _config_stub_for(smtp_sink, "alerts@test.com")
 
         result: Result = cli_runner.invoke(
             cli_mod.cli,
@@ -987,8 +988,8 @@ def test_when_send_notification_smtp_fails_it_reports_error(
     """When the SMTP host refuses the connection, send-notification should show an error."""
     from unittest.mock import patch
 
-    with patch("check_zpools.cli_commands.commands.send_notification.get_config") as mock_get_config:
-        mock_get_config.return_value = _config_stub_for_host(dead_smtp_host, "alerts@test.com")
+    with patch("check_zpools.cli_commands.commands.send_notification.load_settings") as mock_load_settings:
+        mock_load_settings.return_value = _config_stub_for_host(dead_smtp_host, "alerts@test.com")
 
         result: Result = cli_runner.invoke(
             cli_mod.cli,

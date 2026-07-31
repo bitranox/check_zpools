@@ -16,6 +16,7 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
+from check_zpools.models import DaemonConfig
 from check_zpools.service_install import (
     _format_duration,
     _get_pool_status_summary,
@@ -450,7 +451,7 @@ class TestShowServiceStatusInstalled:
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),
             patch("check_zpools.service_install._get_service_start_time", return_value=None),
-            patch("check_zpools.service_install._get_daemon_config", return_value={}),
+            patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig()),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(0, 0, [])),
             patch("check_zpools.service_install._load_alert_state", return_value={}),
         ):
@@ -474,7 +475,7 @@ class TestShowServiceStatusInstalled:
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),
             patch("check_zpools.service_install._get_service_start_time", return_value=start_time),
-            patch("check_zpools.service_install._get_daemon_config", return_value={"check_interval_seconds": 300}),
+            patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig(check_interval_seconds=300)),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(4, 0, [])),
             patch("check_zpools.service_install._load_alert_state", return_value={}),
         ):
@@ -503,7 +504,7 @@ class TestShowServiceStatusInstalled:
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),
             patch("check_zpools.service_install._get_service_start_time", return_value=None),
-            patch("check_zpools.service_install._get_daemon_config", return_value=daemon_config),
+            patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig.model_validate(daemon_config)),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(4, 0, [])),
             patch("check_zpools.service_install._load_alert_state", return_value={}),
         ):
@@ -528,7 +529,7 @@ class TestShowServiceStatusInstalled:
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),
             patch("check_zpools.service_install._get_service_start_time", return_value=None),
-            patch("check_zpools.service_install._get_daemon_config", return_value={}),
+            patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig()),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(4, 1, ["rpool: FAULTED device"])),
             patch("check_zpools.service_install._load_alert_state", return_value={}),
         ):
@@ -566,7 +567,7 @@ class TestShowServiceStatusInstalled:
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),
             patch("check_zpools.service_install._get_service_start_time", return_value=None),
-            patch("check_zpools.service_install._get_daemon_config", return_value={"alert_resend_interval_hours": 2}),
+            patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig(alert_resend_interval_hours=2)),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(4, 0, [])),
             patch("check_zpools.service_install._load_alert_state", return_value=alert_state),
         ):

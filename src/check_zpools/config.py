@@ -29,6 +29,7 @@ from pathlib import Path
 from lib_layered_config import Config, read_config
 
 from . import __init__conf__
+from .models import CheckZpoolsConfig
 
 
 def get_default_config_path() -> Path:
@@ -122,7 +123,34 @@ def get_config(*, start_dir: str | None = None) -> Config:
     )
 
 
+def load_settings(*, start_dir: str | None = None) -> CheckZpoolsConfig:
+    """Load and validate the layered configuration into the typed root model.
+
+    Why
+        The single entry point every consumer should use. `get_config` remains
+        for the config-dump command, which has to show unmodelled sections too.
+
+    Parameters
+    ----------
+    start_dir:
+        Optional directory that seeds .env discovery.
+
+    Returns
+    -------
+    CheckZpoolsConfig:
+        The validated configuration.
+
+    Raises
+    ------
+    ValueError:
+        When a value is present but invalid (pydantic's ValidationError is a
+        ValueError) - for example capacity_warning above capacity_critical.
+    """
+    return CheckZpoolsConfig.model_validate(get_config(start_dir=start_dir).as_dict())
+
+
 __all__ = [
     "get_config",
     "get_default_config_path",
+    "load_settings",
 ]

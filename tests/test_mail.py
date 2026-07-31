@@ -25,10 +25,11 @@ from smtp_sink import SINK_PASSWORD, SINK_USERNAME, SmtpSink
 
 from check_zpools.mail import (
     EmailConfig,
-    load_email_config_from_dict,
     send_email,
     send_notification,
+    to_conf_mail,
 )
+from check_zpools.models import CheckZpoolsConfig
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -144,7 +145,7 @@ class TestEmailConfig:
             timeout=45.0,
         )
 
-        conf = config.to_conf_mail()
+        conf = to_conf_mail(config)
 
         assert conf.smtphosts == ["smtp.example.com:587"]
         assert conf.smtp_username == "user"
@@ -155,11 +156,11 @@ class TestEmailConfig:
 
 @pytest.mark.os_agnostic
 class TestLoadEmailConfigFromDict:
-    """Test load_email_config_from_dict function."""
+    """Parsing the email section of the layered configuration."""
 
     def test_empty_config(self) -> None:
         """Should return defaults when email section is missing."""
-        config = load_email_config_from_dict({})
+        config = EmailConfig.model_validate({})
 
         assert config.smtp_hosts == []
         assert config.from_address == "noreply@localhost"
@@ -177,7 +178,7 @@ class TestLoadEmailConfigFromDict:
             }
         }
 
-        config = load_email_config_from_dict(config_dict)
+        config = EmailConfig.model_validate(config_dict.get("email", {}))
 
         assert config.smtp_hosts == ["smtp.test.com:587"]
         assert config.from_address == "alerts@test.com"
@@ -195,7 +196,7 @@ class TestLoadEmailConfigFromDict:
             }
         }
 
-        config = load_email_config_from_dict(config_dict)
+        config = EmailConfig.model_validate(config_dict.get("email", {}))
 
         assert config.smtp_hosts == ["smtp.partial.com"]
         assert config.from_address == "partial@test.com"
@@ -206,7 +207,7 @@ class TestLoadEmailConfigFromDict:
         """Should handle non-dict email section gracefully."""
         config_dict = {"email": "invalid"}
 
-        config = load_email_config_from_dict(config_dict)
+        config = CheckZpoolsConfig.model_validate(config_dict).email
 
         assert config.smtp_hosts == []
         assert config.from_address == "noreply@localhost"
@@ -460,7 +461,7 @@ class TestLoadEmailConfigEdgeCases:
         """Should use default timeout when config has invalid value."""
         config_dict = {"email": {"timeout": "not_a_number"}}
 
-        email_config = load_email_config_from_dict(config_dict)
+        email_config = EmailConfig.model_validate(config_dict.get("email", {}))
 
         assert email_config.timeout == 30.0  # Default value
 
@@ -468,7 +469,7 @@ class TestLoadEmailConfigEdgeCases:
         """Should use default empty list when smtp_hosts is not a list."""
         config_dict = {"email": {"smtp_hosts": "should_be_list"}}
 
-        email_config = load_email_config_from_dict(config_dict)
+        email_config = EmailConfig.model_validate(config_dict.get("email", {}))
 
         assert email_config.smtp_hosts == []
 
@@ -476,7 +477,7 @@ class TestLoadEmailConfigEdgeCases:
         """Should use default when boolean config value is a string."""
         config_dict = {"email": {"use_starttls": "yes"}}
 
-        email_config = load_email_config_from_dict(config_dict)
+        email_config = EmailConfig.model_validate(config_dict.get("email", {}))
 
         assert email_config.use_starttls is True  # Default value
 
@@ -484,7 +485,7 @@ class TestLoadEmailConfigEdgeCases:
         """Should convert empty string username to None."""
         config_dict = {"email": {"smtp_username": ""}}
 
-        email_config = load_email_config_from_dict(config_dict)
+        email_config = EmailConfig.model_validate(config_dict.get("email", {}))
 
         # Currently returns "", but ideally should be None
         # This test documents current behavior
@@ -501,7 +502,7 @@ class TestLoadEmailConfigEdgeCases:
             }
         }
 
-        email_config = load_email_config_from_dict(config_dict)
+        email_config = EmailConfig.model_validate(config_dict.get("email", {}))
 
         assert email_config.smtp_hosts == ["smtp.test.com:587"]
         assert email_config.from_address == "test@example.com"

@@ -27,7 +27,6 @@ Architecture Notes
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from .models import (
@@ -36,6 +35,7 @@ from .models import (
     DeviceStatus,
     IssueCategory,
     IssueDetails,
+    MonitorConfig,
     PoolHealth,  # noqa: F401 - used in doctests  # pyright: ignore[reportUnusedImport]
     PoolIssue,
     PoolStatus,
@@ -46,56 +46,6 @@ logger = logging.getLogger(__name__)
 
 #: Upper bound for capacity threshold percentages (0-100 inclusive).
 CAPACITY_PERCENT_MAX = 100
-
-
-@dataclass
-class MonitorConfig:
-    """Configuration for pool monitoring thresholds.
-
-    Why
-        Centralizes threshold configuration, making it easy to override
-        via config files or environment variables.
-
-    Attributes
-    ----------
-    capacity_warning_percent:
-        Capacity percentage triggering WARNING (default: 80)
-    capacity_critical_percent:
-        Capacity percentage triggering CRITICAL (default: 90)
-    scrub_max_age_days:
-        Maximum days since last scrub before WARNING (default: 30)
-    read_errors_warning:
-        Read error count triggering WARNING (default: 1)
-    write_errors_warning:
-        Write error count triggering WARNING (default: 1)
-    checksum_errors_warning:
-        Checksum error count triggering WARNING (default: 1)
-
-    Examples
-    --------
-    >>> config = MonitorConfig(
-    ...     capacity_warning_percent=75,
-    ...     capacity_critical_percent=85,
-    ...     scrub_max_age_days=7,
-    ... )
-    >>> config.capacity_warning_percent
-    75
-    """
-
-    capacity_warning_percent: int = 80
-    capacity_critical_percent: int = 90
-    scrub_max_age_days: int = 30
-    read_errors_warning: int = 1
-    write_errors_warning: int = 1
-    checksum_errors_warning: int = 1
-
-    def __post_init__(self) -> None:
-        """Validate configuration values."""
-        if self.capacity_warning_percent >= self.capacity_critical_percent:
-            raise ValueError("capacity_warning_percent must be less than capacity_critical_percent")
-
-        if self.capacity_warning_percent < 0 or self.capacity_critical_percent > CAPACITY_PERCENT_MAX:
-            raise ValueError("Capacity percentages must be between 0 and 100")
 
 
 class PoolMonitor:

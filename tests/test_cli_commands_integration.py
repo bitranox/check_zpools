@@ -29,13 +29,14 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from check_zpools.cli import cli
 from check_zpools.models import (
     CheckResult,
+    CheckZpoolsConfig,
     PoolScrubOutcome,
     PoolStatus,
     ScanFunction,
@@ -308,11 +309,9 @@ class TestSendEmailCommandDeliversAlerts:
         """
         with (
             patch("check_zpools.cli_commands.commands.send_email.send_email") as mock_send,
-            patch("check_zpools.cli_commands.commands.send_email.load_email_config_from_dict") as mock_load,
+            patch("check_zpools.cli_commands.commands.send_email.load_settings") as mock_load_settings,
         ):
-            mock_config = MagicMock()
-            mock_config.smtp_hosts = ["localhost:25"]
-            mock_load.return_value = mock_config
+            mock_load_settings.return_value = CheckZpoolsConfig.model_validate({"email": {"smtp_hosts": ["localhost:25"]}})
             mock_send.return_value = True
 
             result = cli_runner.invoke(
@@ -342,10 +341,8 @@ class TestSendEmailCommandDeliversAlerts:
         When: Running 'check_zpools send-email'
         Then: Error message mentions SMTP and exits with code 1
         """
-        with patch("check_zpools.cli_commands.commands.send_email.load_email_config_from_dict") as mock_load:
-            mock_config = MagicMock()
-            mock_config.smtp_hosts = []
-            mock_load.return_value = mock_config
+        with patch("check_zpools.cli_commands.commands.send_email.load_settings") as mock_load_settings:
+            mock_load_settings.return_value = CheckZpoolsConfig()
 
             result = cli_runner.invoke(
                 cli,
@@ -379,11 +376,9 @@ class TestSendNotificationCommandDeliversSimpleAlerts:
         """
         with (
             patch("check_zpools.cli_commands.commands.send_notification.send_notification") as mock_send,
-            patch("check_zpools.cli_commands.commands.send_notification.load_email_config_from_dict") as mock_load,
+            patch("check_zpools.cli_commands.commands.send_notification.load_settings") as mock_load_settings,
         ):
-            mock_config = MagicMock()
-            mock_config.smtp_hosts = ["localhost:25"]
-            mock_load.return_value = mock_config
+            mock_load_settings.return_value = CheckZpoolsConfig.model_validate({"email": {"smtp_hosts": ["localhost:25"]}})
             mock_send.return_value = True
 
             result = cli_runner.invoke(

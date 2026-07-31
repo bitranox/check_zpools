@@ -8,8 +8,8 @@ import lib_log_rich.runtime
 import rich_click as click
 
 from ...cli_email_handlers import validate_smtp_configuration
-from ...config import get_config
-from ...mail import load_email_config_from_dict, send_notification
+from ...config import load_settings
+from ...mail import send_notification
 
 logger = logging.getLogger(__name__)
 
@@ -77,8 +77,7 @@ def send_notification_command(
     ):
         try:
             # Load and validate email configuration
-            config = get_config()
-            email_config = load_email_config_from_dict(config.as_dict())
+            email_config = load_settings().email
             validate_smtp_configuration(email_config)
 
             logger.info(

@@ -1,36 +1,14 @@
 {
-  "pass": 1,
-  "total_violations": 5,
+  "pass": 2,
+  "total_violations": 0,
   "files": {
     "src/check_zpools/scrub_runner.py": {
-      "status": "pending",
-      "violations": [
-        {
-          "line": 62,
-          "type": "dict-in-signature",
-          "description": "ZFSScrubPort.get_pool_status returns dict[str, Any] | DictLike, widening the concrete Pydantic ZpoolStatusResponse the real client returns"
-        },
-        {
-          "line": 142,
-          "type": "internal-untyped-structure",
-          "description": "actions dict carries tuple[ScrubAction, str] pairs, unpacked positionally at two call sites instead of a typed model"
-        }
-      ]
+      "status": "clean",
+      "violations": []
     },
     "src/check_zpools/scrub_report.py": {
-      "status": "pending",
-      "violations": [
-        {
-          "line": 190,
-          "type": "hand-rolled-output-dict",
-          "description": "format_scrub_summary_json builds payload: dict[str, Any] and json.dumps it instead of exporting through a Pydantic model"
-        },
-        {
-          "line": 204,
-          "type": "hand-rolled-output-dict",
-          "description": "_outcome_as_dict returns dict[str, Any] with a nested inline scan dict"
-        }
-      ]
+      "status": "clean",
+      "violations": []
     },
     "src/check_zpools/behaviors.py": {
       "status": "reviewed",
@@ -50,14 +28,13 @@
       "violations": []
     },
     "src/check_zpools/zfs_parser.py": {
-      "status": "pending",
-      "violations": [
-        {
-          "line": 246,
-          "type": "dict-in-signature",
-          "description": "parse_scan_runs accepts dict[str, Any] | DictLike; plain dict already satisfies the DictLike protocol, so the bare dict arm is redundant"
-        }
-      ]
+      "status": "clean",
+      "violations": []
+    },
+    "src/check_zpools/mail.py": {
+      "status": "clean",
+      "violations": [],
+      "note": "EmailConfig is Pydantic; 136 lines of hand extraction removed"
     }
   }
 }

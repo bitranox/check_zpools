@@ -34,15 +34,14 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TextIO
+from typing import TYPE_CHECKING, TextIO
 
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
-from .config import get_config
+from .config import load_settings
 from .daemon import ZPoolDaemon
-from .mail import load_email_config_from_dict
-from .models import AlertConfig, CheckResult, DaemonConfig, ScrubCycleResult, ScrubRunOptions, ScrubSettings
-from .monitor import MonitorConfig, PoolMonitor
+from .models import CheckResult, CheckZpoolsConfig, DaemonConfig, ScrubCycleResult, ScrubRunOptions
+from .monitor import PoolMonitor
 from .scrub_report import send_scrub_summary
 from .scrub_runner import run_scrub_cycle
 from .zfs_client import ZFSClient, ZFSNotAvailableError
@@ -52,9 +51,6 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 CANONICAL_GREETING = "Hello World"
-
-#: Upper bound for capacity threshold percentages (0-100 inclusive).
-CAPACITY_PERCENT_MAX = 100
 
 #: Module logger using standard logging interface.
 logger = logging.getLogger(__name__)
@@ -167,7 +163,7 @@ def noop_main() -> None:
     logger.debug("Executing noop_main placeholder")
 
 
-def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
+def check_pools_once(config: CheckZpoolsConfig | None = None) -> CheckResult:
     """Perform one-shot check of all ZFS pools against configured thresholds.
 
     Why
@@ -200,16 +196,14 @@ def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
     RuntimeError
         When ZFS commands fail or parsing errors occur.
     """
-    if config is None:
-        config = get_config().as_dict()
+    settings = config if config is not None else load_settings()
 
     logger.info("Performing one-shot pool check")
 
     # Initialize components
     client = ZFSClient()
     parser = ZFSParser()
-    monitor_config = _build_monitor_config(config)
-    monitor = PoolMonitor(monitor_config)
+    monitor = PoolMonitor(settings.zfs)
 
     # Fetch and parse pool data (single command with --json-int provides all data)
     try:
@@ -244,7 +238,7 @@ def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
 
 
 def scrub_pools(
-    config: dict[str, Any] | None = None,
+    config: CheckZpoolsConfig | None = None,
     *,
     pools: Sequence[str] | None = None,
     wait: bool = True,
@@ -283,19 +277,19 @@ def scrub_pools(
     ZFSNotAvailableError
         When the zpool command is not available.
     """
-    settings = build_scrub_settings(config if config is not None else get_config().as_dict())
+    scrub = (config if config is not None else load_settings()).scrub
     options = ScrubRunOptions(
-        pools=tuple(pools) if pools else tuple(settings.pools),
+        pools=tuple(pools) if pools else tuple(scrub.pools),
         wait=wait,
-        poll_interval_seconds=poll_interval_seconds if poll_interval_seconds is not None else settings.poll_interval_seconds,
-        skip_if_other_scan_running=settings.skip_if_other_scan_running,
+        poll_interval_seconds=poll_interval_seconds if poll_interval_seconds is not None else scrub.poll_interval_seconds,
+        skip_if_other_scan_running=scrub.skip_if_other_scan_running,
         dry_run=dry_run,
     )
 
     return run_scrub_cycle(ZFSClient(), options, parser=ZFSParser())
 
 
-def deliver_scrub_summary(result: ScrubCycleResult, config: dict[str, Any] | None = None) -> bool:
+def deliver_scrub_summary(result: ScrubCycleResult, config: CheckZpoolsConfig | None = None) -> bool:
     """Email the summary of a finished scrub cycle, if configuration asks for it.
 
     Why
@@ -319,57 +313,24 @@ def deliver_scrub_summary(result: ScrubCycleResult, config: dict[str, Any] | Non
     RuntimeError
         When SMTP delivery fails.
     """
-    active_config = config if config is not None else get_config().as_dict()
-    settings = build_scrub_settings(active_config)
+    settings = config if config is not None else load_settings()
 
-    if not settings.send_email:
+    if not settings.scrub.send_email:
         logger.info("Scrub summary email disabled by configuration")
         return False
-    if not result.has_problems() and not settings.email_on_success:
+    if not result.has_problems() and not settings.scrub.email_on_success:
         logger.info("Scrub completed without problems and email_on_success is off, not sending")
         return False
 
-    alert_config = AlertConfig(**active_config.get("alerts", {}))
     return send_scrub_summary(
         result,
-        email_config=load_email_config_from_dict(active_config),
-        recipients=alert_config.alert_recipients,
-        subject_prefix=alert_config.subject_prefix,
+        email_config=settings.email,
+        recipients=settings.alerts.alert_recipients,
+        subject_prefix=settings.alerts.subject_prefix,
     )
 
 
-def build_scrub_settings(config: dict[str, Any]) -> ScrubSettings:
-    """Build ScrubSettings from the layered configuration dict.
-
-    Parameters
-    ----------
-    config:
-        Configuration dict from the layered config system.
-
-    Returns
-    -------
-    ScrubSettings
-        Validated scrub settings.
-
-    Raises
-    ------
-    ValueError
-        When the polling cadence is not positive.
-
-    Examples
-    --------
-    >>> build_scrub_settings({"scrub": {"poll_interval_seconds": 30}}).poll_interval_seconds
-    30.0
-    >>> build_scrub_settings({}).poll_interval_seconds
-    60.0
-    """
-    settings = ScrubSettings(**config.get("scrub", {}))
-    if settings.poll_interval_seconds <= 0:
-        raise ValueError(f"scrub.poll_interval_seconds must be positive, got {settings.poll_interval_seconds}")
-    return settings
-
-
-def _load_config_with_logging(config: dict[str, Any] | None) -> dict[str, Any]:
+def _load_config_with_logging(config: CheckZpoolsConfig | None) -> CheckZpoolsConfig:
     """Load and log configuration sources.
 
     Why
@@ -379,37 +340,24 @@ def _load_config_with_logging(config: dict[str, Any] | None) -> dict[str, Any]:
     if config is not None:
         return config
 
-    config_obj = get_config()
-    config = config_obj.as_dict()
-
-    # Log configuration sources for debugging
-    logger.info(
-        "Configuration loaded from layered sources",
-        extra={
-            "config_keys": list(config.keys()),
-            "has_email": "email" in config,
-            "has_alerts": "alerts" in config,
-            "has_monitoring": "monitoring" in config,
-            "has_daemon": "daemon" in config,
-        },
-    )
+    settings = load_settings()
 
     # Log expected config file paths for troubleshooting
     logger.info(
-        "Configuration file search paths (Linux)",
+        "Configuration loaded from layered sources",
         extra={
             "app_layer": "/etc/check_zpools/config.toml",
             "host_layer": "/etc/xdg/check_zpools/config.toml",
             "user_layer": "~/.config/check_zpools/config.toml",
-            "precedence": "defaults → app → host → user → dotenv → env",
+            "precedence": "defaults -> app -> host -> user -> dotenv -> env",
         },
     )
 
-    return config
+    return settings
 
 
 def _initialize_daemon_components(
-    config: dict[str, Any],
+    settings: CheckZpoolsConfig,
 ) -> tuple[ZFSClient, PoolMonitor, EmailAlerter, AlertStateManager, DaemonConfig]:
     """Initialize all daemon components.
 
@@ -423,32 +371,25 @@ def _initialize_daemon_components(
         raise ZFSNotAvailableError("zpool command not found - is ZFS installed?")
 
     # Initialize monitoring
-    monitor_config = _build_monitor_config(config)
-    monitor = PoolMonitor(monitor_config)
+    monitor = PoolMonitor(settings.zfs)
 
-    # Initialize alerting with threshold values from monitor config
-    email_config = load_email_config_from_dict(config)
-    alert_config = AlertConfig(**config.get("alerts", {}))
+    # Initialize alerting with threshold values from the monitoring section
     alerter = EmailAlerter(
-        email_config,
-        alert_config,
-        capacity_warning_percent=monitor_config.capacity_warning_percent,
-        capacity_critical_percent=monitor_config.capacity_critical_percent,
-        scrub_max_age_days=monitor_config.scrub_max_age_days,
+        settings.email,
+        settings.alerts,
+        capacity_warning_percent=settings.zfs.capacity_warning_percent,
+        capacity_critical_percent=settings.zfs.capacity_critical_percent,
+        scrub_max_age_days=settings.zfs.scrub_max_age_days,
         zfs_client=client,
     )
 
     # Initialize state management
-    state_file = _get_state_file_path(config)
-    resend_interval = config.get("daemon", {}).get("alert_resend_interval_hours", 24)
-    state_manager = AlertStateManager(state_file, resend_interval)
+    state_manager = AlertStateManager(_get_state_file_path(settings), settings.daemon.alert_resend_interval_hours)
 
-    daemon_config = DaemonConfig(**config.get("daemon", {}))
-
-    return client, monitor, alerter, state_manager, daemon_config
+    return client, monitor, alerter, state_manager, settings.daemon
 
 
-def run_daemon(config: dict[str, Any] | None = None, *, foreground: bool = False) -> None:
+def run_daemon(config: CheckZpoolsConfig | None = None, *, foreground: bool = False) -> None:
     """Start daemon mode for continuous ZFS pool monitoring.
 
     Why
@@ -478,10 +419,10 @@ def run_daemon(config: dict[str, Any] | None = None, *, foreground: bool = False
     RuntimeError
         When daemon initialization fails.
     """
-    config = _load_config_with_logging(config)
+    settings = _load_config_with_logging(config)
     logger.info("Starting daemon mode", extra={"foreground": foreground})
 
-    client, monitor, alerter, state_manager, daemon_config = _initialize_daemon_components(config)
+    client, monitor, alerter, state_manager, daemon_config = _initialize_daemon_components(settings)
 
     # Create and start daemon
     daemon = ZPoolDaemon(
@@ -504,82 +445,21 @@ def run_daemon(config: dict[str, Any] | None = None, *, foreground: bool = False
         raise
 
 
-def _build_monitor_config(config: dict[str, Any]) -> MonitorConfig:
-    """Build MonitorConfig from layered configuration dict.
-
-    Parameters
-    ----------
-    config:
-        Configuration dict from layered config system.
-
-    Returns
-    -------
-    MonitorConfig
-        Monitor configuration object.
-
-    Raises
-    ------
-    ValueError
-        If configuration values are invalid or inconsistent.
-    """
-    zfs_config = config.get("zfs", {})
-
-    # Extract values with defaults (keys are at zfs root level)
-    warning = zfs_config.get("capacity_warning_percent", 80)
-    critical = zfs_config.get("capacity_critical_percent", 90)
-    scrub_age = zfs_config.get("scrub_max_age_days", 30)
-    read_errors = zfs_config.get("read_errors_warning", 1)
-    write_errors = zfs_config.get("write_errors_warning", 1)
-    checksum_errors = zfs_config.get("checksum_errors_warning", 1)
-
-    # Validate capacity thresholds
-    if not (0 < warning < CAPACITY_PERCENT_MAX):
-        raise ValueError(f"zfs.capacity_warning_percent must be between 0 and 100, got {warning}")
-    if not (0 < critical <= CAPACITY_PERCENT_MAX):
-        raise ValueError(f"zfs.capacity_critical_percent must be between 0 and 100, got {critical}")
-    if warning >= critical:
-        raise ValueError(f"zfs.capacity_warning_percent ({warning}%) must be less than capacity_critical_percent ({critical}%)")
-
-    # Validate scrub age
-    if scrub_age < 0:
-        raise ValueError(f"zfs.scrub_max_age_days must be non-negative, got {scrub_age}")
-
-    # Validate error thresholds
-    if read_errors < 0:
-        raise ValueError(f"zfs.read_errors_warning must be non-negative, got {read_errors}")
-    if write_errors < 0:
-        raise ValueError(f"zfs.write_errors_warning must be non-negative, got {write_errors}")
-    if checksum_errors < 0:
-        raise ValueError(f"zfs.checksum_errors_warning must be non-negative, got {checksum_errors}")
-
-    return MonitorConfig(
-        capacity_warning_percent=warning,
-        capacity_critical_percent=critical,
-        scrub_max_age_days=scrub_age,
-        read_errors_warning=read_errors,
-        write_errors_warning=write_errors,
-        checksum_errors_warning=checksum_errors,
-    )
-
-
-def _get_state_file_path(config: dict[str, Any]) -> Path:
+def _get_state_file_path(settings: CheckZpoolsConfig) -> Path:
     """Get path to alert state file from configuration.
 
     Parameters
     ----------
-    config:
-        Configuration dict from layered config system.
+    settings:
+        The parsed configuration.
 
     Returns
     -------
     Path
         Path to state file. Defaults to platform-specific cache directory.
     """
-    daemon_config = config.get("daemon", {})
-    state_path = daemon_config.get("state_file")
-
-    if state_path:
-        return Path(state_path)
+    if settings.daemon.state_file:
+        return Path(settings.daemon.state_file)
 
     # Default to platform-specific cache directory
     if sys.platform == "linux":
