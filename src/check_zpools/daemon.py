@@ -365,7 +365,7 @@ class ZPoolDaemon:
         current_issues = self._handle_check_result(result, pools)
         self.previous_issues = current_issues
 
-    def _handle_check_result(self, result: CheckResult, pools: dict[str, Any]) -> dict[str, set[str]]:
+    def _handle_check_result(self, result: CheckResult, pools: dict[str, PoolStatus]) -> dict[str, set[str]]:
         """Process check result by sending alerts for actionable issues.
 
         Why
@@ -512,7 +512,7 @@ class ZPoolDaemon:
 
         return " ".join(parts)
 
-    def _log_pool_details(self, pools: dict[str, Any]) -> None:
+    def _log_pool_details(self, pools: dict[str, PoolStatus]) -> None:
         """Log detailed information for each pool.
 
         Parameters

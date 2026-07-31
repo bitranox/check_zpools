@@ -1,7 +1,27 @@
 {
-  "pass": 2,
-  "total_violations": 0,
+  "pass": 3,
+  "total_violations": 3,
   "files": {
+    "src/check_zpools/mail.py": {
+      "status": "clean",
+      "violations": []
+    },
+    "src/check_zpools/models.py": {
+      "status": "clean",
+      "violations": []
+    },
+    "src/check_zpools/monitor.py": {
+      "status": "clean",
+      "violations": []
+    },
+    "src/check_zpools/config.py": {
+      "status": "clean",
+      "violations": []
+    },
+    "src/check_zpools/behaviors.py": {
+      "status": "clean",
+      "violations": []
+    },
     "src/check_zpools/scrub_runner.py": {
       "status": "clean",
       "violations": []
@@ -10,31 +30,43 @@
       "status": "clean",
       "violations": []
     },
-    "src/check_zpools/behaviors.py": {
-      "status": "reviewed",
+    "src/check_zpools/daemon.py": {
+      "status": "clean",
       "violations": [],
-      "note": "scrub_pools/deliver_scrub_summary/build_scrub_settings take the lib_layered_config dict; that IS the external boundary and build_scrub_settings performs the parse into ScrubSettings. Permitted by rule 1 (parse at entry), matches the pre-existing check_pools_once contract."
+      "note": "remaining dicts are dict[str, PoolStatus] / dict[str, set[str]] keyed collections of typed values - permitted"
     },
-    "src/check_zpools/models.py": {
+    "src/check_zpools/config_show.py": {
       "status": "clean",
-      "violations": []
-    },
-    "src/check_zpools/zfs_client.py": {
-      "status": "clean",
-      "violations": []
-    },
-    "src/check_zpools/cli_commands/commands/scrub.py": {
-      "status": "clean",
-      "violations": []
+      "violations": [],
+      "note": "walks the raw mapping by design: it dumps arbitrary config including unmodelled sections"
     },
     "src/check_zpools/zfs_parser.py": {
-      "status": "clean",
-      "violations": []
+      "status": "pending",
+      "violations": [
+        {
+          "type": "raw-payload-dict",
+          "description": "11 private helpers take the raw zpool JSON as dict[str, Any]; needs typed payload models for pool/vdev/scan_stats"
+        }
+      ]
     },
-    "src/check_zpools/mail.py": {
-      "status": "clean",
-      "violations": [],
-      "note": "EmailConfig is Pydantic; 136 lines of hand extraction removed"
+    "src/check_zpools/service_install.py": {
+      "status": "pending",
+      "violations": [
+        {
+          "type": "hand-rolled-dict",
+          "description": "get_service_status returns dict[str, bool | str]; _load_alert_state returns dict[str, Any] with 10 key accesses"
+        }
+      ]
+    },
+    "src/check_zpools/alert_state.py": {
+      "status": "pending",
+      "violations": [
+        {
+          "type": "untyped-persistence",
+          "description": "alert state JSON is read and written as raw dicts"
+        }
+      ]
     }
-  }
+  },
+  "string_literals_to_judge": 18
 }
