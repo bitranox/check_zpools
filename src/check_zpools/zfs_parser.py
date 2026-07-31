@@ -9,7 +9,7 @@ requiring no string parsing.
 Contents
 --------
 * :class:`ZFSParseError` - Exception raised when parsing fails
-* :class:`ZFSParser` - Main parser for ZFS JSON output
+* :class:`ZFSParser` - Main parser for ZFS JSON output (pool health and scan runs)
 
 System Role
 -----------
@@ -31,7 +31,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Protocol
 
-from .models import CapacityInfo, DeviceState, DeviceStatus, PoolHealth, PoolStatus, ScanState, ScrubInfo
+from .models import CapacityInfo, DeviceState, DeviceStatus, PoolHealth, PoolStatus, ScanFunction, ScanRun, ScanState, ScrubInfo
 
 logger = logging.getLogger(__name__)
 
@@ -160,6 +160,117 @@ class ZFSParser:
         except Exception as exc:
             logger.exception("Failed to parse zpool status output")
             raise ZFSParseError(f"Failed to parse zpool status output: {exc}") from exc
+
+    def parse_scan_runs(self, json_data: dict[str, Any] | DictLike) -> dict[str, ScanRun]:
+        """Parse the `scan_stats` block of every pool into ScanRun objects.
+
+        Why
+            `parse_pool_status` reduces the scan to three fields, which is all
+            the health monitor needs. Driving a scrub needs the rest: which
+            scan is running, its progress, and how the previous one ended.
+
+        Parameters
+        ----------
+        json_data:
+            Parsed JSON from `zpool status -j --json-int` command.
+
+        Returns
+        -------
+        dict[str, ScanRun]:
+            Dictionary mapping pool name to its current or last scan.
+            A pool that has never been scanned yields a ScanRun with
+            function NONE and state NONE, never a missing key.
+
+        Raises
+        ------
+        ZFSParseError:
+            When the top-level structure cannot be read.
+
+        Examples
+        --------
+        >>> parser = ZFSParser()
+        >>> data = {"pools": {"rpool": {"scan_stats": {
+        ...     "function": "SCRUB", "state": "SCANNING",
+        ...     "to_examine": 200, "examined": 100, "issued": 50, "errors": 0,
+        ... }}}}
+        >>> runs = parser.parse_scan_runs(data)
+        >>> runs["rpool"].is_running, runs["rpool"].progress_percent
+        (True, 25.0)
+        """
+        runs: dict[str, ScanRun] = {}
+
+        try:
+            pools_data = json_data.get("pools", {})
+            for pool_name, pool_data in pools_data.items():
+                runs[pool_name] = self._parse_scan_run(pool_name, pool_data)
+            return runs
+        except Exception as exc:
+            logger.exception("Failed to parse scan stats from zpool status output")
+            raise ZFSParseError(f"Failed to parse scan stats: {exc}") from exc
+
+    def _parse_scan_run(self, pool_name: str, pool_data: dict[str, Any]) -> ScanRun:
+        """Build a ScanRun from one pool's `scan_stats` block.
+
+        Why
+            Missing or malformed scan data must degrade to "no scan known"
+            rather than abort the run - a pool that has never been scrubbed
+            simply has no scan_stats.
+
+        Parameters
+        ----------
+        pool_name:
+            Name of the pool.
+        pool_data:
+            Pool data from zpool status JSON.
+
+        Returns
+        -------
+        ScanRun:
+            Typed scan record for the pool.
+        """
+        scan_info = pool_data.get("scan_stats", pool_data.get("scan", {})) or {}
+
+        return ScanRun(
+            pool_name=pool_name,
+            function=ScanFunction.from_string(scan_info.get("function")),
+            state=ScanState.from_string(scan_info.get("state")),
+            start_time=self._parse_unix_time(scan_info.get("start_time")),
+            end_time=self._parse_unix_time(scan_info.get("end_time")),
+            to_examine_bytes=self._safe_int(scan_info.get("to_examine", 0)),
+            examined_bytes=self._safe_int(scan_info.get("examined", 0)),
+            issued_bytes=self._safe_int(scan_info.get("issued", 0)),
+            errors=self._safe_int(scan_info.get("errors", 0)),
+            paused_seconds=self._safe_int(scan_info.get("scrub_spent_paused", 0)),
+        )
+
+    def _parse_unix_time(self, value: Any) -> datetime | None:
+        """Convert a `--json-int` Unix timestamp to an aware datetime.
+
+        Why
+            ZFS writes 0 for "not set" (an end_time of 0 means still running),
+            which would otherwise decode to 1970.
+
+        Parameters
+        ----------
+        value:
+            Raw timestamp value from the JSON.
+
+        Returns
+        -------
+        datetime | None:
+            UTC timestamp, or None when unset or unparseable.
+        """
+        try:
+            timestamp = int(value)
+        except (ValueError, TypeError):
+            return None
+        if timestamp <= 0:
+            return None
+        try:
+            return datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        except (OverflowError, OSError) as exc:
+            logger.debug("Failed to convert timestamp %s: %s", timestamp, exc)
+            return None
 
     def _try_parse_pool(self, pool_name: str, pool_data: dict[str, Any]) -> PoolStatus | None:
         """Parse a single pool, tolerating and logging per-pool failures.

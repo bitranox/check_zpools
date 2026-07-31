@@ -19,6 +19,8 @@ Legacy Template Functions (Deprecated):
 ZFS Monitoring Functions:
 * :func:`check_pools_once` - perform one-shot check of all pools
 * :func:`run_daemon` - start daemon mode for continuous monitoring
+* :func:`scrub_pools` - start scrubs and wait for them to finish
+* :func:`deliver_scrub_summary` - email the result of a scrub cycle
 
 System Role
 -----------
@@ -32,17 +34,22 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any, TextIO
+from typing import TYPE_CHECKING, Any, TextIO
 
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
 from .config import get_config
 from .daemon import ZPoolDaemon
 from .mail import load_email_config_from_dict
-from .models import AlertConfig, CheckResult, DaemonConfig
+from .models import AlertConfig, CheckResult, DaemonConfig, ScrubCycleResult, ScrubRunOptions, ScrubSettings
 from .monitor import MonitorConfig, PoolMonitor
+from .scrub_report import send_scrub_summary
+from .scrub_runner import run_scrub_cycle
 from .zfs_client import ZFSClient, ZFSNotAvailableError
 from .zfs_parser import ZFSParser
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 CANONICAL_GREETING = "Hello World"
 
@@ -234,6 +241,132 @@ def check_pools_once(config: dict[str, Any] | None = None) -> CheckResult:
     )
 
     return result
+
+
+def scrub_pools(
+    config: dict[str, Any] | None = None,
+    *,
+    pools: Sequence[str] | None = None,
+    wait: bool = True,
+    poll_interval_seconds: float | None = None,
+    dry_run: bool = False,
+) -> ScrubCycleResult:
+    """Start a scrub on the configured pools and wait for it to finish.
+
+    Why
+        Scrubbing is normally driven by a timer, and the classic shell version
+        of this (a `sleep` loop with a hard timeout) reports a healthy but slow
+        pool as a failure once the pool outgrows the timeout. This waits for
+        the scrub itself instead of for a clock.
+
+    Parameters
+    ----------
+    config:
+        Optional configuration dict. If None, loads from layered config.
+    pools:
+        Pools to scrub. None falls back to the configured list, which in turn
+        defaults to every pool on the host.
+    wait:
+        When False, start the scrubs and return without waiting.
+    poll_interval_seconds:
+        Override the configured polling cadence.
+    dry_run:
+        Report what would happen without starting anything.
+
+    Returns
+    -------
+    ScrubCycleResult
+        Per-pool outcomes and cycle timing.
+
+    Raises
+    ------
+    ZFSNotAvailableError
+        When the zpool command is not available.
+    """
+    settings = build_scrub_settings(config if config is not None else get_config().as_dict())
+    options = ScrubRunOptions(
+        pools=tuple(pools) if pools else tuple(settings.pools),
+        wait=wait,
+        poll_interval_seconds=poll_interval_seconds if poll_interval_seconds is not None else settings.poll_interval_seconds,
+        skip_if_other_scan_running=settings.skip_if_other_scan_running,
+        dry_run=dry_run,
+    )
+
+    return run_scrub_cycle(ZFSClient(), options, parser=ZFSParser())
+
+
+def deliver_scrub_summary(result: ScrubCycleResult, config: dict[str, Any] | None = None) -> bool:
+    """Email the summary of a finished scrub cycle, if configuration asks for it.
+
+    Why
+        Keeps the "should this be mailed at all" policy (scrub.send_email,
+        scrub.email_on_success) out of the CLI adapter.
+
+    Parameters
+    ----------
+    result:
+        The finished scrub cycle.
+    config:
+        Optional configuration dict. If None, loads from layered config.
+
+    Returns
+    -------
+    bool
+        True when a mail was sent, False when configuration suppressed it.
+
+    Raises
+    ------
+    RuntimeError
+        When SMTP delivery fails.
+    """
+    active_config = config if config is not None else get_config().as_dict()
+    settings = build_scrub_settings(active_config)
+
+    if not settings.send_email:
+        logger.info("Scrub summary email disabled by configuration")
+        return False
+    if not result.has_problems() and not settings.email_on_success:
+        logger.info("Scrub completed without problems and email_on_success is off, not sending")
+        return False
+
+    alert_config = AlertConfig(**active_config.get("alerts", {}))
+    return send_scrub_summary(
+        result,
+        email_config=load_email_config_from_dict(active_config),
+        recipients=alert_config.alert_recipients,
+        subject_prefix=alert_config.subject_prefix,
+    )
+
+
+def build_scrub_settings(config: dict[str, Any]) -> ScrubSettings:
+    """Build ScrubSettings from the layered configuration dict.
+
+    Parameters
+    ----------
+    config:
+        Configuration dict from the layered config system.
+
+    Returns
+    -------
+    ScrubSettings
+        Validated scrub settings.
+
+    Raises
+    ------
+    ValueError
+        When the polling cadence is not positive.
+
+    Examples
+    --------
+    >>> build_scrub_settings({"scrub": {"poll_interval_seconds": 30}}).poll_interval_seconds
+    30.0
+    >>> build_scrub_settings({}).poll_interval_seconds
+    60.0
+    """
+    settings = ScrubSettings(**config.get("scrub", {}))
+    if settings.poll_interval_seconds <= 0:
+        raise ValueError(f"scrub.poll_interval_seconds must be positive, got {settings.poll_interval_seconds}")
+    return settings
 
 
 def _load_config_with_logging(config: dict[str, Any] | None) -> dict[str, Any]:

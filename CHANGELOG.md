@@ -6,6 +6,41 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [3.8.0] 2026-07-31 14:27:34
+
+### Added
+- `check_zpools scrub` starts a scrub on the selected pools and waits until ZFS
+  reports no running scan. There is deliberately **no timeout**: a scrub on a
+  large pool legitimately runs for many hours, and any deadline turns a healthy
+  slow pool into a false alarm. It replaces the common shell pattern of
+  `zpool scrub` plus a `sleep` loop with a fixed maximum wait.
+  - Per pool: an idle pool is scrubbed, a pool already scrubbing is adopted and
+    waited on rather than restarted (restarting fails with "currently
+    scrubbing"), and a pool whose scan slot is held by a resilver is skipped
+    with the reason reported. A refused start is recorded without aborting the
+    other pools.
+  - Options `--pool` (repeatable), `--format text|json`, `--wait/--no-wait`,
+    `--poll-interval`, `--email/--no-email`, `--dry-run`. Exit code 1 when a
+    pool was skipped, refused the start, was canceled, or its scrub found
+    errors, so a cron job or timer sees the failure.
+  - Summary email through the existing `btx_lib_mail` layer, using the `[alerts]`
+    recipients and subject prefix. The report is printed before the mail is
+    attempted, so an SMTP outage cannot swallow the result of a scrub that took
+    hours.
+- New `[scrub]` configuration section: `poll_interval_seconds`, `pools`,
+  `send_email`, `email_on_success`, `skip_if_other_scan_running`.
+- `ZFSClient.start_scrub()` - the package's only mutating ZFS call.
+- `ZFSParser.parse_scan_runs()` and the `ScanRun` / `ScanFunction` models, which
+  carry the whole `scan_stats` block (function, state, progress, timings,
+  errors) instead of the three fields the health monitor reduces it to.
+
+### Known issue
+- `PoolStatus.scrub_in_progress` is true for ANY running scan, so a resilver
+  still reads as a scrub in progress in the monitor and alerting path. The new
+  scrub command does not rely on it (it reads `ScanRun.function`), and the flag
+  is left unchanged here to avoid altering monitor behaviour in a feature
+  release.
+
 ## [3.7.7] 2026-07-24 17:27:25
 
 ### Fixed

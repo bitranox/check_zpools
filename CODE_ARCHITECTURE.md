@@ -213,6 +213,71 @@ Extracts scrub information from pool status data:
 
 These helpers eliminate duplication between `_parse_pool_from_list()` and `_parse_pool_from_status()`.
 
+#### `parse_scan_runs(json_data) -> dict[str, ScanRun]`
+
+Parses the full `scan_stats` block of every pool: scan function, state, start and
+end time, examined/issued bytes, and errors. `_extract_scrub_info()` above reduces
+the same block to the three fields the health monitor needs; the scrub command
+needs the rest to drive and report a scrub, so both live side by side.
+
+A pool with no `scan_stats` yields a `ScanRun` with function and state `NONE`
+rather than a missing key, so callers never have to special-case a pool that has
+never been scanned.
+
+## Scrub Runner Module (`scrub_runner.py`)
+
+### Purpose
+
+Owns the policy and the wait loop behind `check_zpools scrub`. It is the only
+module that both reads pool state and mutates it.
+
+### The absence of a timeout is the design
+
+The shell scripts this command replaces follow one pattern: issue `zpool scrub`,
+then `sleep` in a loop until `zpool status` stops mentioning a scrub, giving up
+after a fixed maximum wait. That maximum is the defect. A scrub's duration is a
+property of the pool (size, fragmentation, competing I/O), not of the schedule,
+so a pool eventually outgrows any constant and every run afterwards reports a
+healthy scrub as a timeout failure.
+
+`_wait_for_scans()` therefore has no deadline, no iteration cap and no bail-out.
+It ends when the pool's own `scan_stats.state` stops reading `SCANNING`. The
+configured `poll_interval_seconds` sets only how often that question is asked.
+
+`tests/test_scrub_runner.py::test_a_very_long_scrub_is_never_cut_short` pins this
+by driving 500 consecutive scanning snapshots and asserting the loop waited them
+all out.
+
+### Per-pool classification
+
+`_begin_pool()` decides one of four things, because the scan slot may already be
+occupied:
+
+| Pool state                  | Decision                                   |
+|-----------------------------|--------------------------------------------|
+| No scan running             | issue `zpool scrub`                        |
+| `SCRUB` + `SCANNING`        | adopt it, wait, never restart              |
+| Non-scrub scan + `SCANNING` | skip, with the scan function as the reason |
+| Start refused               | record and continue with the other pools   |
+
+Adoption matters operationally: restarting a running scrub fails with "currently
+scrubbing", which is exactly what a schedule hits when the previous run has not
+finished yet.
+
+### Injected seams
+
+`ZFSScrubPort` declares the two calls the module needs (`get_pool_status`,
+`start_scrub`), and the sleep and clock are parameters. Tests substitute a
+scripted client at that seam instead of patching module internals, so the real
+loop runs with no ZFS host and no real waiting.
+
+## Scrub Report Module (`scrub_report.py`)
+
+Presentation only: text, JSON, and the summary email for a `ScrubCycleResult`.
+Whether a pool counts as a problem is decided by `PoolScrubOutcome.is_problem`
+in the domain model, never here, so the console output, the JSON `has_problems`
+flag, the email subject, and the process exit code cannot disagree.
+
 ## CLI Errors Module (`cli_errors.py`)
 
 ### Purpose

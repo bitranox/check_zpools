@@ -34,7 +34,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from check_zpools.cli import cli
-from check_zpools.models import CheckResult, PoolStatus, Severity
+from check_zpools.models import (
+    CheckResult,
+    PoolScrubOutcome,
+    PoolStatus,
+    ScanFunction,
+    ScanRun,
+    ScanState,
+    ScrubAction,
+    ScrubCycleResult,
+    Severity,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -439,3 +449,161 @@ class TestConfigShowCommandDisplaysCurrentSettings:
 
         assert result.exit_code == 0, "Config display should succeed"
         assert len(result.output) > 0, "Should show configuration details"
+
+
+def _scrub_result(*outcomes: PoolScrubOutcome, dry_run: bool = False) -> ScrubCycleResult:
+    """Build a scrub cycle result for CLI wiring tests."""
+    moment = datetime(2026, 7, 31, 7, 0, tzinfo=timezone.utc)
+    return ScrubCycleResult(
+        started_at=moment,
+        finished_at=moment,
+        outcomes=list(outcomes),
+        waited=True,
+        dry_run=dry_run,
+    )
+
+
+def _finished_scrub(pool_name: str) -> PoolScrubOutcome:
+    """Build the outcome of a scrub that started and finished cleanly."""
+    scan = ScanRun(
+        pool_name=pool_name,
+        function=ScanFunction.SCRUB,
+        state=ScanState.FINISHED,
+        start_time=datetime(2026, 7, 31, 7, 0, tzinfo=timezone.utc),
+        end_time=datetime(2026, 7, 31, 7, 5, tzinfo=timezone.utc),
+        to_examine_bytes=1000,
+        examined_bytes=1000,
+        issued_bytes=1000,
+        errors=0,
+    )
+    return PoolScrubOutcome(pool_name, ScrubAction.STARTED, final_scan=scan)
+
+
+class TestScrubCommandScrubsPoolsAndReports:
+    """The scrub command starts scrubs, reports them, and mails the summary."""
+
+    def test_reports_a_successful_scrub_with_exit_code_zero(
+        self,
+        cli_runner: CliRunner,
+    ) -> None:
+        """When a scrub finishes cleanly, it exits 0.
+
+        Given: A scrub cycle without problems
+        When: Running 'check_zpools scrub'
+        Then: Exit code is 0 and the report names the pool
+        """
+        outcome = _finished_scrub("rpool")
+        with (
+            patch("check_zpools.cli_commands.commands.scrub.scrub_pools") as mock_scrub,
+            patch("check_zpools.cli_commands.commands.scrub.deliver_scrub_summary"),
+        ):
+            mock_scrub.return_value = _scrub_result(outcome)
+
+            result = cli_runner.invoke(cli, ["scrub"])
+
+            assert result.exit_code == 0, "Clean scrub should succeed"
+            assert "rpool" in result.output
+
+    def test_exits_non_zero_when_a_pool_needs_attention(
+        self,
+        cli_runner: CliRunner,
+    ) -> None:
+        """When a pool could not be scrubbed, it exits non-zero so cron notices.
+
+        Given: A scrub cycle with a skipped pool
+        When: Running 'check_zpools scrub'
+        Then: Exit code is 1
+        """
+        outcome = PoolScrubOutcome("tank", ScrubAction.SKIPPED, reason="a RESILVER is already running on this pool")
+        with (
+            patch("check_zpools.cli_commands.commands.scrub.scrub_pools") as mock_scrub,
+            patch("check_zpools.cli_commands.commands.scrub.deliver_scrub_summary"),
+        ):
+            mock_scrub.return_value = _scrub_result(outcome)
+
+            result = cli_runner.invoke(cli, ["scrub"])
+
+            assert result.exit_code == 1, "A skipped pool must be visible to the caller"
+
+    def test_emits_valid_json_when_asked(
+        self,
+        cli_runner: CliRunner,
+    ) -> None:
+        """When JSON format is requested, it outputs a parseable document.
+
+        Given: A scrub cycle without problems
+        When: Running 'check_zpools scrub --format json'
+        Then: The output parses as JSON
+        """
+        with (
+            patch("check_zpools.cli_commands.commands.scrub.scrub_pools") as mock_scrub,
+            patch("check_zpools.cli_commands.commands.scrub.deliver_scrub_summary"),
+        ):
+            mock_scrub.return_value = _scrub_result(_finished_scrub("rpool"))
+
+            result = cli_runner.invoke(cli, ["scrub", "--format", "json"])
+
+            assert result.exit_code == 0
+            assert json.loads(result.output)["pools"][0]["pool"] == "rpool"
+
+    def test_passes_the_selected_pools_through(
+        self,
+        cli_runner: CliRunner,
+    ) -> None:
+        """When pools are named, it scrubs exactly those.
+
+        Given: Two --pool options
+        When: Running 'check_zpools scrub --pool a --pool b'
+        Then: Both names reach the behavior layer
+        """
+        with (
+            patch("check_zpools.cli_commands.commands.scrub.scrub_pools") as mock_scrub,
+            patch("check_zpools.cli_commands.commands.scrub.deliver_scrub_summary"),
+        ):
+            mock_scrub.return_value = _scrub_result()
+
+            cli_runner.invoke(cli, ["scrub", "--pool", "a", "--pool", "b"])
+
+            assert mock_scrub.call_args.kwargs["pools"] == ("a", "b")
+
+    def test_does_not_email_a_dry_run(
+        self,
+        cli_runner: CliRunner,
+    ) -> None:
+        """When dry-running, it sends no summary email.
+
+        Given: --dry-run
+        When: Running 'check_zpools scrub --dry-run'
+        Then: The mail path is never entered
+        """
+        with (
+            patch("check_zpools.cli_commands.commands.scrub.scrub_pools") as mock_scrub,
+            patch("check_zpools.cli_commands.commands.scrub.deliver_scrub_summary") as mock_deliver,
+        ):
+            mock_scrub.return_value = _scrub_result(dry_run=True)
+
+            cli_runner.invoke(cli, ["scrub", "--dry-run"])
+
+            mock_deliver.assert_not_called()
+
+    def test_a_failed_email_does_not_hide_the_scrub_result(
+        self,
+        cli_runner: CliRunner,
+    ) -> None:
+        """When SMTP is down, the report still reaches the console.
+
+        Given: A summary email that raises
+        When: Running 'check_zpools scrub'
+        Then: The scrub report is still printed and the failure is warned about
+        """
+        with (
+            patch("check_zpools.cli_commands.commands.scrub.scrub_pools") as mock_scrub,
+            patch("check_zpools.cli_commands.commands.scrub.deliver_scrub_summary") as mock_deliver,
+        ):
+            mock_scrub.return_value = _scrub_result(_finished_scrub("rpool"))
+            mock_deliver.side_effect = RuntimeError("smtp down")
+
+            result = cli_runner.invoke(cli, ["scrub"])
+
+            assert "ZFS Scrub Report" in result.output
+            assert "could not be sent" in result.output

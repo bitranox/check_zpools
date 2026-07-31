@@ -36,7 +36,7 @@
 
 ## Install - recommended via UV
 
-UV - the ultrafast installer - written in Rust (10–20× faster than pip/poetry)
+UV - the ultrafast installer - written in Rust (10-20x faster than pip/poetry)
 
 ```bash
 # recommended Install via uv
@@ -124,10 +124,10 @@ sudo "${VENV_DIR}/bin/uvx" check_zpools@latest alias-create --all-users
 
 All commands support these global options:
 
-| Option | Description |
-|--------|-------------|
-| `--version` | Show version and exit |
-| `-h, --help` | Show help message and exit |
+| Option                           | Description                                              |
+|----------------------------------|----------------------------------------------------------|
+| `--version`                      | Show version and exit                                    |
+| `-h, --help`                     | Show help message and exit                               |
 | `--traceback` / `--no-traceback` | Show full Python traceback on errors (default: disabled) |
 
 **Example:**
@@ -152,9 +152,9 @@ check_zpools check [OPTIONS]
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--format` | `text` \| `json` | `text` | Output format for results |
+| Option     | Type             | Default | Description               |
+|------------|------------------|---------|---------------------------|
+| `--format` | `text` \| `json` | `text`  | Output format for results |
 
 **Exit Codes:**
 - `0` - All pools healthy (OK)
@@ -206,6 +206,92 @@ fi
 
 ---
 
+#### `scrub` - Scrub Pools and Wait for Completion
+
+Starts a scrub on the selected pools and waits until ZFS reports that no scan is running any
+more, then reports per pool what happened and emails a summary.
+
+**There is no timeout.** A scrub on a large pool legitimately runs for many hours; the command
+waits for the pool, not for a clock. Any deadline would only turn a healthy slow pool into a
+false alarm. This is the difference from the classic `zpool scrub` plus `sleep` loop.
+
+**Usage:**
+```bash
+check_zpools scrub [OPTIONS]
+```
+
+**Options:**
+
+| Option                   | Type             | Default   | Description                                                       |
+|--------------------------|------------------|-----------|-------------------------------------------------------------------|
+| `--pool`                 | TEXT             | all       | Pool to scrub; repeatable. Falls back to `scrub.pools`, then all  |
+| `--format`               | `text` \| `json` | `text`    | Output format for the summary                                     |
+| `--wait` / `--no-wait`   | flag             | `--wait`  | Wait for completion, or return right after starting               |
+| `--poll-interval`        | FLOAT            | config    | Seconds between status reads while waiting                        |
+| `--email` / `--no-email` | flag             | `--email` | Send the summary email (also honours `scrub.send_email`)          |
+| `--dry-run`              | flag             | off       | Report what would happen without starting or waiting for anything |
+
+**Per-pool behaviour:**
+
+| Situation                             | Action                                                                     |
+|---------------------------------------|----------------------------------------------------------------------------|
+| Pool is idle                          | scrub is started                                                           |
+| A scrub is already running            | adopted and waited on, never restarted                                     |
+| A resilver (or other scan) is running | skipped, with the reason reported (see `scrub.skip_if_other_scan_running`) |
+| `zpool scrub` refuses                 | recorded; the other pools still proceed                                    |
+
+**Exit Codes:**
+- `0` - Every selected pool scrubbed without problems
+- `1` - A pool was skipped, refused the start, was canceled, or its scrub found errors
+
+**Examples:**
+```bash
+# Scrub every pool and wait for completion
+check_zpools scrub
+
+# See what would happen, touching nothing
+check_zpools scrub --dry-run
+
+# Scrub one pool, poll every 5 minutes
+check_zpools scrub --pool rpool --poll-interval 300
+
+# Start the scrubs and return immediately
+check_zpools scrub --no-wait
+
+# Weekly scrub from cron, Sunday 07:00
+0 7 * * 0 /usr/local/bin/check_zpools scrub
+```
+
+**JSON Output Format:**
+```json
+{
+  "hostname": "storage-node",
+  "started_at": "2026-01-04T07:00:00+00:00",
+  "finished_at": "2026-01-04T14:31:00+00:00",
+  "duration_seconds": 27060.0,
+  "waited": true,
+  "dry_run": false,
+  "has_problems": false,
+  "pools": [
+    {
+      "pool": "rpool",
+      "action": "started",
+      "reason": "",
+      "is_problem": false,
+      "scan": {
+        "function": "SCRUB",
+        "state": "FINISHED",
+        "progress_percent": 100.0,
+        "errors": 0,
+        "duration_seconds": 262.0
+      }
+    }
+  ]
+}
+```
+
+---
+
 #### `daemon` - Continuous Monitoring
 
 Starts the monitoring daemon which periodically checks pools and sends email alerts.
@@ -217,8 +303,8 @@ check_zpools daemon [OPTIONS]
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
+| Option         | Type | Default | Description                         |
+|----------------|------|---------|-------------------------------------|
 | `--foreground` | FLAG | `False` | Run in foreground (don't daemonize) |
 
 **Examples:**
@@ -269,11 +355,11 @@ sudo check_zpools service-install [OPTIONS]
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--no-enable` | FLAG | `False` | Don't enable service to start on boot |
-| `--no-start` | FLAG | `False` | Don't start service immediately |
-| `--uvx-version` | TEXT | `None` | Version specifier for uvx installations (e.g., `@latest`, `@1.0.0`) |
+| Option          | Type | Default | Description                                                         |
+|-----------------|------|---------|---------------------------------------------------------------------|
+| `--no-enable`   | FLAG | `False` | Don't enable service to start on boot                               |
+| `--no-start`    | FLAG | `False` | Don't start service immediately                                     |
+| `--uvx-version` | TEXT | `None`  | Version specifier for uvx installations (e.g., `@latest`, `@1.0.0`) |
 
 **Examples:**
 ```bash
@@ -331,10 +417,10 @@ sudo check_zpools service-uninstall [OPTIONS]
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--no-stop` | FLAG | `False` | Don't stop running service |
-| `--no-disable` | FLAG | `False` | Don't disable service |
+| Option         | Type | Default | Description                |
+|----------------|------|---------|----------------------------|
+| `--no-stop`    | FLAG | `False` | Don't stop running service |
+| `--no-disable` | FLAG | `False` | Don't disable service      |
 
 **Examples:**
 ```bash
@@ -419,10 +505,10 @@ sudo check_zpools alias-create [OPTIONS]
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--user` | TEXT | None | Target username (defaults to sudo user or current user) |
-| `--all-users` | FLAG | False | Create alias in `/etc/bash.bashrc` for all users |
+| Option        | Type | Default | Description                                             |
+|---------------|------|---------|---------------------------------------------------------|
+| `--user`      | TEXT | None    | Target username (defaults to sudo user or current user) |
+| `--all-users` | FLAG | False   | Create alias in `/etc/bash.bashrc` for all users        |
 
 **Examples:**
 ```bash
@@ -487,10 +573,10 @@ sudo check_zpools alias-delete [OPTIONS]
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--user` | TEXT | None | Target username (defaults to sudo user or current user) |
-| `--all-users` | FLAG | False | Remove alias from `/etc/bash.bashrc` (system-wide) |
+| Option        | Type | Default | Description                                             |
+|---------------|------|---------|---------------------------------------------------------|
+| `--user`      | TEXT | None    | Target username (defaults to sudo user or current user) |
+| `--all-users` | FLAG | False   | Remove alias from `/etc/bash.bashrc` (system-wide)      |
 
 **Examples:**
 ```bash
@@ -534,10 +620,10 @@ check_zpools config [OPTIONS]
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `--format` | `human` \| `json` | `human` | Output format |
-| `--section` | TEXT | None | Show only specific section (e.g., `zfs`, `email`, `daemon`) |
+| Option      | Type              | Default | Description                                                 |
+|-------------|-------------------|---------|-------------------------------------------------------------|
+| `--format`  | `human` \| `json` | `human` | Output format                                               |
+| `--section` | TEXT              | None    | Show only specific section (e.g., `zfs`, `email`, `daemon`) |
 
 **Examples:**
 ```bash
@@ -584,10 +670,10 @@ check_zpools config-deploy --target TARGET [OPTIONS]
 
 **Options:**
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
+| Option     | Type                      | Default    | Description                                       |
+|------------|---------------------------|------------|---------------------------------------------------|
 | `--target` | `app` \| `host` \| `user` | *Required* | Target configuration layer (can specify multiple) |
-| `--force` | FLAG | `False` | Overwrite existing configuration files |
+| `--force`  | FLAG                      | `False`    | Overwrite existing configuration files            |
 
 **Examples:**
 ```bash
@@ -612,11 +698,11 @@ sudo check_zpools config-deploy --target app --target user
 
 **Deployment Paths:**
 
-| Target | Linux Path | macOS Path | Windows Path |
-|--------|------------|------------|--------------|
-| `app` | `/etc/xdg/check_zpools/config.toml` | `/Library/Application Support/check_zpools/config.toml` | `C:\ProgramData\check_zpools\config.toml` |
+| Target | Linux Path                                 | macOS Path                                                         | Windows Path                                         |
+|--------|--------------------------------------------|--------------------------------------------------------------------|------------------------------------------------------|
+| `app`  | `/etc/xdg/check_zpools/config.toml`        | `/Library/Application Support/check_zpools/config.toml`            | `C:\ProgramData\check_zpools\config.toml`            |
 | `host` | `/etc/check_zpools/hosts/$(hostname).toml` | `/Library/Application Support/check_zpools/hosts/$(hostname).toml` | `C:\ProgramData\check_zpools\hosts\$(hostname).toml` |
-| `user` | `~/.config/check_zpools/config.toml` | `~/Library/Application Support/check_zpools/config.toml` | `%APPDATA%\check_zpools\config.toml` |
+| `user` | `~/.config/check_zpools/config.toml`       | `~/Library/Application Support/check_zpools/config.toml`           | `%APPDATA%\check_zpools\config.toml`                 |
 
 ---
 
@@ -680,14 +766,14 @@ check_zpools send-email --to EMAIL --subject SUBJECT [OPTIONS]
 
 **Options:**
 
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `--to` | TEXT | Yes | Recipient email address (can specify multiple times) |
-| `--subject` | TEXT | Yes | Email subject line |
-| `--body` | TEXT | No | Plain-text email body |
-| `--body-html` | TEXT | No | HTML email body (sent as multipart with plain text) |
-| `--from` | TEXT | No | Override sender address (uses config default if not specified) |
-| `--attachment` | PATH | No | File to attach (can specify multiple times) |
+| Option         | Type | Required | Description                                                    |
+|----------------|------|----------|----------------------------------------------------------------|
+| `--to`         | TEXT | Yes      | Recipient email address (can specify multiple times)           |
+| `--subject`    | TEXT | Yes      | Email subject line                                             |
+| `--body`       | TEXT | No       | Plain-text email body                                          |
+| `--body-html`  | TEXT | No       | HTML email body (sent as multipart with plain text)            |
+| `--from`       | TEXT | No       | Override sender address (uses config default if not specified) |
+| `--attachment` | PATH | No       | File to attach (can specify multiple times)                    |
 
 **Examples:**
 ```bash
@@ -745,11 +831,11 @@ check_zpools send-notification --to EMAIL --subject SUBJECT --message MESSAGE
 
 **Options:**
 
-| Option | Type | Required | Description |
-|--------|------|----------|-------------|
-| `--to` | TEXT | Yes | Recipient email address (can specify multiple times) |
-| `--subject` | TEXT | Yes | Notification subject line |
-| `--message` | TEXT | Yes | Notification message (plain text) |
+| Option      | Type | Required | Description                                          |
+|-------------|------|----------|------------------------------------------------------|
+| `--to`      | TEXT | Yes      | Recipient email address (can specify multiple times) |
+| `--subject` | TEXT | Yes      | Notification subject line                            |
+| `--message` | TEXT | Yes      | Notification message (plain text)                    |
 
 **Examples:**
 ```bash
@@ -865,14 +951,14 @@ timeout = 30.0
 
 #### `[zfs]` - ZFS Monitoring
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `capacity_warning_percent` | int | 80 | Capacity percentage that triggers WARNING alert |
-| `capacity_critical_percent` | int | 90 | Capacity percentage that triggers CRITICAL alert |
-| `scrub_max_age_days` | int | 30 | Maximum days since last scrub before alerting (0 = disabled) |
-| `read_errors_warning` | int | 1 | Threshold for read error alerts (1 = any error triggers alert) |
-| `write_errors_warning` | int | 1 | Threshold for write error alerts |
-| `checksum_errors_warning` | int | 1 | Threshold for checksum error alerts |
+| Setting                     | Type | Default | Description                                                    |
+|-----------------------------|------|---------|----------------------------------------------------------------|
+| `capacity_warning_percent`  | int  | 80      | Capacity percentage that triggers WARNING alert                |
+| `capacity_critical_percent` | int  | 90      | Capacity percentage that triggers CRITICAL alert               |
+| `scrub_max_age_days`        | int  | 30      | Maximum days since last scrub before alerting (0 = disabled)   |
+| `read_errors_warning`       | int  | 1       | Threshold for read error alerts (1 = any error triggers alert) |
+| `write_errors_warning`      | int  | 1       | Threshold for write error alerts                               |
+| `checksum_errors_warning`   | int  | 1       | Threshold for checksum error alerts                            |
 
 **Constraints:**
 - `0 < capacity_warning_percent < capacity_critical_percent <= 100`
@@ -886,13 +972,13 @@ timeout = 30.0
 
 #### `[daemon]` - Daemon Behavior
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `check_interval_seconds` | int | 300 | Seconds between pool checks (300 = 5 minutes) |
-| `alert_resend_interval_hours` | int | 2 | Hours before resending alerts when severity unchanged |
-| `pools_to_monitor` | list | `[]` | Specific pools to monitor (empty = all pools) |
-| `send_ok_emails` | bool | `false` | Send email when pools are OK |
-| `send_recovery_emails` | bool | `true` | Send email when issues resolve |
+| Setting                       | Type | Default | Description                                           |
+|-------------------------------|------|---------|-------------------------------------------------------|
+| `check_interval_seconds`      | int  | 300     | Seconds between pool checks (300 = 5 minutes)         |
+| `alert_resend_interval_hours` | int  | 2       | Hours before resending alerts when severity unchanged |
+| `pools_to_monitor`            | list | `[]`    | Specific pools to monitor (empty = all pools)         |
+| `send_ok_emails`              | bool | `false` | Send email when pools are OK                          |
+| `send_recovery_emails`        | bool | `true`  | Send email when issues resolve                        |
 
 **Notes:**
 - `check_interval_seconds`: Lower values increase system load
@@ -901,11 +987,38 @@ timeout = 30.0
 
 ---
 
+#### `[scrub]` - Scrub Command
+
+| Setting                      | Type  | Default | Description                                                           |
+|------------------------------|-------|---------|-----------------------------------------------------------------------|
+| `poll_interval_seconds`      | float | 60.0    | Seconds between status reads while waiting (a cadence, not a timeout) |
+| `pools`                      | list  | `[]`    | Pools to scrub (empty = all pools on the host)                        |
+| `send_email`                 | bool  | true    | Email a summary when a scrub cycle ends                               |
+| `email_on_success`           | bool  | true    | Also email when nothing went wrong                                    |
+| `skip_if_other_scan_running` | bool  | true    | Leave a pool alone while a resilver holds its scan slot               |
+
+Recipients and subject prefix come from `[alerts]`.
+
+**Example:**
+```toml
+[scrub]
+poll_interval_seconds = 300.0
+pools = []
+send_email = true
+email_on_success = false          # only hear about scrubs that need attention
+skip_if_other_scan_running = true
+```
+
+**Note:** `poll_interval_seconds` never bounds the wait. The scrub command returns when ZFS
+reports no running scan, however long that takes.
+
+---
+
 #### `[alerts]` - Alert Recipients
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `alert_recipients` | list | `[]` | Email addresses to receive alerts |
+| Setting            | Type | Default | Description                       |
+|--------------------|------|---------|-----------------------------------|
+| `alert_recipients` | list | `[]`    | Email addresses to receive alerts |
 
 **Example:**
 ```toml
@@ -921,14 +1034,14 @@ alert_recipients = [
 
 #### `[email]` - SMTP Configuration
 
-| Setting | Type | Default | Description |
-|---------|------|---------|-------------|
-| `smtp_hosts` | list | `[]` | SMTP servers in `host:port` format (tried in order) |
-| `from_address` | str | `"noreply@localhost"` | Sender email address |
-| `smtp_username` | str | `None` | SMTP authentication username |
-| `smtp_password` | str | `None` | SMTP authentication password (use env var!) |
-| `use_starttls` | bool | `true` | Enable STARTTLS encryption |
-| `timeout` | float | `30.0` | SMTP connection timeout in seconds |
+| Setting         | Type  | Default               | Description                                         |
+|-----------------|-------|-----------------------|-----------------------------------------------------|
+| `smtp_hosts`    | list  | `[]`                  | SMTP servers in `host:port` format (tried in order) |
+| `from_address`  | str   | `"noreply@localhost"` | Sender email address                                |
+| `smtp_username` | str   | `None`                | SMTP authentication username                        |
+| `smtp_password` | str   | `None`                | SMTP authentication password (use env var!)         |
+| `use_starttls`  | bool  | `true`                | Enable STARTTLS encryption                          |
+| `timeout`       | float | `30.0`                | SMTP connection timeout in seconds                  |
 
 **Security Best Practices:**
 ```bash

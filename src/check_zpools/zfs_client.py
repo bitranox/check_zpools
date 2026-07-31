@@ -2,8 +2,9 @@
 
 Purpose
 -------
-Execute ZFS pool commands (`zpool status`) and return their JSON output.
-Handles command discovery, execution, error handling, and timeout management.
+Execute ZFS pool commands (`zpool status`, `zpool scrub`) and return their
+output. Handles command discovery, execution, error handling, and timeout
+management.
 
 Contents
 --------
@@ -418,6 +419,44 @@ class ZFSClient:
 
         logger.debug("Executing: %s", " ".join(command))
         return self._execute_text_command(command, timeout=timeout)
+
+    def start_scrub(self, pool_name: str, *, timeout: int | None = None) -> None:
+        """Execute `zpool scrub <pool>` to start a scrub.
+
+        Why
+            The only mutating ZFS call this package makes. Starting a scrub is
+            asynchronous: the command returns as soon as the scan is queued,
+            and progress is then read back through get_pool_status().
+
+        Parameters
+        ----------
+        pool_name:
+            Pool to scrub. Required - this command is never issued pool-wide.
+        timeout:
+            Command timeout in seconds. Uses default_timeout if None. This
+            bounds the START call only, never the scrub itself.
+
+        Raises
+        ------
+        ValueError:
+            When pool_name is empty.
+        ZFSCommandError:
+            When the command fails - notably when a scan is already running on
+            that pool ("currently scrubbing; use -s to cancel").
+        subprocess.TimeoutExpired:
+            When the start command itself exceeds timeout.
+
+        Examples
+        --------
+        >>> client = ZFSClient()  # doctest: +SKIP
+        >>> client.start_scrub("rpool")  # doctest: +SKIP
+        """
+        if not pool_name:
+            raise ValueError("pool_name is required to start a scrub")
+
+        command = [str(self.zpool_path), "scrub", pool_name]
+        logger.info("Starting scrub", extra={"pool": pool_name, "command": " ".join(command)})
+        self._execute_command(command, timeout=timeout)
 
     def _execute_command(
         self,

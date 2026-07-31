@@ -50,6 +50,7 @@ check_zpools/
 │       │       ├── config_deploy.py
 │       │       ├── config_show.py
 │       │       ├── daemon.py
+│       │       ├── scrub.py
 │       │       ├── send_email.py
 │       │       ├── send_notification.py
 │       │       ├── service_install.py
@@ -77,7 +78,10 @@ check_zpools/
 │       ├── models.py            # Domain models (PoolStatus, CheckResult, etc.)
 │       ├── monitor.py           # Pool health/capacity threshold checking
 │       ├── py.typed             # PEP 561 marker
+│       ├── scrub_report.py      # Scrub summary text, JSON, and email
+│       ├── scrub_runner.py      # Scrub orchestration and the untimed wait loop
 │       ├── service_install.py   # Systemd service lifecycle management
+│       ├── typed_click.py       # Typed facade over rich-click decorators
 │       ├── zfs_client.py        # ZFS subprocess command adapter
 │       └── zfs_parser.py        # ZFS JSON output parser
 ├── tests/                       # Test suite
@@ -100,6 +104,8 @@ check_zpools/
 │   ├── test_models.py
 │   ├── test_module_entry.py
 │   ├── test_monitor.py
+│   ├── test_scrub_report.py
+│   ├── test_scrub_runner.py
 │   ├── test_service_status.py
 │   └── test_zfs_parser.py
 ├── CLAUDE.md                    # Claude Code guidelines (this file)

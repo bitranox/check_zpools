@@ -12,6 +12,7 @@ from .check import check_command
 from .config_deploy import config_deploy_command
 from .config_show import config_show_command
 from .daemon import daemon_command
+from .scrub import scrub_command
 from .send_email import send_email_command
 from .send_notification import send_notification_command
 from .service_install import service_install_command
@@ -25,6 +26,7 @@ __all__ = [
     "config_deploy_command",
     "config_show_command",
     "daemon_command",
+    "scrub_command",
     "send_email_command",
     "send_notification_command",
     "service_install_command",

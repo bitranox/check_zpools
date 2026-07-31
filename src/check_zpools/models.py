@@ -13,6 +13,8 @@ Contents
 * :class:`PoolStatus` - Complete status snapshot of a single ZFS pool
 * :class:`PoolIssue` - Detected issue with a pool
 * :class:`CheckResult` - Aggregated result of checking all pools
+* :class:`ScanRun` - One scrub/resilver run of a pool, from `scan_stats`
+* :class:`ScrubCycleResult` - Aggregated result of one scrub invocation
 
 System Role
 -----------
@@ -33,7 +35,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone  # noqa: F401 - timezone used in doctests  # pyright: ignore[reportUnusedImport]
+from datetime import datetime, timedelta, timezone  # noqa: F401 - timezone used in doctests  # pyright: ignore[reportUnusedImport]
 from enum import Enum
 from functools import lru_cache
 
@@ -100,6 +102,38 @@ class AlertConfig(BaseModel):
     send_ok_emails: bool = False
     send_recovery_emails: bool = True
     alert_on_severities: list[str] = ["CRITICAL", "WARNING"]
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class ScrubSettings(BaseModel):
+    """Typed configuration for the scrub command.
+
+    Why
+        Replaces dict access with a validated model at the config boundary.
+
+    Attributes
+    ----------
+    poll_interval_seconds:
+        How often to re-read pool status while waiting for a scrub to finish.
+        This is a polling cadence, never a deadline - the wait ends when ZFS
+        reports no scan running, and at no other point.
+    pools:
+        Pools to scrub. Empty means every pool on the host.
+    send_email:
+        Whether to email a summary at the end of a cycle.
+    email_on_success:
+        When False, only cycles with problems are emailed.
+    skip_if_other_scan_running:
+        Leave a pool alone when a resilver (or any non-scrub scan) already owns
+        its scan slot. When False, the start is attempted and ZFS decides.
+    """
+
+    poll_interval_seconds: float = 60.0
+    pools: list[str] = []
+    send_email: bool = True
+    email_on_success: bool = True
+    skip_if_other_scan_running: bool = True
 
     model_config = ConfigDict(extra="ignore")
 
@@ -491,6 +525,73 @@ class ScanState(str, Enum):
             return cls.NONE
 
 
+class ScanFunction(str, Enum):
+    """Which kind of scan `scan_stats` describes.
+
+    Why
+        `ScanState.SCANNING` alone does not say WHAT is running. A resilver and
+        an error scrub occupy the same scan slot as a scrub, so a caller that
+        wants to start a scrub must be able to tell them apart - starting a
+        scrub while another scan owns the slot fails.
+
+    Values
+        NONE: No scan recorded
+        SCRUB: Regular data scrub
+        RESILVER: Device resilver after a replacement or a reattached device
+        ERRORSCRUB: Error-log scrub (OpenZFS 2.2+)
+        REBUILD: Sequential resilver / rebuild
+        UNKNOWN: A scan function this version does not model
+
+    Examples
+    --------
+    >>> ScanFunction.from_string("SCRUB")
+    <ScanFunction.SCRUB: 'SCRUB'>
+    >>> ScanFunction.from_string(None)
+    <ScanFunction.NONE: 'NONE'>
+    """
+
+    NONE = "NONE"
+    SCRUB = "SCRUB"
+    RESILVER = "RESILVER"
+    ERRORSCRUB = "ERRORSCRUB"
+    REBUILD = "REBUILD"
+    UNKNOWN = "UNKNOWN"
+
+    @classmethod
+    def from_string(cls, value: str | None) -> ScanFunction:
+        """Parse a string to ScanFunction.
+
+        Why UNKNOWN rather than NONE for an unrecognised value
+            NONE means "nothing is running". Mapping an unmodelled function to
+            it would let a caller start a scrub while some other scan already
+            owns the slot. UNKNOWN keeps "something is running" true.
+
+        Parameters
+        ----------
+        value:
+            String representation of the scan function.
+
+        Returns
+        -------
+        ScanFunction:
+            The corresponding enum value.
+
+        Examples
+        --------
+        >>> ScanFunction.from_string("resilver")
+        <ScanFunction.RESILVER: 'RESILVER'>
+        >>> ScanFunction.from_string("SOMETHING_NEW")
+        <ScanFunction.UNKNOWN: 'UNKNOWN'>
+        """
+        if value is None:
+            return cls.NONE
+        try:
+            return cls(value.upper())
+        except ValueError:
+            logger.debug("Unknown scan function '%s', treating as UNKNOWN", value)
+            return cls.UNKNOWN
+
+
 class IssueDetails(BaseModel):
     """Structured details for a pool issue.
 
@@ -741,6 +842,293 @@ class PoolStatus:
 
 
 @dataclass(frozen=True)
+class ScanRun:
+    """One scrub/resilver run of a single pool, as reported by `scan_stats`.
+
+    Why
+        `PoolStatus` carries a boolean `scrub_in_progress`, which is enough to
+        raise an alert but not enough to DRIVE a scrub: a caller waiting for a
+        scrub to finish needs to know what kind of scan is running, how far it
+        has come, and how it ended. This model carries the whole `scan_stats`
+        block in typed form.
+
+    Attributes
+    ----------
+    pool_name:
+        Name of the pool this scan belongs to
+    function:
+        Which kind of scan this is (SCRUB, RESILVER, ...)
+    state:
+        Current state of the scan (SCANNING, FINISHED, CANCELED, NONE)
+    start_time:
+        When the scan started, or None if it never ran
+    end_time:
+        When the scan ended, or None while it is still running
+    to_examine_bytes:
+        Total bytes the scan intends to walk
+    examined_bytes:
+        Bytes walked so far
+    issued_bytes:
+        Bytes actually issued to the vdevs so far. This - not examined_bytes -
+        is what `zpool status` reports as the progress percentage, and it is
+        the smaller, honest number on a pool with skipped ranges.
+    errors:
+        Errors this scan found
+    paused_seconds:
+        Seconds the scan spent paused
+
+    Examples
+    --------
+    >>> run = ScanRun(
+    ...     pool_name="rpool",
+    ...     function=ScanFunction.SCRUB,
+    ...     state=ScanState.SCANNING,
+    ...     start_time=None,
+    ...     end_time=None,
+    ...     to_examine_bytes=1000,
+    ...     examined_bytes=500,
+    ...     issued_bytes=250,
+    ...     errors=0,
+    ...     paused_seconds=0,
+    ... )
+    >>> run.is_running
+    True
+    >>> run.is_scrub
+    True
+    >>> run.progress_percent
+    25.0
+    """
+
+    pool_name: str
+    function: ScanFunction
+    state: ScanState
+    start_time: datetime | None
+    end_time: datetime | None
+    to_examine_bytes: int
+    examined_bytes: int
+    issued_bytes: int
+    errors: int
+    paused_seconds: int = 0
+
+    @property
+    def is_running(self) -> bool:
+        """Return True while this scan is still scanning.
+
+        Examples
+        --------
+        >>> ScanRun("p", ScanFunction.SCRUB, ScanState.FINISHED, None, None, 0, 0, 0, 0).is_running
+        False
+        """
+        return self.state == ScanState.SCANNING
+
+    @property
+    def is_scrub(self) -> bool:
+        """Return True when this scan is a regular data scrub.
+
+        Examples
+        --------
+        >>> ScanRun("p", ScanFunction.RESILVER, ScanState.SCANNING, None, None, 0, 0, 0, 0).is_scrub
+        False
+        """
+        return self.function == ScanFunction.SCRUB
+
+    @property
+    def progress_percent(self) -> float:
+        """Return scan progress in percent, 0.0 when nothing is known yet.
+
+        Examples
+        --------
+        >>> ScanRun("p", ScanFunction.SCRUB, ScanState.SCANNING, None, None, 0, 0, 0, 0).progress_percent
+        0.0
+        >>> ScanRun("p", ScanFunction.SCRUB, ScanState.FINISHED, None, None, 200, 200, 300, 0).progress_percent
+        100.0
+        """
+        if self.to_examine_bytes <= 0:
+            return 0.0
+        # ZFS can issue slightly more than it planned to examine; clamp so the
+        # progress line never reads "103.4% done".
+        return min(self.issued_bytes / self.to_examine_bytes * 100, 100.0)
+
+    @property
+    def duration(self) -> timedelta | None:
+        """Return how long a finished scan took, or None if it has not ended.
+
+        Examples
+        --------
+        >>> from datetime import datetime, timezone
+        >>> start = datetime(2026, 7, 31, 7, 0, tzinfo=timezone.utc)
+        >>> end = datetime(2026, 7, 31, 7, 5, tzinfo=timezone.utc)
+        >>> ScanRun("p", ScanFunction.SCRUB, ScanState.FINISHED, start, end, 0, 0, 0, 0).duration
+        datetime.timedelta(seconds=300)
+        """
+        if self.start_time is None or self.end_time is None:
+            return None
+        return self.end_time - self.start_time
+
+
+@dataclass(frozen=True)
+class ScrubRunOptions:
+    """Per-invocation knobs for one scrub cycle.
+
+    Why
+        Separates WHAT to do from the collaborators that do it, and keeps the
+        runner's signature to the objects it acts through. Built from
+        :class:`ScrubSettings` plus any command-line overrides.
+
+    Attributes
+    ----------
+    pools:
+        Pools to scrub. Empty means every pool on the host.
+    wait:
+        Wait for the scrubs to finish. There is no timeout on that wait.
+    poll_interval_seconds:
+        Seconds between status reads while waiting.
+    skip_if_other_scan_running:
+        Leave a pool alone while a non-scrub scan holds its scan slot.
+    dry_run:
+        Report what would happen without starting anything.
+
+    Examples
+    --------
+    >>> ScrubRunOptions(pools=("rpool",), wait=False).pools
+    ('rpool',)
+    >>> ScrubRunOptions().poll_interval_seconds
+    60.0
+    """
+
+    pools: tuple[str, ...] = ()
+    wait: bool = True
+    poll_interval_seconds: float = 60.0
+    skip_if_other_scan_running: bool = True
+    dry_run: bool = False
+
+
+class ScrubAction(str, Enum):
+    """What the scrub runner did with one pool.
+
+    Why
+        A scrub cycle does not simply "run": a pool may already be scrubbing
+        (adopt it), may be busy resilvering (leave it alone), or may refuse the
+        start. Reporting needs to distinguish those rather than collapse them
+        into success or failure.
+
+    Values
+        STARTED: A scrub was issued for this pool
+        ADOPTED: A scrub was already running; the runner waited on it instead
+        SKIPPED: Another scan owns the scan slot, no scrub was issued
+        FAILED_TO_START: `zpool scrub` was issued and refused
+        DRY_RUN: A scrub would have been issued, but --dry-run was in effect
+    """
+
+    STARTED = "started"
+    ADOPTED = "adopted"
+    SKIPPED = "skipped"
+    FAILED_TO_START = "failed_to_start"
+    DRY_RUN = "dry_run"
+
+
+@dataclass(frozen=True)
+class PoolScrubOutcome:
+    """Result of one pool's participation in a scrub cycle.
+
+    Attributes
+    ----------
+    pool_name:
+        Name of the pool
+    action:
+        What the runner did with this pool
+    reason:
+        Why it was skipped or failed; empty when nothing went wrong
+    final_scan:
+        The pool's scan record as of the last status read, or None if the pool
+        could not be read at all
+
+    Examples
+    --------
+    >>> outcome = PoolScrubOutcome("rpool", ScrubAction.SKIPPED, reason="resilver running")
+    >>> outcome.is_problem
+    True
+    """
+
+    pool_name: str
+    action: ScrubAction
+    reason: str = ""
+    final_scan: ScanRun | None = None
+
+    @property
+    def is_problem(self) -> bool:
+        """Return True when this pool needs a human to look at it.
+
+        Why
+            A scrub that could not be started, was skipped, was canceled, or
+            found errors is a problem. A scrub that is merely still running
+            (--no-wait) is not.
+
+        Examples
+        --------
+        >>> ok = ScanRun("p", ScanFunction.SCRUB, ScanState.FINISHED, None, None, 0, 0, 0, 0)
+        >>> PoolScrubOutcome("p", ScrubAction.STARTED, final_scan=ok).is_problem
+        False
+        >>> bad = ScanRun("p", ScanFunction.SCRUB, ScanState.FINISHED, None, None, 0, 0, 0, 3)
+        >>> PoolScrubOutcome("p", ScrubAction.STARTED, final_scan=bad).is_problem
+        True
+        """
+        if self.action in (ScrubAction.SKIPPED, ScrubAction.FAILED_TO_START):
+            return True
+        if self.final_scan is None:
+            # A pool we started or adopted that is no longer readable (exported
+            # or destroyed mid-scrub) is a problem; a pool we never touched is not.
+            return self.action in (ScrubAction.STARTED, ScrubAction.ADOPTED)
+        return self.final_scan.errors > 0 or self.final_scan.state == ScanState.CANCELED
+
+
+@dataclass(frozen=True)
+class ScrubCycleResult:
+    """Aggregated result of one `check_zpools scrub` invocation.
+
+    Attributes
+    ----------
+    started_at:
+        When the cycle began
+    finished_at:
+        When the cycle ended (after waiting, when waiting was requested)
+    outcomes:
+        Per-pool outcome, in the order the pools were processed
+    waited:
+        Whether the runner waited for the scrubs to finish
+    dry_run:
+        Whether this was a dry run (nothing was started)
+
+    Examples
+    --------
+    >>> from datetime import datetime, timezone
+    >>> now = datetime.now(timezone.utc)
+    >>> result = ScrubCycleResult(now, now, [], waited=True, dry_run=False)
+    >>> result.has_problems()
+    False
+    """
+
+    started_at: datetime
+    finished_at: datetime
+    outcomes: list[PoolScrubOutcome]
+    waited: bool
+    dry_run: bool
+
+    def has_problems(self) -> bool:
+        """Return True when any pool needs attention."""
+        return any(outcome.is_problem for outcome in self.outcomes)
+
+    def problems(self) -> list[PoolScrubOutcome]:
+        """Return only the outcomes that need attention."""
+        return [outcome for outcome in self.outcomes if outcome.is_problem]
+
+    @property
+    def duration(self) -> timedelta:
+        """Return how long the whole cycle took."""
+        return self.finished_at - self.started_at
+
+
+@dataclass(frozen=True)
 class PoolIssue:
     """Detected issue with a ZFS pool.
 
@@ -904,7 +1292,14 @@ __all__ = [
     "IssueDetails",
     "PoolHealth",
     "PoolIssue",
+    "PoolScrubOutcome",
     "PoolStatus",
+    "ScanFunction",
+    "ScanRun",
     "ScanState",
+    "ScrubAction",
+    "ScrubCycleResult",
+    "ScrubRunOptions",
+    "ScrubSettings",
     "Severity",
 ]

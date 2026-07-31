@@ -34,6 +34,7 @@ from .cli_commands.commands import (
     config_deploy_command,
     config_show_command,
     daemon_command,
+    scrub_command,
     send_email_command,
     send_notification_command,
     service_install_command,
@@ -333,6 +334,63 @@ def cli_alias_delete(*, user: str | None, all_users: bool) -> None:
 def cli_check(*, output_format: str) -> None:
     """Perform one-shot check of all ZFS pools."""
     check_command(output_format=output_format)
+
+
+@cli.command("scrub", context_settings=CLICK_CONTEXT_SETTINGS)
+@option(
+    "--pool",
+    "pools",
+    multiple=True,
+    help="Pool to scrub (repeatable). Defaults to the configured pools, or all pools.",
+)
+@option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"], case_sensitive=False),
+    default="text",
+    help="Output format for the summary",
+)
+@option(
+    "--wait/--no-wait",
+    default=True,
+    help="Wait until the scrubs finish (default) or return right after starting them",
+)
+@option(
+    "--poll-interval",
+    type=float,
+    default=None,
+    help="Seconds between status reads while waiting (overrides scrub.poll_interval_seconds)",
+)
+@option(
+    "--email/--no-email",
+    "send_email",
+    default=True,
+    help="Send the summary email (subject to the scrub.send_email configuration)",
+)
+@option(
+    "--dry-run",
+    is_flag=True,
+    default=False,
+    help="Report what would happen without starting or waiting for anything",
+)
+def cli_scrub(
+    *,
+    pools: tuple[str, ...],
+    output_format: str,
+    wait: bool,
+    poll_interval: float | None,
+    send_email: bool,
+    dry_run: bool,
+) -> None:
+    """Scrub ZFS pools and wait for completion (no timeout)."""
+    scrub_command(
+        pools=pools,
+        output_format=output_format,
+        wait=wait,
+        poll_interval=poll_interval,
+        send_email=send_email,
+        dry_run=dry_run,
+    )
 
 
 @cli.command("daemon", context_settings=CLICK_CONTEXT_SETTINGS)

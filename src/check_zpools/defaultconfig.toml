@@ -112,6 +112,52 @@ send_recovery_emails = true
 # Environment: CHECK_ZPOOLS___DAEMON__SEND_RECOVERY_EMAILS
 # Example: send_recovery_emails = false
 
+[scrub]
+# Configuration for the `check_zpools scrub` command
+poll_interval_seconds = 60.0
+# Purpose: How often to re-read pool status while waiting for a scrub to finish
+# Type: float (seconds)
+# Default: 60.0
+# Environment: CHECK_ZPOOLS___SCRUB__POLL_INTERVAL_SECONDS
+# Note: This is a polling cadence, NOT a timeout. The command waits until ZFS
+#       reports that no scan is running - a scrub on a large pool legitimately
+#       runs for many hours, and no deadline is imposed on it.
+# Example: poll_interval_seconds = 300.0
+
+pools = []
+# Purpose: List of pool names to scrub (empty = all pools on this host)
+# Type: array of strings
+# Default: [] (scrub all pools)
+# Environment: CHECK_ZPOOLS___SCRUB__POOLS (comma-separated)
+# Note: --pool on the command line overrides this.
+# Example: pools = ["rpool", "zpool-data"]
+
+send_email = true
+# Purpose: Send a summary email when a scrub cycle ends
+# Type: boolean
+# Default: true
+# Environment: CHECK_ZPOOLS___SCRUB__SEND_EMAIL
+# Note: Recipients and subject prefix come from the [alerts] section.
+# Example: send_email = false
+
+email_on_success = true
+# Purpose: Also send the summary when nothing went wrong
+# Type: boolean
+# Default: true
+# Environment: CHECK_ZPOOLS___SCRUB__EMAIL_ON_SUCCESS
+# Note: Set to false to be mailed only about scrubs that need attention.
+# Example: email_on_success = false
+
+skip_if_other_scan_running = true
+# Purpose: Leave a pool alone when a resilver (or any non-scrub scan) is already
+#          running on it
+# Type: boolean
+# Default: true
+# Environment: CHECK_ZPOOLS___SCRUB__SKIP_IF_OTHER_SCAN_RUNNING
+# Note: A pool that is already SCRUBBING is always adopted and waited on rather
+#       than restarted, regardless of this setting.
+# Example: skip_if_other_scan_running = false
+
 [alerts]
 # Alert configuration
 alert_recipients = []
