@@ -451,7 +451,18 @@ Displays comprehensive status of the check_zpools systemd service including daem
 check_zpools service-status
 ```
 
-**No options.**
+**Options:**
+
+| Option     | Type             | Default | Description                        |
+|------------|------------------|---------|------------------------------------|
+| `--format` | `text` \| `json` | `text`  | Output format for the status report |
+
+Use `--format json` to poll this service from another monitor; the document
+carries the service state, the daemon settings and the tracked alert states.
+
+```bash
+check_zpools service-status --format json | jq '.service.running'
+```
 
 **Example Output:**
 ```

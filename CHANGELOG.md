@@ -6,6 +6,62 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Removed
+
+- **BREAKING (CLI):** the `hello` and `fail` subcommands are gone, along with
+  the `CANONICAL_GREETING`, `emit_greeting`, `raise_intentional_failure` and
+  `noop_main` exports from the package root. They were scaffolding from the
+  project template this repo was generated from - a ZFS monitoring tool has no
+  use for a command that prints Hello World - and the package docstring
+  advertised "greeting, failure, metadata" as its public surface. Anything
+  scripting `check_zpools hello` as an install smoke test should call
+  `check_zpools --version` instead.
+
+### Added
+
+- `service-status --format text|json`. The status of the monitoring service is
+  exactly what an outer monitor wants to poll, and it was previously readable
+  only as a Rich table. The JSON document carries the service state, the daemon
+  settings and the tracked alerts.
+- A parseable error object for structured callers. `check --format json` and
+  `scrub --format json` now emit `{"error": {"type": ..., "message": ...}}` on
+  stdout when they fail, so a pipeline can tell "could not run" from "no
+  result"; previously stdout was empty and only the exit code carried it. The
+  type is the exception CLASS, so callers branch on it rather than matching
+  prose. Diagnostics stay on stderr and exit codes are unchanged.
+- `tests/test_zfs_client.py`, covering the one mutating call in the package.
+  `start_scrub` runs `zpool scrub` on a live pool, and every other test in the
+  suite substitutes a double for it, so nothing checked the argv it built. The
+  new tests drive the real client against a recording stand-in executable and
+  fail against a `zpool scrub -s` typo, which cancels a scrub instead of
+  starting one.
+
+### Changed
+
+- The configuration is parsed once into a typed `CheckZpoolsConfig` root model
+  instead of an untyped mapping re-parsed by each consumer. This fixed a real
+  disagreement: `behaviors` defaulted `alert_resend_interval_hours` to 24 while
+  `defaultconfig.toml` and the status display used 2.
+- The zpool status payload, the alert-state file, the scrub summary and the
+  check report are all declared models now rather than hand-assembled dicts.
+  Two abstractions that existed only to cope with untyped payloads are gone:
+  `ZFSCommandResponse` (164 lines of dict-like shim) and the `DictLike`
+  protocol.
+- Fixed vocabularies became enums: `OutputFormat`, `ConfigOutputFormat`,
+  `ErrorKind`, `InstallMethod`, plus `Severity` and `IssueCategory` now carried
+  as enums through the alert path rather than flattened to strings.
+- Pyright's five `reportUnknown*` / `reportMissingTypeArgument` rules are now
+  `error` for `src/`, exempted only under `tests/`. The previous blanket
+  suppression was attributed to third-party stub gaps; measuring it showed 33
+  of the 115 diagnostics were in `src/` and none came from a stub gap.
+
+### Fixed
+
+- The `check --format json` timestamp keeps its `+00:00` offset form. Moving
+  that output onto a Pydantic model silently switched it to a `Z` suffix, which
+  `datetime.fromisoformat` rejects on Python 3.10 - a version this package
+  supports. A test now pins it.
+
 ## [3.8.1] 2026-07-31 14:52:28
 
 ### Fixed
