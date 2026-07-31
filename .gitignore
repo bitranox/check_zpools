@@ -193,3 +193,4 @@ LLM-CONTEXT/
 .venv*/
 # bitranox curated memory (local; CLAUDE.local.md @imports it)
 CLAUDE.local.md
+.data_arch_violations.json
