@@ -16,8 +16,10 @@ from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
-from check_zpools.models import DaemonConfig
+from check_zpools.alert_state import AlertStateFile
+from check_zpools.models import DaemonConfig, IssueCategory, Severity
 from check_zpools.service_install import (
+    ServiceStatus,
     _format_duration,
     _get_pool_status_summary,
     _get_service_start_time,
@@ -123,11 +125,11 @@ class TestFormatDurationWithDays:
 class TestLoadAlertStateWithMissingFile:
     """Tests for alert state loading when file doesn't exist."""
 
-    def test_missing_file_returns_empty_dict(self, tmp_path: Path) -> None:
-        """Non-existent state file should return empty dict."""
+    def test_missing_file_returns_empty_document(self, tmp_path: Path) -> None:
+        """Non-existent state file should yield an empty document."""
         with patch("check_zpools.service_install.CACHE_DIR", tmp_path):
             result = _load_alert_state()
-            assert result == {}
+            assert result.alerts == {}
 
 
 class TestLoadAlertStateWithValidFile:
@@ -154,10 +156,11 @@ class TestLoadAlertStateWithValidFile:
         with patch("check_zpools.service_install.CACHE_DIR", tmp_path):
             result = _load_alert_state()
 
-        assert result["version"] == 1
-        assert "alerts" in result
-        assert "rpool:device" in result["alerts"]
-        assert result["alerts"]["rpool:device"]["alert_count"] == 3
+        assert result.version == 1
+        assert "rpool:device" in result.alerts
+        assert result.alerts["rpool:device"].alert_count == 3
+        assert result.alerts["rpool:device"].issue_category is IssueCategory.DEVICE
+        assert result.alerts["rpool:device"].last_severity is Severity.CRITICAL
 
     def test_empty_alerts_returns_empty_alerts_dict(self, tmp_path: Path) -> None:
         """State file with empty alerts should return structure with empty alerts."""
@@ -168,31 +171,31 @@ class TestLoadAlertStateWithValidFile:
         with patch("check_zpools.service_install.CACHE_DIR", tmp_path):
             result = _load_alert_state()
 
-        assert result["alerts"] == {}
+        assert result.alerts == {}
 
 
 class TestLoadAlertStateWithInvalidFile:
     """Tests for alert state loading with corrupt or invalid files."""
 
-    def test_invalid_json_returns_empty_dict(self, tmp_path: Path) -> None:
-        """Corrupt JSON should return empty dict."""
+    def test_invalid_json_returns_empty_document(self, tmp_path: Path) -> None:
+        """Corrupt JSON should yield an empty document."""
         state_file = tmp_path / "alert_state.json"
         state_file.write_text("not valid json {{{")
 
         with patch("check_zpools.service_install.CACHE_DIR", tmp_path):
             result = _load_alert_state()
 
-        assert result == {}
+        assert result.alerts == {}
 
-    def test_empty_file_returns_empty_dict(self, tmp_path: Path) -> None:
-        """Empty file should return empty dict."""
+    def test_empty_file_returns_empty_document(self, tmp_path: Path) -> None:
+        """Empty file should yield an empty document."""
         state_file = tmp_path / "alert_state.json"
         state_file.write_text("")
 
         with patch("check_zpools.service_install.CACHE_DIR", tmp_path):
             result = _load_alert_state()
 
-        assert result == {}
+        assert result.alerts == {}
 
 
 # ============================================================================
@@ -426,7 +429,7 @@ class TestShowServiceStatusNotInstalled:
         """When service not installed, should show installation instructions."""
         from check_zpools.service_install import show_service_status
 
-        with patch("check_zpools.service_install.get_service_status", return_value={"installed": False}):
+        with patch("check_zpools.service_install.get_service_status", return_value=ServiceStatus()):
             show_service_status()
 
         captured = capsys.readouterr()
@@ -441,19 +444,14 @@ class TestShowServiceStatusInstalled:
         """When service installed, should show service file path."""
         from check_zpools.service_install import show_service_status
 
-        status = {
-            "installed": True,
-            "running": False,
-            "enabled": False,
-            "status_text": "",
-        }
+        status = ServiceStatus(installed=True)
 
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),
             patch("check_zpools.service_install._get_service_start_time", return_value=None),
             patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig()),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(0, 0, [])),
-            patch("check_zpools.service_install._load_alert_state", return_value={}),
+            patch("check_zpools.service_install._load_alert_state", return_value=AlertStateFile()),
         ):
             show_service_status()
 
@@ -464,12 +462,7 @@ class TestShowServiceStatusInstalled:
         """Running service should display uptime information."""
         from check_zpools.service_install import show_service_status
 
-        status = {
-            "installed": True,
-            "running": True,
-            "enabled": True,
-            "status_text": "",
-        }
+        status = ServiceStatus(installed=True, running=True, enabled=True)
         start_time = datetime.now(timezone.utc) - timedelta(hours=3, minutes=15)
 
         with (
@@ -477,7 +470,7 @@ class TestShowServiceStatusInstalled:
             patch("check_zpools.service_install._get_service_start_time", return_value=start_time),
             patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig(check_interval_seconds=300)),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(4, 0, [])),
-            patch("check_zpools.service_install._load_alert_state", return_value={}),
+            patch("check_zpools.service_install._load_alert_state", return_value=AlertStateFile()),
         ):
             show_service_status()
 
@@ -490,12 +483,7 @@ class TestShowServiceStatusInstalled:
         """Should display daemon configuration section."""
         from check_zpools.service_install import show_service_status
 
-        status = {
-            "installed": True,
-            "running": True,
-            "enabled": True,
-            "status_text": "",
-        }
+        status = ServiceStatus(installed=True, running=True, enabled=True)
         daemon_config = {
             "check_interval_seconds": 300,
             "alert_resend_interval_hours": 2,
@@ -506,7 +494,7 @@ class TestShowServiceStatusInstalled:
             patch("check_zpools.service_install._get_service_start_time", return_value=None),
             patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig.model_validate(daemon_config)),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(4, 0, [])),
-            patch("check_zpools.service_install._load_alert_state", return_value={}),
+            patch("check_zpools.service_install._load_alert_state", return_value=AlertStateFile()),
         ):
             show_service_status()
 
@@ -519,19 +507,14 @@ class TestShowServiceStatusInstalled:
         """Should display current pool status section."""
         from check_zpools.service_install import show_service_status
 
-        status = {
-            "installed": True,
-            "running": True,
-            "enabled": True,
-            "status_text": "",
-        }
+        status = ServiceStatus(installed=True, running=True, enabled=True)
 
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),
             patch("check_zpools.service_install._get_service_start_time", return_value=None),
             patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig()),
             patch("check_zpools.service_install._get_pool_status_summary", return_value=(4, 1, ["rpool: FAULTED device"])),
-            patch("check_zpools.service_install._load_alert_state", return_value={}),
+            patch("check_zpools.service_install._load_alert_state", return_value=AlertStateFile()),
         ):
             show_service_status()
 
@@ -544,25 +527,23 @@ class TestShowServiceStatusInstalled:
         """Should display active alert states with time until next email."""
         from check_zpools.service_install import show_service_status
 
-        status = {
-            "installed": True,
-            "running": True,
-            "enabled": True,
-            "status_text": "",
-        }
+        status = ServiceStatus(installed=True, running=True, enabled=True)
         # Alert sent 30 minutes ago with 2 hour resend interval
-        last_alerted = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
-        alert_state = {
-            "alerts": {
-                "rpool:device": {
-                    "pool_name": "rpool",
-                    "issue_category": "device",
-                    "last_alerted": last_alerted,
-                    "alert_count": 3,
-                    "last_severity": "CRITICAL",
+        last_alerted = datetime.now(timezone.utc) - timedelta(minutes=30)
+        alert_state = AlertStateFile.model_validate(
+            {
+                "alerts": {
+                    "rpool:device": {
+                        "pool_name": "rpool",
+                        "issue_category": "device",
+                        "first_seen": last_alerted.isoformat(),
+                        "last_alerted": last_alerted.isoformat(),
+                        "alert_count": 3,
+                        "last_severity": "CRITICAL",
+                    }
                 }
             }
-        }
+        )
 
         with (
             patch("check_zpools.service_install.get_service_status", return_value=status),

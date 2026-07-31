@@ -26,13 +26,12 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, ConfigDict, field_serializer
 
-from .models import IssueCategory, PoolIssue
+from .models import IssueCategory, PoolIssue, Severity
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -40,36 +39,54 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class AlertStateModel(BaseModel):
-    """Pydantic model for AlertState JSON serialization.
+class AlertState(BaseModel):
+    """One tracked pool issue, both in memory and on disk.
 
     Why
-    ---
-    Provides type-safe JSON serialization with automatic datetime conversion.
-    Ensures schema consistency and validation for persisted alert state.
+        This used to be a Pydantic model for the file and an identical
+        dataclass for memory, converted field by field in each direction. One
+        model removes that round trip and makes the persisted shape and the
+        in-memory shape the same thing by construction.
 
     Attributes
     ----------
     pool_name:
         Name of the ZFS pool this alert concerns.
     issue_category:
-        Category of the issue (health, capacity, errors, scrub).
+        Category of the issue.
     first_seen:
         When this issue was first detected.
     last_alerted:
-        When we last sent an alert for this issue. None if never sent.
+        When an alert was last sent, or None if never.
     alert_count:
-        How many times we've sent alerts for this issue.
+        How many alerts have been sent for this issue.
     last_severity:
-        The severity level of the last alert sent.
+        Severity of the last alert, used to detect a change such as
+        DEGRADED to ONLINE. None if never alerted.
+
+    Examples
+    --------
+    >>> from datetime import datetime, timezone
+    >>> state = AlertState(
+    ...     pool_name="rpool",
+    ...     issue_category=IssueCategory.CAPACITY,
+    ...     first_seen=datetime.now(timezone.utc),
+    ...     last_alerted=None,
+    ...     alert_count=0,
+    ...     last_severity=None,
+    ... )
+    >>> state.issue_category
+    <IssueCategory.CAPACITY: 'capacity'>
     """
 
+    model_config = ConfigDict(validate_assignment=True)
+
     pool_name: str
-    issue_category: str
+    issue_category: IssueCategory
     first_seen: datetime
-    last_alerted: datetime | None
-    alert_count: int
-    last_severity: str | None
+    last_alerted: datetime | None = None
+    alert_count: int = 0
+    last_severity: Severity | None = None
 
     @field_serializer("first_seen", "last_alerted")
     @classmethod
@@ -78,42 +95,27 @@ class AlertStateModel(BaseModel):
         return value.isoformat() if value else None
 
 
-@dataclass
-class AlertState:
-    """State tracking for a specific pool issue to prevent alert fatigue.
+class AlertStateFile(BaseModel):
+    """The persisted alert-state document.
 
-    Attributes
-    ----------
-    pool_name:
-        Name of the ZFS pool this alert concerns.
-    issue_category:
-        Category of the issue (health, capacity, errors, scrub).
-    first_seen:
-        When this issue was first detected.
-    last_alerted:
-        When we last sent an alert for this issue. None if never sent.
-    alert_count:
-        How many times we've sent alerts for this issue.
-    last_severity:
-        The severity level of the last alert sent. None if never sent.
-        Used to detect state changes (e.g., DEGRADED → ONLINE).
+    Why
+        The file layout (a version plus a map of entries) was previously
+        assembled and unpacked as raw dicts at both ends. Declaring it means
+        the reader and the writer cannot disagree about it.
     """
 
-    pool_name: str
-    issue_category: str
-    first_seen: datetime
-    last_alerted: datetime | None
-    alert_count: int
-    last_severity: str | None
+    model_config = ConfigDict(extra="ignore")
+
+    version: int = 1
+    alerts: dict[str, AlertState] = {}
 
 
 def _parse_alert_state_entry(key: str, state_dict: Any) -> AlertState | None:
-    """Parse a single persisted alert-state entry, tolerating corrupt data.
+    """Parse one persisted entry, tolerating a corrupt record.
 
     Why
-        Keeps the try/except out of the caller's loop body (PERF203) while
-        preserving the same per-entry resilience: one malformed entry must
-        not abort loading the rest of the state file.
+        One malformed entry must not cost the whole file: losing all state
+        means re-alerting every issue that is currently open.
 
     Returns
     -------
@@ -121,19 +123,10 @@ def _parse_alert_state_entry(key: str, state_dict: Any) -> AlertState | None:
         The parsed state, or None if the entry is corrupt (already logged).
     """
     try:
-        model = AlertStateModel.model_validate(state_dict)
+        return AlertState.model_validate(state_dict)
     except Exception as exc:  # Catches ValidationError + KeyError + ValueError
         logger.warning("Skipping corrupt state entry", extra={"key": key, "error": str(exc)})
         return None
-
-    return AlertState(
-        pool_name=model.pool_name,
-        issue_category=model.issue_category,
-        first_seen=model.first_seen,
-        last_alerted=model.last_alerted,
-        alert_count=model.alert_count,
-        last_severity=model.last_severity,
-    )
 
 
 class AlertStateManager:
@@ -173,15 +166,22 @@ class AlertStateManager:
         if self.state_file.exists():
             self.state_file.chmod(0o600)
 
-    def _make_key(self, pool_name: str, category: str, device_name: str | None = None) -> str:
+    def _make_key(self, pool_name: str, category: IssueCategory | str, device_name: str | None = None) -> str:
         """Generate unique key for a pool+category+device combination.
+
+        Why the explicit .value
+            The key is written into the state file, so its format is a
+            persisted contract. An IssueCategory is a str-Enum, and
+            interpolating one directly yields "IssueCategory.CAPACITY" rather
+            than "capacity" - which would orphan every existing entry on the
+            first run after an upgrade.
 
         Parameters
         ----------
         pool_name:
             Name of the ZFS pool.
         category:
-            Issue category (health, capacity, errors, scrub, device).
+            Issue category, as the enum or its value.
         device_name:
             For device issues, the specific device name. None for pool-level issues.
 
@@ -189,10 +189,18 @@ class AlertStateManager:
         -------
         str:
             Unique key for this alert state.
+
+        Examples
+        --------
+        >>> AlertStateManager._make_key(None, "rpool", IssueCategory.CAPACITY)
+        'rpool:capacity'
+        >>> AlertStateManager._make_key(None, "rpool", IssueCategory.DEVICE, "sda")
+        'rpool:device:sda'
         """
+        category_key = category.value if isinstance(category, IssueCategory) else category
         if device_name:
-            return f"{pool_name}:{category}:{device_name}"
-        return f"{pool_name}:{category}"
+            return f"{pool_name}:{category_key}:{device_name}"
+        return f"{pool_name}:{category_key}"
 
     def _extract_device_name(self, issue: PoolIssue) -> str | None:
         """Extract device name from issue details if this is a device issue.
@@ -239,7 +247,7 @@ class AlertStateManager:
             True if alert should be sent, False to suppress.
         """
         device_name = self._extract_device_name(issue)
-        category_value = issue.category.value
+        category_value = issue.category
         key = self._make_key(issue.pool_name, category_value, device_name)
         state = self.states.get(key)
 
@@ -260,7 +268,7 @@ class AlertStateManager:
             return True
 
         # Check if severity/state has changed - always alert on state changes
-        current_severity = issue.severity.value
+        current_severity = issue.severity
         if state.last_severity is not None and current_severity != state.last_severity:
             logger.info(
                 "State change detected - sending immediate alert",
@@ -319,10 +327,10 @@ class AlertStateManager:
             The issue for which an alert was sent.
         """
         device_name = self._extract_device_name(issue)
-        category_value = issue.category.value
+        category_value = issue.category
         key = self._make_key(issue.pool_name, category_value, device_name)
         now = datetime.now(timezone.utc)
-        current_severity = issue.severity.value
+        current_severity = issue.severity
 
         if key in self.states:
             # Existing issue - update last alerted time, severity, and increment count
@@ -454,10 +462,9 @@ class AlertStateManager:
 
         try:
             with self.state_file.open("r") as f:
-                data = json.load(f)
+                raw = json.load(f)
 
-            # Validate version (for future migrations)
-            version = data.get("version", 1)
+            version = raw.get("version", 1) if isinstance(raw, dict) else 1
             if version != 1:
                 logger.warning(
                     "Unknown state file version, starting fresh",
@@ -465,10 +472,11 @@ class AlertStateManager:
                 )
                 return
 
-            # Parse alert states
-            alerts = data.get("alerts", {})
-            for key, state_dict in alerts.items():
-                state = _parse_alert_state_entry(key, state_dict)
+            # Entry by entry, so one corrupt record cannot cost us the rest of
+            # the file - losing all state means re-alerting every open issue.
+            entries = raw.get("alerts", {}) if isinstance(raw, dict) else {}
+            for key, entry in entries.items():
+                state = _parse_alert_state_entry(key, entry)
                 if state is not None:
                     self.states[key] = state
 
@@ -501,25 +509,11 @@ class AlertStateManager:
         Pydantic for type-safe serialization. Handles write errors gracefully.
         """
         try:
-            # Build serializable dict using Pydantic for type safety
-            alerts: dict[str, Any] = {
-                key: AlertStateModel(
-                    pool_name=state.pool_name,
-                    issue_category=state.issue_category,
-                    first_seen=state.first_seen,
-                    last_alerted=state.last_alerted,
-                    alert_count=state.alert_count,
-                    last_severity=state.last_severity,
-                ).model_dump(mode="json")
-                for key, state in self.states.items()
-            }
-
-            data = {"version": 1, "alerts": alerts}
+            document = AlertStateFile(version=1, alerts=self.states)
 
             # Write atomically via temp file
             temp_file = self.state_file.with_suffix(".tmp")
-            with temp_file.open("w") as f:
-                json.dump(data, f, indent=2)
+            temp_file.write_text(document.model_dump_json(indent=2))
 
             # Atomic rename
             temp_file.replace(self.state_file)

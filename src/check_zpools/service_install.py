@@ -36,10 +36,12 @@ import subprocess  # nosec B404 - subprocess used safely with list arguments, no
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 import rich_click as click
+from pydantic import BaseModel
 
+from .alert_state import AlertStateFile
 from .models import DaemonConfig
 
 if TYPE_CHECKING:
@@ -749,7 +751,37 @@ def uninstall_service(*, stop: bool = True, disable: bool = True) -> None:
     _print_uninstall_summary()
 
 
-def get_service_status() -> dict[str, bool | str]:
+class ServiceStatus(BaseModel):
+    """Current state of the installed systemd service.
+
+    Why
+        Replaces a dict[str, bool | str] whose keys every caller had to spell
+        correctly and whose values needed narrowing at each use.
+
+    Attributes
+    ----------
+    installed:
+        Whether the unit file exists.
+    running:
+        Whether the service is currently active.
+    enabled:
+        Whether the service starts on boot.
+    status_text:
+        Raw `systemctl status` output.
+
+    Examples
+    --------
+    >>> ServiceStatus().installed
+    False
+    """
+
+    installed: bool = False
+    running: bool = False
+    enabled: bool = False
+    status_text: str = ""
+
+
+def get_service_status() -> ServiceStatus:
     """Get current status of check_zpools service.
 
     Why
@@ -757,41 +789,25 @@ def get_service_status() -> dict[str, bool | str]:
         monitoring.
 
     Returns
-        Dictionary with status information:
-        - installed: Whether service file exists
-        - running: Whether service is currently running
-        - enabled: Whether service starts on boot
-        - status_text: Output from systemctl status
+    -------
+    ServiceStatus:
+        Installed / running / enabled flags plus the raw systemctl output.
 
     Examples
     --------
     >>> status = get_service_status()  # doctest: +SKIP
-    >>> if status["installed"]:  # doctest: +SKIP
-    ...     click.echo(f"Service running: {status['running']}")
+    >>> if status.installed:  # doctest: +SKIP
+    ...     click.echo(f"Service running: {status.running}")
     """
-    status = {
-        "installed": SERVICE_FILE_PATH.exists(),
-        "running": False,
-        "enabled": False,
-        "status_text": "",
-    }
+    if not SERVICE_FILE_PATH.exists():
+        return ServiceStatus()
 
-    if not status["installed"]:
-        return status
-
-    # Check if service is running
-    result = _run_systemctl(["is-active", SERVICE_NAME], check=False)
-    status["running"] = result.returncode == 0
-
-    # Check if service is enabled
-    result = _run_systemctl(["is-enabled", SERVICE_NAME], check=False)
-    status["enabled"] = result.returncode == 0
-
-    # Get full status text
-    result = _run_systemctl(["status", SERVICE_NAME], check=False)
-    status["status_text"] = result.stdout
-
-    return status
+    return ServiceStatus(
+        installed=True,
+        running=_run_systemctl(["is-active", SERVICE_NAME], check=False).returncode == 0,
+        enabled=_run_systemctl(["is-enabled", SERVICE_NAME], check=False).returncode == 0,
+        status_text=_run_systemctl(["status", SERVICE_NAME], check=False).stdout,
+    )
 
 
 def _get_service_start_time() -> datetime | None:
@@ -866,23 +882,29 @@ def _format_duration(delta: timedelta) -> str:
     return " ".join(parts[:3])  # Show at most 3 components
 
 
-def _load_alert_state() -> dict[str, Any]:
+def _load_alert_state() -> AlertStateFile:
     """Load alert state from the state file.
+
+    Why
+        Parsed through the very model the daemon writes, so the status screen
+        cannot drift from the file's real shape. A missing or corrupt file
+        yields an empty document: this only feeds a display, and an unreadable
+        state must not break the status command.
 
     Returns
     -------
-    dict
-        Alert state data with 'alerts' key, or empty dict on error.
+    AlertStateFile:
+        The persisted alerts, or an empty document when unavailable.
     """
     state_file = CACHE_DIR / "alert_state.json"
     if not state_file.exists():
-        return {}
+        return AlertStateFile()
 
     try:
         with state_file.open() as f:
-            return json.load(f)
-    except (json.JSONDecodeError, OSError):
-        return {}
+            return AlertStateFile.model_validate(json.load(f))
+    except (json.JSONDecodeError, OSError, ValueError):
+        return AlertStateFile()
 
 
 def _get_daemon_config() -> DaemonConfig:
@@ -935,7 +957,7 @@ def _get_pool_status_summary() -> tuple[int, int, list[str]]:
         return 0, 0, [f"Error getting pool status: {e}"]
 
 
-def _display_service_uptime(status: dict[str, bool | str]) -> None:
+def _display_service_uptime(status: ServiceStatus) -> None:
     """Print the service uptime line when the service is running.
 
     Why
@@ -943,7 +965,7 @@ def _display_service_uptime(status: dict[str, bool | str]) -> None:
         and statement count within the project's ruff (PLR0912/PLR0915)
         thresholds; pure display logic with no behavior change.
     """
-    if not status["running"]:
+    if not status.running:
         return
 
     start_time = _get_service_start_time()
@@ -1006,21 +1028,18 @@ def _display_pool_status_section() -> None:
         click.echo(f"      ... and {len(issues) - MAX_ISSUES_DISPLAYED} more")
 
 
-def _format_alert_remaining(last_alerted_str: str | None, resend_hours: float, now: datetime) -> str:
+def _format_alert_remaining(last_alerted: datetime | None, resend_hours: float, now: datetime) -> str:
     """Compute the human-readable "next email in" string for one alert state.
 
     Why
-        Extracted from show_service_status (see _display_service_uptime).
+        Extracted from show_service_status (see _display_service_uptime). The
+        timestamp arrives as a datetime from the state model, so there is no
+        ISO string to re-parse and no parse failure to guard against.
     """
-    if not last_alerted_str:
+    if last_alerted is None:
         return "unknown"
 
-    try:
-        last_alerted = datetime.fromisoformat(last_alerted_str.replace("Z", "+00:00"))
-        next_alert = last_alerted + timedelta(hours=resend_hours)
-        time_remaining = next_alert - now
-    except (ValueError, TypeError):
-        return "unknown"
+    time_remaining = last_alerted + timedelta(hours=resend_hours) - now
 
     if time_remaining.total_seconds() > 0:
         return _format_duration(time_remaining)
@@ -1033,8 +1052,7 @@ def _display_alert_states_section(resend_hours: float) -> None:
     Why
         Extracted from show_service_status (see _display_service_uptime).
     """
-    alert_data = _load_alert_state()
-    alerts = alert_data.get("alerts", {})
+    alerts = _load_alert_state().alerts
 
     if not alerts:
         click.echo("\nAlert State: No active alerts being tracked")
@@ -1045,14 +1063,11 @@ def _display_alert_states_section(resend_hours: float) -> None:
     now = datetime.now(timezone.utc)
 
     for state in alerts.values():
-        pool_name = state.get("pool_name", "unknown")
-        category = state.get("issue_category", "unknown")
-        alert_count = state.get("alert_count", 0)
-        severity = state.get("last_severity", "UNKNOWN")
-        remaining_str = _format_alert_remaining(state.get("last_alerted"), resend_hours, now)
+        severity = state.last_severity.value if state.last_severity else "UNKNOWN"
+        remaining_str = _format_alert_remaining(state.last_alerted, resend_hours, now)
 
-        click.echo(f"  [{severity}] {pool_name}:{category}")
-        click.echo(f"      Alerts sent: {alert_count}, Next email in: {remaining_str}")
+        click.echo(f"  [{severity}] {state.pool_name}:{state.issue_category.value}")
+        click.echo(f"      Alerts sent: {state.alert_count}, Next email in: {remaining_str}")
 
 
 def show_service_status() -> None:
@@ -1069,15 +1084,15 @@ def show_service_status() -> None:
     click.echo("\ncheck_zpools Service Status")
     click.echo("=" * 56)
 
-    if not status["installed"]:
+    if not status.installed:
         click.echo("✗ Service not installed")
         click.echo("\nTo install:")
         click.echo("  sudo check_zpools install-service")
         return
 
     click.echo(f"✓ Service file installed: {SERVICE_FILE_PATH}")
-    click.echo(f"  • Running:  {'✓ Yes' if status['running'] else '✗ No'}")
-    click.echo(f"  • Enabled:  {'✓ Yes (starts on boot)' if status['enabled'] else '✗ No'}")
+    click.echo(f"  • Running:  {'✓ Yes' if status.running else '✗ No'}")
+    click.echo(f"  • Enabled:  {'✓ Yes (starts on boot)' if status.enabled else '✗ No'}")
 
     _display_service_uptime(status)
     resend_hours = _display_daemon_config()

@@ -1,6 +1,6 @@
 {
-  "pass": 3,
-  "total_violations": 3,
+  "pass": 4,
+  "total_violations": 2,
   "files": {
     "src/check_zpools/mail.py": {
       "status": "clean",
@@ -41,13 +41,8 @@
       "note": "walks the raw mapping by design: it dumps arbitrary config including unmodelled sections"
     },
     "src/check_zpools/zfs_parser.py": {
-      "status": "pending",
-      "violations": [
-        {
-          "type": "raw-payload-dict",
-          "description": "11 private helpers take the raw zpool JSON as dict[str, Any]; needs typed payload models for pool/vdev/scan_stats"
-        }
-      ]
+      "status": "clean",
+      "violations": []
     },
     "src/check_zpools/service_install.py": {
       "status": "pending",
@@ -66,6 +61,11 @@
           "description": "alert state JSON is read and written as raw dicts"
         }
       ]
+    },
+    "src/check_zpools/zfs_client.py": {
+      "status": "clean",
+      "violations": [],
+      "note": "dict-like shim removed; returns ZpoolStatusPayload"
     }
   },
   "string_literals_to_judge": 18

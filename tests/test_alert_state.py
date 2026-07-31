@@ -65,16 +65,16 @@ def a_health_issue_for(pool_name: str) -> PoolIssue:
 
 def an_alert_state(
     pool_name: str,
-    category: str,
+    category: IssueCategory | str,
     hours_ago: int = 0,
     alert_count: int = 1,
-    last_severity: str | None = None,
+    last_severity: Severity | None = None,
 ) -> AlertState:
     """Create an alert state with configurable age and severity."""
     timestamp = datetime.now(timezone.utc) - timedelta(hours=hours_ago)
     return AlertState(
         pool_name=pool_name,
-        issue_category=category,
+        issue_category=IssueCategory(category),
         first_seen=timestamp,
         last_alerted=timestamp,
         alert_count=alert_count,
@@ -119,11 +119,11 @@ class TestAlertStateCreation:
         now = datetime.now(timezone.utc)
         state = AlertState(
             pool_name="rpool",
-            issue_category="capacity",
+            issue_category=IssueCategory.CAPACITY,
             first_seen=now,
             last_alerted=now,
             alert_count=1,
-            last_severity="WARNING",
+            last_severity=Severity.WARNING,
         )
 
         assert state.first_seen == now
@@ -759,7 +759,7 @@ class TestStateChangeDetection:
         manager = a_state_manager(tmp_path, resend_hours=24)
 
         # Simulate alert 25 hours ago with WARNING
-        manager.states["rpool:health"] = an_alert_state("rpool", "health", hours_ago=25, last_severity="WARNING")
+        manager.states["rpool:health"] = an_alert_state("rpool", "health", hours_ago=25, last_severity=Severity.WARNING)
 
         # Check with CRITICAL severity
         critical_issue = PoolIssue(
@@ -833,7 +833,7 @@ class TestDeviceSpecificAlertTracking:
         manager = a_state_manager(tmp_path, resend_hours=2)
 
         # Simulate device alert 3 hours ago
-        manager.states["rpool:device:sda1"] = an_alert_state("rpool", "device", hours_ago=3, last_severity="CRITICAL")
+        manager.states["rpool:device:sda1"] = an_alert_state("rpool", "device", hours_ago=3, last_severity=Severity.CRITICAL)
 
         device_issue = a_device_issue_for("rpool", "sda1")
         result = manager.should_alert(device_issue)
