@@ -24,15 +24,31 @@
 - **Layered Configuration**: Flexible config system (defaults → app → host → user → .env → env)
 - **Structured Logging**: Rich console output with journald, eventlog, and Graylog/GELF support
 
+## Requirements
+
+**OpenZFS 2.3 or newer** is the binding requirement, ahead of any operating system.
+Everything here reads `zpool status -j --json-int`, and that JSON interface was added
+in OpenZFS 2.3 - on an older ZFS the command exits non-zero and nothing works, however
+well supported the platform otherwise is. Check with:
+
+```bash
+zpool status -j > /dev/null && echo "supported"
+```
+
+Python 3.10+. No ZFS is needed to install the package or run its test suite; it is
+needed to read a pool.
+
 ## Platform Support
 
-**Current Status:**
-- **Linux/FreeBSD/macOS:** Full support with local ZFS pools
-- **Windows:** Limited support - ZFS pools are not natively available on Windows
-  - CLI commands work but require ZFS to be present (e.g., via WSL)
-  - **Future:** Remote ZFS monitoring via SSH is planned, which will enable Windows users to monitor remote ZFS servers
-
-**Note:** The tool is primarily designed for systems running ZFS. Windows support is currently a preparation for future remote monitoring capabilities.
+- **Linux / FreeBSD:** full support with local pools. Systemd service installation and
+  bash alias management are Linux-only (see the notes on those commands below).
+- **macOS:** works where [OpenZFS on macOS](https://www.openzfsonosx.org/) is installed
+  (a third-party port, Intel and Apple Silicon). Confirm it ships ZFS 2.3+ before
+  relying on it - the ports track upstream but lag it.
+- **Windows:** ZFS is not native. A third-party [OpenZFS on Windows](https://github.com/openzfsonwindows/openzfs)
+  driver exists but is still beta, so treat a local pool there as experimental; WSL is
+  the practical route. The package installs and its CLI runs regardless, which is the
+  groundwork for the planned remote monitoring over SSH.
 
 ## Install - recommended via UV
 
@@ -453,8 +469,8 @@ check_zpools service-status
 
 **Options:**
 
-| Option     | Type             | Default | Description                        |
-|------------|------------------|---------|------------------------------------|
+| Option     | Type             | Default | Description                         |
+|------------|------------------|---------|-------------------------------------|
 | `--format` | `text` \| `json` | `text`  | Output format for the status report |
 
 Use `--format json` to poll this service from another monitor; the document

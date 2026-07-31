@@ -8,6 +8,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- **Documented the requirement that actually gates the tool: OpenZFS 2.3+.** README and the
+  skill led with an operating-system list, but `zpool status -j --json-int` is what every
+  pool-reading path depends on and the `-j` JSON interface arrived in OpenZFS 2.3 - on an
+  older ZFS the command exits non-zero regardless of platform. The platform notes were also
+  imprecise: ZFS on macOS and Windows exists as third-party ports (the Windows driver still
+  beta), and both lag upstream, so the version needs checking rather than assuming.
 - **`check` no longer flattens ZFS errors into a bare `RuntimeError`.** `check_pools_once`
   caught every exception and re-raised it as `RuntimeError`, so `--format json` reported
   `"type": "RuntimeError"` for all of them and a caller could tell "zpool is missing" from
