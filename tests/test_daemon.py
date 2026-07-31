@@ -512,31 +512,35 @@ class TestCheckCyclePassesDataToMonitor:
 class TestCheckCycleRecoversFromErrors:
     """Check cycle recovers gracefully from errors."""
 
-    def test_continues_after_zfs_fetch_error(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
-        """When ZFS client raises error, logs and continues.
+    def test_continues_after_zfs_fetch_error(self, daemon: ZPoolDaemon, mock_zfs_client: Mock, mock_alerter: Mock) -> None:
+        """When the ZFS client raises, the cycle absorbs it and alerts nothing.
 
         Given: ZFS client that raises ZFSCommandError
         When: Running _run_check_cycle
-        Then: Does not crash (returns normally)
+        Then: No alert is sent - a transient zpool failure is not pool news,
+              and inventing one would page somebody about the wrong thing
         """
         from check_zpools.zfs_client import ZFSCommandError
 
         mock_zfs_client.get_pool_status.side_effect = ZFSCommandError(["zpool", "status"], 1, "ZFS error")
 
-        # Should not raise
         daemon._run_check_cycle()
 
-    def test_continues_after_parse_error(self, daemon: ZPoolDaemon, mock_zfs_client: Mock) -> None:
-        """When ZFS returns invalid data, logs and continues.
+        mock_alerter.send_alert.assert_not_called()
 
-        Given: ZFS client returning invalid JSON
+    def test_continues_after_parse_error(self, daemon: ZPoolDaemon, mock_zfs_client: Mock, mock_alerter: Mock) -> None:
+        """When ZFS returns a payload with no pools, nothing is alerted on.
+
+        Given: A status payload carrying no pools
         When: Running _run_check_cycle
-        Then: Does not crash (returns normally)
+        Then: No alert is sent - there is nothing to report, and an empty read
+              must not be rendered as a finding
         """
         mock_zfs_client.get_pool_status.return_value = ZpoolStatusPayload.model_validate({"invalid": "data"})
 
-        # Should not raise
         daemon._run_check_cycle()
+
+        mock_alerter.send_alert.assert_not_called()
 
 
 # =============================================================================

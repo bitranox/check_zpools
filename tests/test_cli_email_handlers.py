@@ -50,7 +50,9 @@ class TestSmtpValidationExitsBehavior:
         the validator returns without error."""
         config = EmailConfig(smtp_hosts=["smtp.example.com:587"])
 
-        validate_smtp_configuration(config)
+        # The contract is "returns rather than exiting"; SystemExit is what the
+        # unconfigured case raises, so pinning its absence is the assertion.
+        assert validate_smtp_configuration(config) is None
 
 
 # ============================================================================
