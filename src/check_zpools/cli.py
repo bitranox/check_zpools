@@ -261,9 +261,16 @@ def cli_uninstall_service(*, no_stop: bool, no_disable: bool) -> None:
 
 
 @cli.command("service-status", context_settings=CLICK_CONTEXT_SETTINGS)
-def cli_service_status() -> None:
+@option(
+    "--format",
+    "output_format",
+    type=click.Choice(OutputFormat, case_sensitive=False),
+    default=OutputFormat.TEXT,
+    help="Output format for the status report",
+)
+def cli_service_status(*, output_format: OutputFormat) -> None:
     """Show status of check_zpools systemd service."""
-    service_status_command()
+    service_status_command(output_format=output_format)
 
 
 @cli.command("alias-create", context_settings=CLICK_CONTEXT_SETTINGS)

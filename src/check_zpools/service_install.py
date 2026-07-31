@@ -41,7 +41,7 @@ from typing import TYPE_CHECKING
 import rich_click as click
 from pydantic import BaseModel
 
-from .alert_state import AlertStateFile
+from .alert_state import AlertState, AlertStateFile
 from .models import DaemonConfig, InstallMethod
 
 if TYPE_CHECKING:
@@ -1068,6 +1068,29 @@ def _display_alert_states_section(resend_hours: float) -> None:
 
         click.echo(f"  [{severity}] {state.pool_name}:{state.issue_category.value}")
         click.echo(f"      Alerts sent: {state.alert_count}, Next email in: {remaining_str}")
+
+
+class ServiceStatusReport(BaseModel):
+    """Everything the status screen shows, in machine-readable form.
+
+    Why
+        This is a monitoring tool; its own service state is exactly what an
+        outer monitor wants to poll. The screen version renders the same three
+        models, so a caller no longer has to scrape a Rich table for it.
+    """
+
+    service: ServiceStatus
+    daemon: DaemonConfig
+    active_alerts: dict[str, AlertState]
+
+
+def build_service_status_report() -> ServiceStatusReport:
+    """Collect the service status, daemon settings and tracked alerts."""
+    return ServiceStatusReport(
+        service=get_service_status(),
+        daemon=_get_daemon_config(),
+        active_alerts=_load_alert_state().alerts,
+    )
 
 
 def show_service_status() -> None:

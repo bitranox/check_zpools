@@ -9,7 +9,7 @@ import lib_log_rich.runtime
 import rich_click as click
 
 from ...behaviors import deliver_scrub_summary, scrub_pools
-from ...cli_errors import handle_generic_error, handle_zfs_not_available
+from ...cli_errors import emit_json_error, handle_generic_error, handle_zfs_not_available
 from ...models import OutputFormat
 from ...scrub_report import format_scrub_summary_json, format_scrub_summary_text
 from ...zfs_client import ZFSNotAvailableError
@@ -65,10 +65,12 @@ def scrub_command(
                 raise SystemExit(1)
 
         except ZFSNotAvailableError as exc:
+            emit_json_error(exc, output_format=output_format)
             handle_zfs_not_available(exc, operation="Scrub")
         except SystemExit:
             raise
         except Exception as exc:
+            emit_json_error(exc, output_format=output_format)
             handle_generic_error(exc, operation="Scrub")
 
 

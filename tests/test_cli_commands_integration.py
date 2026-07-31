@@ -602,3 +602,74 @@ class TestScrubCommandScrubsPoolsAndReports:
 
             assert "ZFS Scrub Report" in result.output
             assert "could not be sent" in result.output
+
+
+class TestStructuredModeStaysParseableOnFailure:
+    """A caller that asked for JSON gets JSON, including when the command fails."""
+
+    def test_check_emits_a_branchable_error_object(self, cli_runner: CliRunner) -> None:
+        """When ZFS is unavailable, --format json still emits parseable JSON.
+
+        Given: A host where the zpool command cannot be found
+        When: Running 'check_zpools check --format json'
+        Then: stdout is a JSON object naming the exception class
+        """
+        from check_zpools.zfs_client import ZFSNotAvailableError
+
+        with patch(
+            "check_zpools.cli_commands.commands.check.check_pools_once",
+            side_effect=ZFSNotAvailableError("zpool command not found"),
+        ):
+            result = cli_runner.invoke(cli, ["check", "--format", "json"])
+
+        assert result.exit_code != 0
+        # stdout specifically: the human-facing message goes to stderr, and the
+        # point of the fix is that the DATA stream stays valid.
+        assert json.loads(result.stdout)["error"]["type"] == "ZFSNotAvailableError"
+
+    def test_text_mode_emits_no_json(self, cli_runner: CliRunner) -> None:
+        """When the caller did not ask for JSON, the error stays human-formatted.
+
+        Given: A failing check in the default text mode
+        When: Running 'check_zpools check'
+        Then: stdout is not a JSON document
+        """
+        from check_zpools.zfs_client import ZFSNotAvailableError
+
+        with patch(
+            "check_zpools.cli_commands.commands.check.check_pools_once",
+            side_effect=ZFSNotAvailableError("zpool command not found"),
+        ):
+            result = cli_runner.invoke(cli, ["check"])
+
+        assert result.exit_code != 0
+        with pytest.raises(json.JSONDecodeError):
+            json.loads(result.stdout)
+
+
+class TestServiceStatusStructuredMode:
+    """service-status is pollable by another monitor, not only readable by a person."""
+
+    def test_json_mode_reports_service_daemon_and_alerts(self, cli_runner: CliRunner) -> None:
+        """When asked for JSON, service-status emits the three state blocks.
+
+        Given: An installed service
+        When: Running 'check_zpools service-status --format json'
+        Then: The document carries service, daemon and active_alerts
+        """
+        from check_zpools.alert_state import AlertStateFile
+        from check_zpools.models import DaemonConfig
+        from check_zpools.service_install import ServiceStatus
+
+        with (
+            patch("check_zpools.service_install.get_service_status", return_value=ServiceStatus(installed=True, running=True)),
+            patch("check_zpools.service_install._get_daemon_config", return_value=DaemonConfig()),
+            patch("check_zpools.service_install._load_alert_state", return_value=AlertStateFile()),
+        ):
+            result = cli_runner.invoke(cli, ["service-status", "--format", "json"])
+
+        assert result.exit_code == 0
+        payload = json.loads(result.stdout)
+        assert payload["service"]["running"] is True
+        assert payload["daemon"]["check_interval_seconds"] == 300
+        assert payload["active_alerts"] == {}

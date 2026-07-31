@@ -8,7 +8,7 @@ import lib_log_rich.runtime
 import rich_click as click
 
 from ...behaviors import check_pools_once
-from ...cli_errors import handle_generic_error, handle_zfs_not_available
+from ...cli_errors import emit_json_error, handle_generic_error, handle_zfs_not_available
 from ...formatters import display_check_result_text, format_check_result_json, get_exit_code_for_severity
 from ...models import OutputFormat
 from ...zfs_client import ZFSNotAvailableError
@@ -46,6 +46,8 @@ def check_command(*, output_format: OutputFormat) -> None:
                 raise SystemExit(exit_code)
 
         except ZFSNotAvailableError as exc:
+            emit_json_error(exc, output_format=output_format)
             handle_zfs_not_available(exc, operation="Check")
         except Exception as exc:
+            emit_json_error(exc, output_format=output_format)
             handle_generic_error(exc, operation="Check")

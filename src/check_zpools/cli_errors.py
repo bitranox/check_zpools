@@ -10,6 +10,7 @@ Contents
 --------
 * :func:`handle_zfs_not_available` - Handle ZFSNotAvailableError exceptions
 * :func:`handle_generic_error` - Handle unexpected exceptions with logging
+* :func:`emit_json_error` - Emit a parseable error object for --format json
 """
 
 from __future__ import annotations
@@ -18,11 +19,44 @@ import logging
 from typing import TYPE_CHECKING, NoReturn
 
 import rich_click as click
+from pydantic import BaseModel
+
+from .models import OutputFormat
 
 if TYPE_CHECKING:
     from .zfs_client import ZFSNotAvailableError
 
 logger = logging.getLogger(__name__)
+
+
+class CliError(BaseModel):
+    """The error object a structured caller receives instead of data.
+
+    Why
+        A caller parsing stdout must be able to tell "the command could not
+        run" from "the command produced nothing". An empty stream cannot say
+        which, so the JSON modes emit this instead. The type field carries the
+        exception CLASS, so a caller branches on it rather than matching prose.
+    """
+
+    error: dict[str, str]
+
+    @classmethod
+    def of(cls, exc: Exception) -> CliError:
+        """Build the error object from an exception."""
+        return cls(error={"type": type(exc).__name__, "message": str(exc)})
+
+
+def emit_json_error(exc: Exception, *, output_format: OutputFormat) -> None:
+    """Print a parseable error object when the caller asked for JSON.
+
+    Why
+        Diagnostics belong on stderr, but the DATA stream must stay valid for
+        the format the caller requested; otherwise a pipeline sees an empty
+        stdout and cannot distinguish failure from an empty result.
+    """
+    if output_format is OutputFormat.JSON:
+        click.echo(CliError.of(exc).model_dump_json(indent=2))
 
 
 def handle_zfs_not_available(exc: ZFSNotAvailableError, *, operation: str = "Operation") -> NoReturn:
@@ -89,6 +123,8 @@ def handle_generic_error(exc: Exception, *, operation: str = "Operation") -> NoR
 
 
 __all__ = [
+    "CliError",
+    "emit_json_error",
     "handle_generic_error",
     "handle_zfs_not_available",
 ]
