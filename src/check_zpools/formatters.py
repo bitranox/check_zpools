@@ -14,16 +14,18 @@ Contents
 
 from __future__ import annotations
 
-import json
 import sys
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
+from pydantic import BaseModel, field_serializer
 from rich.console import Console
 from rich.table import Table
 
+from .models import IssueCategory, PoolHealth, Severity
+
 if TYPE_CHECKING:
-    from .models import CheckResult, PoolIssue, PoolStatus, Severity
+    from .models import CheckResult, PoolIssue, PoolStatus
 
 #: Capacity display thresholds (mirrors MonitorConfig defaults for the color heuristic).
 CAPACITY_COLOR_WARNING_THRESHOLD = 80
@@ -36,6 +38,74 @@ BYTES_PER_UNIT = 1024.0
 DAYS_PER_WEEK = 7
 DAYS_PER_MONTH = 30
 DAYS_STALE_WARNING = 60
+
+
+class CheckPoolReport(BaseModel):
+    """One pool in the check command's JSON output."""
+
+    name: str
+    health: PoolHealth
+    capacity_percent: float
+
+
+class CheckIssueReport(BaseModel):
+    """One issue in the check command's JSON output."""
+
+    pool_name: str
+    severity: Severity
+    category: IssueCategory
+    message: str
+    details: dict[str, Any]
+
+
+class CheckReport(BaseModel):
+    """The check command's JSON document.
+
+    Why
+        This output is consumed by monitoring scripts, so its shape is a
+        published contract. Declaring it means the shape is checked rather
+        than reassembled by hand at the point of printing.
+    """
+
+    timestamp: datetime
+    pools: list[CheckPoolReport]
+    issues: list[CheckIssueReport]
+    overall_severity: Severity
+
+    @field_serializer("timestamp")
+    @classmethod
+    def serialize_timestamp(cls, value: datetime) -> str:
+        """Emit the timestamp as isoformat, not pydantic's Z-suffixed default.
+
+        Why
+            This is a published output. Pydantic writes "...T12:00:00Z", while
+            this document has always carried "...T12:00:00+00:00", and
+            datetime.fromisoformat rejects the Z form on Python 3.10 - which
+            this package still supports. A consumer on 3.10 would break.
+        """
+        return value.isoformat()
+
+    @classmethod
+    def from_result(cls, result: CheckResult) -> CheckReport:
+        """Build the report document from a finished check."""
+        return cls(
+            timestamp=result.timestamp,
+            pools=[CheckPoolReport(name=pool.name, health=pool.health, capacity_percent=pool.capacity_percent) for pool in result.pools],
+            issues=[
+                CheckIssueReport(
+                    pool_name=issue.pool_name,
+                    severity=issue.severity,
+                    category=issue.category,
+                    message=issue.message,
+                    # IssueDetails carries ~18 optional fields; dumping the ones
+                    # that are set is the model's own way to render itself, not
+                    # a dict standing in for a record.
+                    details=issue.details.model_dump(exclude_none=True),
+                )
+                for issue in result.issues
+            ],
+            overall_severity=result.overall_severity,
+        )
 
 
 def format_check_result_json(result: CheckResult) -> str:
@@ -51,29 +121,7 @@ def format_check_result_json(result: CheckResult) -> str:
     str
         JSON-formatted string with indentation.
     """
-    data = {
-        "timestamp": result.timestamp.isoformat(),
-        "pools": [
-            {
-                "name": pool.name,
-                "health": pool.health.value,
-                "capacity_percent": pool.capacity_percent,
-            }
-            for pool in result.pools
-        ],
-        "issues": [
-            {
-                "pool_name": issue.pool_name,
-                "severity": issue.severity.value,
-                "category": issue.category.value,
-                "message": issue.message,
-                "details": issue.details.model_dump(exclude_none=True),
-            }
-            for issue in result.issues
-        ],
-        "overall_severity": result.overall_severity.value,
-    }
-    return json.dumps(data, indent=2)
+    return CheckReport.from_result(result).model_dump_json(indent=2)
 
 
 def format_check_result_text(result: CheckResult) -> str:

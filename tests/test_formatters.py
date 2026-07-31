@@ -313,6 +313,22 @@ class TestJsonFormattingStyle:
 
         assert "  " in json_output
 
+    @pytest.mark.os_agnostic
+    def test_timestamp_keeps_the_offset_form_python_310_can_parse(self) -> None:
+        """When formatting any result, the timestamp stays in +00:00 form.
+
+        Pydantic's default datetime serialisation writes a Z suffix, which
+        datetime.fromisoformat rejects on Python 3.10 - a version this package
+        supports. This output is consumed by monitoring scripts, so the offset
+        form is a contract, not a preference.
+        """
+        result = a_check_result_with_no_issues()
+
+        timestamp = json.loads(format_check_result_json(result))["timestamp"]
+
+        assert not timestamp.endswith("Z")
+        assert datetime.fromisoformat(timestamp) == result.timestamp
+
 
 # ============================================================================
 # Tests: Text Formatting
