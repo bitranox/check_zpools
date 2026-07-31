@@ -869,7 +869,7 @@ def _format_duration(delta: timedelta) -> str:
     hours, remainder = divmod(remainder, 3600)
     minutes, seconds = divmod(remainder, 60)
 
-    parts = []
+    parts: list[str] = []
     if days > 0:
         parts.append(f"{days}d")
     if hours > 0:

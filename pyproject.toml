@@ -150,12 +150,19 @@ exclude = [
   ".venv*",
 ]
 reportPrivateUsage = false
+reportUnknownMemberType = "error"
+reportUnknownArgumentType = "error"
+reportUnknownVariableType = "error"
+reportUnknownParameterType = "error"
+reportMissingTypeArgument = "error"
+
+[[tool.pyright.executionEnvironments]]
+root = "tests"
 reportUnknownMemberType = "none"
 reportUnknownArgumentType = "none"
 reportUnknownVariableType = "none"
 reportUnknownParameterType = "none"
 reportMissingTypeArgument = "none"
-
 [tool.pytest.ini_options]
 addopts = ["--doctest-modules"]
 doctest_optionflags = ["ELLIPSIS", "NORMALIZE_WHITESPACE"]

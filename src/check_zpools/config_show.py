@@ -53,7 +53,8 @@ def _collect_dotted_keys(data: dict[str, Any], prefix: str = "") -> list[str]:
         dotted_key = f"{prefix}.{key}" if prefix else key
         if isinstance(value, dict):
             # Recurse into nested dicts
-            keys.extend(_collect_dotted_keys(value, prefix=dotted_key))
+            nested = cast("dict[str, Any]", value)
+            keys.extend(_collect_dotted_keys(nested, prefix=dotted_key))
         else:
             # Leaf value
             keys.append(dotted_key)
@@ -121,7 +122,8 @@ def _display_value_with_source(
     if isinstance(value, dict):
         # For nested dicts, show the header and recurse
         click.echo(f"{indent}{key}:")
-        for nested_key, nested_value in value.items():
+        nested_section = cast("dict[str, Any]", value)
+        for nested_key, nested_value in nested_section.items():
             nested_dotted_key = f"{dotted_key}.{nested_key}"
             _display_value_with_source(
                 nested_key,

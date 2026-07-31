@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone  # noqa: F401 - timezone used in doctests  # pyright: ignore[reportUnusedImport]
 from enum import Enum
 from functools import lru_cache
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, TypeAdapter, ValidationError, field_validator, model_validator
 
@@ -447,7 +447,8 @@ class AlertConfig(BaseModel):
         [<Severity.CRITICAL: 'CRITICAL'>]
         """
         if isinstance(value, list):
-            return [item.upper() if isinstance(item, str) else item for item in value]
+            items = cast("list[Any]", value)
+            return [item.upper() if isinstance(item, str) else item for item in items]
         return value
 
 
@@ -1541,11 +1542,12 @@ class EmailConfig(BaseModel):
         """
         if not isinstance(data, dict):
             return data
+        incoming = cast("dict[str, Any]", data)
         usable: dict[str, Any] = {}
         for name, field_info in cls.model_fields.items():
-            if name not in data:
+            if name not in incoming:
                 continue
-            value = data[name]
+            value = incoming[name]
             try:
                 TypeAdapter(field_info.annotation).validate_python(value)
             except ValidationError:
@@ -1779,8 +1781,9 @@ class CheckZpoolsConfig(BaseModel):
         """
         if not isinstance(data, dict):
             return data
+        incoming = cast("dict[str, Any]", data)
         cleaned: dict[str, Any] = {}
-        for key, value in data.items():
+        for key, value in incoming.items():
             if key in cls.model_fields and not isinstance(value, dict):
                 logger.warning("Ignoring malformed config section %r, using defaults", key)
                 continue

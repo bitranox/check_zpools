@@ -27,7 +27,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timedelta, timezone
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic import BaseModel, ConfigDict, field_serializer
 
@@ -462,9 +462,10 @@ class AlertStateManager:
 
         try:
             with self.state_file.open("r") as f:
-                raw = json.load(f)
+                raw: object = json.load(f)
 
-            version = raw.get("version", 1) if isinstance(raw, dict) else 1
+            document = cast("dict[str, Any]", raw) if isinstance(raw, dict) else {}
+            version = document.get("version", 1)
             if version != 1:
                 logger.warning(
                     "Unknown state file version, starting fresh",
@@ -474,7 +475,7 @@ class AlertStateManager:
 
             # Entry by entry, so one corrupt record cannot cost us the rest of
             # the file - losing all state means re-alerting every open issue.
-            entries = raw.get("alerts", {}) if isinstance(raw, dict) else {}
+            entries: dict[str, Any] = document.get("alerts", {})
             for key, entry in entries.items():
                 state = _parse_alert_state_entry(key, entry)
                 if state is not None:

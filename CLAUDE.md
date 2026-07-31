@@ -197,8 +197,8 @@ When working on this project:
 
 ## Code Quality
 
-Deliberately accepted items — do not flag in future reviews:
+Deliberately accepted items - do not flag in future reviews:
 
-- **Pyright `reportUnknown*` suppressions**: External libraries (pydantic, rich_click, lib_log_rich, lib_cli_exit_tools) lack source-resolvable types in the build environment, causing cascading `Unknown` warnings. The 5 `reportUnknown*` and `reportMissingTypeArgument` rules are set to `"none"` to suppress this noise. Re-evaluate if type stubs become available for these libraries.
-- **No dedicated test file for `zfs_client.py`**: Indirect coverage through `test_daemon.py`, `test_behaviors.py`, and `test_cli_commands_integration.py` is sufficient. The module is exercised via integration paths rather than isolated unit tests.
+- **Pyright `reportUnknown*` exemption, tests only** (re-assessed 2026-07-31): the 5 `reportUnknown*` / `reportMissingTypeArgument` rules are `error` for `src/` and `none` only under `tests/` (a pyright `executionEnvironments` entry). The original blanket project-wide suppression was measured and did not hold: of 115 diagnostics, 33 were in `src/` and none came from a third-party stub gap - they were bare `parts = []` containers and an unannotated `json.load`. Those are fixed, so shipped code is now strictly checked. The remaining 82 are in test fixtures; re-evaluate if someone wants to type those too.
+- ~~No dedicated test file for `zfs_client.py`~~ **(retired 2026-07-31)**: held while the module was read-only, but `start_scrub()` made it the one mutating call in the package - it runs `zpool scrub` on a live pool - and every other test substitutes a double for it, so nothing checked the argv it builds. `tests/test_zfs_client.py` now drives the real client against a recording stand-in executable (a genuine seam, since `zpool_path` is injectable). Confirmed to fail against a `zpool scrub -s` typo, which would cancel scrubs instead of starting them and which the previous suite passed.
 - **No dedicated test file for `config_show.py`**: Indirect coverage through `test_cli.py` is sufficient. Display formatting is exercised via CLI integration paths.

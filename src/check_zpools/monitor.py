@@ -319,7 +319,7 @@ class PoolMonitor:
         parts = [f"Device {device.name} is {device.state.value}"]
 
         if device.has_errors():
-            error_parts = []
+            error_parts: list[str] = []
             if device.read_errors > 0:
                 error_parts.append(f"{device.read_errors} read")
             if device.write_errors > 0:

@@ -502,7 +502,7 @@ class ZPoolDaemon:
         hours = (total_seconds % 86400) // 3600
         minutes = (total_seconds % 3600) // 60
 
-        parts = []
+        parts: list[str] = []
         if days > 0:
             parts.append(f"{days}d")
         if hours > 0:
