@@ -42,7 +42,7 @@ import rich_click as click
 from pydantic import BaseModel
 
 from .alert_state import AlertStateFile
-from .models import DaemonConfig
+from .models import DaemonConfig, InstallMethod
 
 if TYPE_CHECKING:
     import psutil
@@ -258,7 +258,7 @@ def _detect_uvx_from_process_tree() -> tuple[Path | None, str | None]:
         return (None, None)
 
 
-def _find_executable() -> tuple[str, Path, str | None]:
+def _find_executable() -> tuple[InstallMethod, Path, str | None]:
     """Detect installation method and find executable path.
 
     This is the unified entry point for detecting how check_zpools is installed
@@ -283,26 +283,26 @@ def _find_executable() -> tuple[str, Path, str | None]:
     uvx_path, uvx_version = _detect_uvx_from_process_tree()
     if uvx_path:
         logger.info("Installation method: uvx (%s)", uvx_path)
-        return ("uvx", uvx_path, uvx_version)
+        return (InstallMethod.UVX, uvx_path, uvx_version)
 
     # Not uvx - use the current executable path
     # Try sys.argv[0] first (the command that was run)
     if sys.argv[0] and Path(sys.argv[0]).exists():
         exec_path = Path(sys.argv[0]).resolve()
         logger.info("Installation method: direct (from sys.argv[0]: %s)", exec_path)
-        return ("direct", exec_path, None)
+        return (InstallMethod.DIRECT, exec_path, None)
 
     # Fallback: try to find in PATH
     exec_path_str = shutil.which("check_zpools")
     if exec_path_str:
         exec_path = Path(exec_path_str).resolve()
         logger.info("Installation method: direct (from PATH: %s)", exec_path)
-        return ("direct", exec_path, None)
+        return (InstallMethod.DIRECT, exec_path, None)
 
     # Last resort: use the Python executable with -m
     python_path = Path(sys.executable).resolve()
     logger.info("Installation method: direct (using python -m: %s)", python_path)
-    return ("direct", python_path, None)
+    return (InstallMethod.DIRECT, python_path, None)
 
 
 def _create_service_directories() -> None:
@@ -326,7 +326,7 @@ def _create_service_directories() -> None:
 
 def _generate_service_file_content(
     executable_path: Path,
-    method: str,
+    method: InstallMethod,
     uvx_version: str | None = None,
 ) -> str:
     """Generate systemd service file content with correct executable path.
@@ -348,7 +348,7 @@ def _generate_service_file_content(
         Complete systemd service file content as string.
     """
     # Build ExecStart command based on installation method
-    if method == "uvx":
+    if method is InstallMethod.UVX:
         # uvx runs tools on-the-fly, creating temporary venvs in cache
         package_spec = f"check_zpools{uvx_version}" if uvx_version else "check_zpools"
         exec_start = f"{executable_path} {package_spec} daemon --foreground"
@@ -414,7 +414,7 @@ WantedBy=multi-user.target
 
 def _install_service_file(
     executable_path: Path,
-    method: str,
+    method: InstallMethod,
     uvx_version: str | None = None,
 ) -> None:
     """Write systemd service file to /etc/systemd/system/.
@@ -463,7 +463,7 @@ def _run_systemctl(command: list[str], *, check: bool = True) -> subprocess.Comp
     )
 
 
-def _handle_uvx_version(method: str, detected_version: str | None, uvx_version: str | None) -> str | None:
+def _handle_uvx_version(method: InstallMethod, detected_version: str | None, uvx_version: str | None) -> str | None:
     """Determine final uvx version to use and log warnings.
 
     Parameters
@@ -480,7 +480,7 @@ def _handle_uvx_version(method: str, detected_version: str | None, uvx_version: 
     str | None:
         Final version to use, or None.
     """
-    if method != "uvx":
+    if method is not InstallMethod.UVX:
         return None
 
     final_version = uvx_version or detected_version

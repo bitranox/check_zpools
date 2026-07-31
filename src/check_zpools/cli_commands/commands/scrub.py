@@ -10,6 +10,7 @@ import rich_click as click
 
 from ...behaviors import deliver_scrub_summary, scrub_pools
 from ...cli_errors import handle_generic_error, handle_zfs_not_available
+from ...models import OutputFormat
 from ...scrub_report import format_scrub_summary_json, format_scrub_summary_text
 from ...zfs_client import ZFSNotAvailableError
 
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 def scrub_command(
     *,
     pools: tuple[str, ...],
-    output_format: str,
+    output_format: OutputFormat,
     wait: bool,
     poll_interval: float | None,
     send_email: bool,
@@ -46,7 +47,7 @@ def scrub_command(
                 dry_run=dry_run,
             )
 
-            if output_format == "json":
+            if output_format is OutputFormat.JSON:
                 click.echo(format_scrub_summary_json(result))
             else:
                 click.echo(format_scrub_summary_text(result))

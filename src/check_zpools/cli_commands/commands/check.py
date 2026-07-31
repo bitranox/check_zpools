@@ -10,19 +10,20 @@ import rich_click as click
 from ...behaviors import check_pools_once
 from ...cli_errors import handle_generic_error, handle_zfs_not_available
 from ...formatters import display_check_result_text, format_check_result_json, get_exit_code_for_severity
+from ...models import OutputFormat
 from ...zfs_client import ZFSNotAvailableError
 
 logger = logging.getLogger(__name__)
 
 
-def check_command(*, output_format: str) -> None:
+def check_command(*, output_format: OutputFormat) -> None:
     """Execute check command logic."""
     with lib_log_rich.runtime.bind(job_id="cli-check", extra={"command": "check", "format": output_format}):
         try:
             result = check_pools_once()
 
             # Format and display output
-            if output_format == "json":
+            if output_format is OutputFormat.JSON:
                 # JSON output - use click.echo for plain text
                 output = format_check_result_json(result)
                 click.echo(output)

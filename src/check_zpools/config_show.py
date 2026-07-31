@@ -25,6 +25,7 @@ from typing import Any, cast
 import click
 
 from .config import get_config
+from .models import ConfigOutputFormat
 
 
 def _collect_dotted_keys(data: dict[str, Any], prefix: str = "") -> list[str]:
@@ -214,7 +215,7 @@ def _display_human_section(config: Any, section: str | None) -> None:
             _display_human_section_data(section_name, section_data, config)
 
 
-def display_config(*, output_format: str = "human", section: str | None = None) -> None:
+def display_config(*, output_format: ConfigOutputFormat = ConfigOutputFormat.HUMAN, section: str | None = None) -> None:
     """Display the current merged configuration from all sources.
 
     Why
@@ -266,7 +267,7 @@ def display_config(*, output_format: str = "human", section: str | None = None) 
     """
     config = get_config()
 
-    if output_format.lower() == "json":
+    if output_format is ConfigOutputFormat.JSON:
         _display_json_section(config, section)
     else:
         _display_human_section(config, section)

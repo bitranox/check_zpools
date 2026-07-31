@@ -43,6 +43,7 @@ else:
 
 
 from . import __init__conf__
+from .models import InstallMethod
 
 logger = logging.getLogger(__name__)
 
@@ -146,7 +147,7 @@ def _build_exec_command() -> str:
 
     method, executable_path, uvx_version = _find_executable()
 
-    if method == "uvx":
+    if method is InstallMethod.UVX:
         package_spec = f"{__init__conf__.shell_command}{uvx_version}" if uvx_version else __init__conf__.shell_command
         return f"{executable_path} {package_spec}"
 

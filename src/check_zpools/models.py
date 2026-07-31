@@ -167,6 +167,76 @@ class ScanFunction(str, Enum):
             return cls.UNKNOWN
 
 
+class OutputFormat(str, Enum):
+    """How a command renders its result.
+
+    Why
+        The choice appears in three commands and in each Click declaration; as
+        a bare string it had to be spelled correctly in six places.
+
+    Examples
+    --------
+    >>> OutputFormat("json")
+    <OutputFormat.JSON: 'json'>
+    """
+
+    TEXT = "text"
+    JSON = "json"
+
+
+class ConfigOutputFormat(str, Enum):
+    """How the config command renders the merged configuration.
+
+    Why a second enum rather than reusing OutputFormat
+        This command offers human or json; the check and scrub commands offer
+        text or json. Merging them into one vocabulary would let
+        `check --format human` past the Click choice and fail later.
+
+    Examples
+    --------
+    >>> ConfigOutputFormat("human")
+    <ConfigOutputFormat.HUMAN: 'human'>
+    """
+
+    HUMAN = "human"
+    JSON = "json"
+
+
+class ErrorKind(str, Enum):
+    """Which ZFS error counter an issue is about.
+
+    Values
+        READ / WRITE: I/O errors on the vdev
+        CHECKSUM: silent corruption caught by ZFS
+
+    Examples
+    --------
+    >>> ErrorKind.CHECKSUM.value
+    'checksum'
+    """
+
+    READ = "read"
+    WRITE = "write"
+    CHECKSUM = "checksum"
+
+
+class InstallMethod(str, Enum):
+    """How this copy of check_zpools was installed.
+
+    Why
+        Decides whether the systemd unit needs the uvx cache directory and a
+        version pin, so it is a branch condition in three modules.
+
+    Examples
+    --------
+    >>> InstallMethod.UVX.value
+    'uvx'
+    """
+
+    UVX = "uvx"
+    DIRECT = "direct"
+
+
 # ============================================================================
 # Configuration Models (Pydantic for external boundary parsing)
 # ============================================================================
@@ -1831,12 +1901,16 @@ class ZpoolStatusPayload(BaseModel):
 __all__ = [
     "CheckResult",
     "CheckZpoolsConfig",
+    "ConfigOutputFormat",
     "DeviceState",
     "DeviceStatus",
     "EmailConfig",
+    "ErrorKind",
+    "InstallMethod",
     "IssueCategory",
     "IssueDetails",
     "MonitorConfig",
+    "OutputFormat",
     "PoolDecision",
     "PoolHealth",
     "PoolIssue",

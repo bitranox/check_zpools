@@ -49,6 +49,7 @@ from .cli_traceback import (
     snapshot_traceback_state,
 )
 from .logging_setup import init_logging
+from .models import ConfigOutputFormat, OutputFormat
 from .typed_click import option, version_option
 
 if TYPE_CHECKING:
@@ -121,8 +122,8 @@ def cli_fail() -> None:
 @option(
     "--format",
     "output_format",
-    type=click.Choice(["human", "json"], case_sensitive=False),
-    default="human",
+    type=click.Choice(ConfigOutputFormat, case_sensitive=False),
+    default=ConfigOutputFormat.HUMAN,
     help="Output format (human-readable or JSON)",
 )
 @option(
@@ -131,7 +132,7 @@ def cli_fail() -> None:
     default=None,
     help="Show only a specific configuration section",
 )
-def cli_config(*, output_format: str, section: str | None) -> None:
+def cli_config(*, output_format: ConfigOutputFormat, section: str | None) -> None:
     """Display the current merged configuration from all sources."""
     config_show_command(output_format=output_format, section=section)
 
@@ -327,11 +328,11 @@ def cli_alias_delete(*, user: str | None, all_users: bool) -> None:
 @option(
     "--format",
     "output_format",
-    type=click.Choice(["text", "json"], case_sensitive=False),
-    default="text",
+    type=click.Choice(OutputFormat, case_sensitive=False),
+    default=OutputFormat.TEXT,
     help="Output format for results",
 )
-def cli_check(*, output_format: str) -> None:
+def cli_check(*, output_format: OutputFormat) -> None:
     """Perform one-shot check of all ZFS pools."""
     check_command(output_format=output_format)
 
@@ -346,8 +347,8 @@ def cli_check(*, output_format: str) -> None:
 @option(
     "--format",
     "output_format",
-    type=click.Choice(["text", "json"], case_sensitive=False),
-    default="text",
+    type=click.Choice(OutputFormat, case_sensitive=False),
+    default=OutputFormat.TEXT,
     help="Output format for the summary",
 )
 @option(
@@ -376,7 +377,7 @@ def cli_check(*, output_format: str) -> None:
 def cli_scrub(
     *,
     pools: tuple[str, ...],
-    output_format: str,
+    output_format: OutputFormat,
     wait: bool,
     poll_interval: float | None,
     send_email: bool,

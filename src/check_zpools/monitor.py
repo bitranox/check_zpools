@@ -33,6 +33,7 @@ from .models import (
     CheckResult,
     DeviceState,
     DeviceStatus,
+    ErrorKind,
     IssueCategory,
     IssueDetails,
     MonitorConfig,
@@ -374,7 +375,7 @@ class PoolMonitor:
 
         return None
 
-    def _create_error_issue(self, pool_name: str, error_type: str, count: int, threshold: int, extra_note: str = "") -> PoolIssue:
+    def _create_error_issue(self, pool_name: str, error_type: ErrorKind, count: int, threshold: int, extra_note: str = "") -> PoolIssue:
         """Create a pool issue for an error condition.
 
         Parameters
@@ -395,17 +396,17 @@ class PoolMonitor:
         PoolIssue:
             Issue describing the error.
         """
-        message = f"Pool has {count} {error_type} errors"
+        message = f"Pool has {count} {error_type.value} errors"
         if extra_note:
             message += f" {extra_note}"
 
         # Build details with the appropriate error field based on error_type
         details = IssueDetails(threshold=threshold)
-        if error_type == "read":
+        if error_type is ErrorKind.READ:
             details = IssueDetails(read_errors=count, threshold=threshold)
-        elif error_type == "write":
+        elif error_type is ErrorKind.WRITE:
             details = IssueDetails(write_errors=count, threshold=threshold)
-        elif error_type == "checksum":
+        elif error_type is ErrorKind.CHECKSUM:
             details = IssueDetails(checksum_errors=count, threshold=threshold)
 
         return PoolIssue(
@@ -450,16 +451,16 @@ class PoolMonitor:
 
         # Check read errors
         if self._check_error_threshold(pool.read_errors, self.config.read_errors_warning):
-            issues.append(self._create_error_issue(pool.name, "read", pool.read_errors, self.config.read_errors_warning))
+            issues.append(self._create_error_issue(pool.name, ErrorKind.READ, pool.read_errors, self.config.read_errors_warning))
 
         # Check write errors
         if self._check_error_threshold(pool.write_errors, self.config.write_errors_warning):
-            issues.append(self._create_error_issue(pool.name, "write", pool.write_errors, self.config.write_errors_warning))
+            issues.append(self._create_error_issue(pool.name, ErrorKind.WRITE, pool.write_errors, self.config.write_errors_warning))
 
         # Check checksum errors (more serious)
         if self._check_error_threshold(pool.checksum_errors, self.config.checksum_errors_warning):
             issues.append(
-                self._create_error_issue(pool.name, "checksum", pool.checksum_errors, self.config.checksum_errors_warning, "(possible data corruption)")
+                self._create_error_issue(pool.name, ErrorKind.CHECKSUM, pool.checksum_errors, self.config.checksum_errors_warning, "(possible data corruption)")
             )
 
         return issues

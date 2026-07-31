@@ -33,6 +33,7 @@ from check_zpools.alias_manager import (
     create_alias,
     delete_alias,
 )
+from check_zpools.models import InstallMethod
 
 if TYPE_CHECKING:
     from click.testing import CliRunner
@@ -214,7 +215,7 @@ class TestBuildExecCommand:
         """Direct installation should return executable path."""
         with patch(
             "check_zpools.service_install._find_executable",
-            return_value=("direct", Path("/usr/local/bin/check_zpools"), None),
+            return_value=(InstallMethod.DIRECT, Path("/usr/local/bin/check_zpools"), None),
         ):
             result = _build_exec_command()
 
@@ -224,7 +225,7 @@ class TestBuildExecCommand:
         """uvx installation should include version specifier."""
         with patch(
             "check_zpools.service_install._find_executable",
-            return_value=("uvx", Path("/home/user/.local/bin/uvx"), "@2.0.0"),
+            return_value=(InstallMethod.UVX, Path("/home/user/.local/bin/uvx"), "@2.0.0"),
         ):
             result = _build_exec_command()
 
@@ -235,7 +236,7 @@ class TestBuildExecCommand:
         """uvx installation without version should use package name only."""
         with patch(
             "check_zpools.service_install._find_executable",
-            return_value=("uvx", Path("/home/user/.local/bin/uvx"), None),
+            return_value=(InstallMethod.UVX, Path("/home/user/.local/bin/uvx"), None),
         ):
             result = _build_exec_command()
 
@@ -284,7 +285,7 @@ class TestCreateAliasSuccess:
             patch.dict(os.environ, {"SUDO_USER": "testuser"}),
             patch(
                 "check_zpools.service_install._find_executable",
-                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+                return_value=(InstallMethod.DIRECT, Path("/usr/bin/check_zpools"), None),
             ),
         ):
             create_alias()
@@ -311,7 +312,7 @@ class TestCreateAliasSuccess:
             patch.dict(os.environ, {"SUDO_USER": "testuser"}),
             patch(
                 "check_zpools.service_install._find_executable",
-                return_value=("direct", Path("/new/path/check_zpools"), None),
+                return_value=(InstallMethod.DIRECT, Path("/new/path/check_zpools"), None),
             ),
         ):
             create_alias()
@@ -337,7 +338,7 @@ class TestCreateAliasSuccess:
             patch.dict(os.environ, {"SUDO_USER": "testuser"}),
             patch(
                 "check_zpools.service_install._find_executable",
-                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+                return_value=(InstallMethod.DIRECT, Path("/usr/bin/check_zpools"), None),
             ),
         ):
             create_alias()
@@ -365,7 +366,7 @@ class TestCreateAliasForSpecificUser:
             patch("pwd.getpwnam", return_value=mock_pw),
             patch(
                 "check_zpools.service_install._find_executable",
-                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+                return_value=(InstallMethod.DIRECT, Path("/usr/bin/check_zpools"), None),
             ),
         ):
             create_alias(username="otheruser")
@@ -679,7 +680,7 @@ class TestCreateAliasOutputMessages:
             patch.dict(os.environ, {"SUDO_USER": "testuser"}),
             patch(
                 "check_zpools.service_install._find_executable",
-                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+                return_value=(InstallMethod.DIRECT, Path("/usr/bin/check_zpools"), None),
             ),
         ):
             create_alias()
@@ -821,7 +822,7 @@ class TestCreateAliasAllUsers:
             patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
             patch(
                 "check_zpools.service_install._find_executable",
-                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+                return_value=(InstallMethod.DIRECT, Path("/usr/bin/check_zpools"), None),
             ),
         ):
             create_alias(all_users=True)
@@ -843,7 +844,7 @@ class TestCreateAliasAllUsers:
             patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
             patch(
                 "check_zpools.service_install._find_executable",
-                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+                return_value=(InstallMethod.DIRECT, Path("/usr/bin/check_zpools"), None),
             ),
         ):
             # Should not raise KeyError even with invalid username
@@ -869,7 +870,7 @@ class TestCreateAliasAllUsers:
             patch("check_zpools.alias_manager.SYSTEM_BASHRC", system_bashrc),
             patch(
                 "check_zpools.service_install._find_executable",
-                return_value=("direct", Path("/usr/bin/check_zpools"), None),
+                return_value=(InstallMethod.DIRECT, Path("/usr/bin/check_zpools"), None),
             ),
         ):
             create_alias(all_users=True)
