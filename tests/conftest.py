@@ -117,6 +117,24 @@ def pytest_runtest_setup(item: pytest.Item) -> None:
     if "posix_only" in marker_names and not IS_POSIX:
         pytest.skip("Test requires POSIX system (Linux, macOS, or Unix)")
 
+    # The `os_*` family names the same constraints as the `*_only` family above, and a
+    # marker naming a platform has to enforce it: `os_posix` was registered in pyproject
+    # but wired to nothing, so tests declaring POSIX semantics ran on the Windows lane
+    # and failed there - the marker read as a guard while being pure documentation.
+    # `os_agnostic` deliberately gets no entry: it means "runs everywhere", which is
+    # already what an unmarked test does.
+    if "os_windows" in marker_names and not IS_WINDOWS:
+        pytest.skip("Test exercises Windows-only behavior")
+
+    if "os_macos" in marker_names and not IS_MACOS:
+        pytest.skip("Test exercises macOS-only behavior")
+
+    if "os_linux" in marker_names and not IS_LINUX:
+        pytest.skip("Test exercises Linux-only behavior")
+
+    if "os_posix" in marker_names and not IS_POSIX:
+        pytest.skip("Test exercises behavior requiring POSIX semantics")
+
 
 def _remove_ansi_codes(text: str) -> str:
     """Return ``text`` stripped of ANSI escape sequences.

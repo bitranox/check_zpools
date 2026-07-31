@@ -156,7 +156,7 @@ class TestClientConstruction:
         assert ZFSClient(zpool_path=tmp_path / "absent").check_zpool_available() is False
 
 
-@pytest.mark.os_agnostic
+@pytest.mark.os_posix
 def test_the_recording_stand_in_is_itself_trustworthy(tmp_path: Path) -> None:
     """The fake zpool records argv and honours its scripted exit code.
 

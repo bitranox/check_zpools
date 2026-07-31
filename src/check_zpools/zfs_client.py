@@ -145,7 +145,7 @@ class ZFSClient:
         logger.debug("ZFSClient initialized with zpool at %s", self.zpool_path)
 
     def check_zpool_available(self) -> bool:
-        """Verify zpool command is available and executable.
+        """Verify the zpool command exists as a file.
 
         Why
             Allows pre-flight checking before attempting commands.

@@ -19,6 +19,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   rejected the module - a failure invisible to a Linux-only run. Typed facades state the
   shape actually used, which also retired a blanket `# type: ignore` that would have
   hidden any other typing error on its line.
+- **`os_*` test markers now enforce the platform they name.** `os_posix` was registered
+  in `pyproject.toml` but wired to no skip, so tests declaring POSIX semantics ran on the
+  Windows CI lane and failed there - the marker read as a guard while being pure
+  documentation. `conftest.py` now skips on `os_posix`/`os_linux`/`os_macos`/`os_windows`
+  the same way it already did for the `*_only` family.
 - **Quickstart notebook no longer references the deleted template commands.** It called
   `hello`, `fail` and imported `CANONICAL_GREETING`/`emit_greeting`, all removed in this
   same unreleased set, so CI's notebook run failed on import. It now demonstrates the
