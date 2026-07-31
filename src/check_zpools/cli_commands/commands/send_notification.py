@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 
 import lib_log_rich.runtime
-import rich_click as click
 
+from ... import safe_console
 from ...cli_email_handlers import validate_smtp_configuration
 from ...config import load_settings
 from ...mail import send_notification
@@ -29,11 +29,11 @@ def _handle_notification_result(*, result: bool, recipients: tuple[str, ...]) ->
     SystemExit: If send failed.
     """
     if result:
-        click.echo("\nNotification sent successfully!")
+        safe_console.echo("\nNotification sent successfully!")
         logger.info("Notification sent via CLI", extra={"recipients": list(recipients)})
     else:
         logger.error("Notification sending failed via CLI", extra={"recipients": list(recipients)})
-        click.echo("\nNotification sending failed.", err=True)
+        safe_console.echo("\nNotification sending failed.", err=True)
         raise SystemExit(1)
 
 
@@ -51,17 +51,17 @@ def _handle_notification_error(exc: Exception) -> None:
     """
     if isinstance(exc, ValueError):
         logger.error("Invalid notification parameters", extra={"error": str(exc)})
-        click.echo(f"\nError: Invalid notification parameters - {exc}", err=True)
+        safe_console.echo(f"\nError: Invalid notification parameters - {exc}", err=True)
     elif isinstance(exc, RuntimeError):
         logger.error("SMTP delivery failed", extra={"error": str(exc)})
-        click.echo(f"\nError: Failed to send notification - {exc}", err=True)
+        safe_console.echo(f"\nError: Failed to send notification - {exc}", err=True)
     else:
         logger.error(
             "Unexpected error sending notification",
             extra={"error": str(exc), "error_type": type(exc).__name__},
             exc_info=True,
         )
-        click.echo(f"\nError: Unexpected error - {exc}", err=True)
+        safe_console.echo(f"\nError: Unexpected error - {exc}", err=True)
     raise SystemExit(1)
 
 

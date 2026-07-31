@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 
 import lib_log_rich.runtime
-import rich_click as click
 
+from ... import safe_console
 from ...service_install import uninstall_service
 
 logger = logging.getLogger(__name__)
@@ -26,12 +26,12 @@ def service_uninstall_command(*, no_stop: bool, no_disable: bool) -> None:
             uninstall_service(stop=not no_stop, disable=not no_disable)
         except PermissionError as exc:
             logger.error("Permission denied during service uninstallation", extra={"error": str(exc)})
-            click.echo(f"\n{exc}", err=True)
+            safe_console.echo(f"\n{exc}", err=True)
             raise SystemExit(1) from exc
         except Exception as exc:
             logger.exception(
                 "Service uninstallation failed",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
             )
-            click.echo(f"\nError: Service uninstallation failed - {exc}", err=True)
+            safe_console.echo(f"\nError: Service uninstallation failed - {exc}", err=True)
             raise SystemExit(1) from exc

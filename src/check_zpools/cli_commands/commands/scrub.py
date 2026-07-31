@@ -6,8 +6,8 @@ import logging
 from typing import TYPE_CHECKING
 
 import lib_log_rich.runtime
-import rich_click as click
 
+from ... import safe_console
 from ...behaviors import deliver_scrub_summary, scrub_pools
 from ...cli_errors import emit_json_error, handle_generic_error, handle_zfs_not_available
 from ...models import OutputFormat
@@ -48,9 +48,9 @@ def scrub_command(
             )
 
             if output_format is OutputFormat.JSON:
-                click.echo(format_scrub_summary_json(result))
+                safe_console.echo(format_scrub_summary_json(result))
             else:
-                click.echo(format_scrub_summary_text(result))
+                safe_console.echo(format_scrub_summary_text(result))
 
             # Report before mailing: a broken SMTP path must not swallow the
             # result of a scrub that took hours.
@@ -87,4 +87,4 @@ def _deliver_summary(result: ScrubCycleResult) -> None:
         deliver_scrub_summary(result)
     except Exception as exc:
         logger.exception("Failed to send scrub summary email", extra={"error": str(exc)})
-        click.echo(f"\nWarning: scrub summary email could not be sent - {exc}", err=True)
+        safe_console.echo(f"\nWarning: scrub summary email could not be sent - {exc}", err=True)

@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 
 import lib_log_rich.runtime
-import rich_click as click
 
+from ... import safe_console
 from ...alias_manager import create_alias
 
 logger = logging.getLogger(__name__)
@@ -23,20 +23,20 @@ def alias_create_command(user: str | None, *, all_users: bool = False) -> None:
             create_alias(username=user, all_users=all_users)
         except PermissionError as exc:
             logger.error("Permission denied during alias creation", extra={"error": str(exc)})
-            click.echo(f"\n{exc}", err=True)
+            safe_console.echo(f"\n{exc}", err=True)
             raise SystemExit(1) from exc
         except KeyError as exc:
             logger.error("User not found", extra={"error": str(exc)})
-            click.echo(f"\nError: {exc}", err=True)
+            safe_console.echo(f"\nError: {exc}", err=True)
             raise SystemExit(1) from exc
         except FileNotFoundError as exc:
             logger.error("Executable not found", extra={"error": str(exc)})
-            click.echo(f"\n{exc}", err=True)
+            safe_console.echo(f"\n{exc}", err=True)
             raise SystemExit(1) from exc
         except Exception as exc:
             logger.exception(
                 "Alias creation failed",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
             )
-            click.echo(f"\nError: Alias creation failed - {exc}", err=True)
+            safe_console.echo(f"\nError: Alias creation failed - {exc}", err=True)
             raise SystemExit(1) from exc

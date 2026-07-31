@@ -18,9 +18,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, NoReturn
 
-import rich_click as click
 from pydantic import BaseModel
 
+from . import safe_console
 from .models import OutputFormat
 
 if TYPE_CHECKING:
@@ -56,7 +56,7 @@ def emit_json_error(exc: Exception, *, output_format: OutputFormat) -> None:
         stdout and cannot distinguish failure from an empty result.
     """
     if output_format is OutputFormat.JSON:
-        click.echo(CliError.of(exc).model_dump_json(indent=2))
+        safe_console.echo(CliError.of(exc).model_dump_json(indent=2))
 
 
 def handle_zfs_not_available(exc: ZFSNotAvailableError, *, operation: str = "Operation") -> NoReturn:
@@ -84,7 +84,7 @@ def handle_zfs_not_available(exc: ZFSNotAvailableError, *, operation: str = "Ope
     Logs error message and displays user-friendly message to stderr.
     """
     logger.error("ZFS not available", extra={"error": str(exc), "operation": operation})
-    click.echo(f"\nError: {exc}", err=True)
+    safe_console.echo(f"\nError: {exc}", err=True)
     raise SystemExit(1)
 
 
@@ -118,7 +118,7 @@ def handle_generic_error(exc: Exception, *, operation: str = "Operation") -> NoR
         extra={"error": str(exc), "error_type": type(exc).__name__},
         exc_info=True,
     )
-    click.echo(f"\nError: {exc}", err=True)
+    safe_console.echo(f"\nError: {exc}", err=True)
     raise SystemExit(1)
 
 

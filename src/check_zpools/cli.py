@@ -25,7 +25,7 @@ import lib_cli_exit_tools
 import lib_log_rich.runtime
 import rich_click as click
 
-from . import __init__conf__
+from . import __init__conf__, safe_console
 from .cli_commands.commands import (
     alias_create_command,
     alias_delete_command,
@@ -86,7 +86,7 @@ def cli(ctx: click.Context, *, traceback: bool) -> None:
     apply_traceback_preferences(enabled=traceback)
 
     if ctx.invoked_subcommand is None:
-        click.echo(ctx.get_help())
+        safe_console.echo(ctx.get_help())
 
 
 @cli.command("info", context_settings=CLICK_CONTEXT_SETTINGS)

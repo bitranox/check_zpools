@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-import rich_click as click
+from . import safe_console
 
 if TYPE_CHECKING:
     from .mail import EmailConfig
@@ -59,11 +59,11 @@ def validate_smtp_configuration(email_config: EmailConfig) -> None:
     """
     if not email_config.smtp_hosts:
         logger.error("No SMTP hosts configured")
-        click.echo(
+        safe_console.echo(
             "\nError: No SMTP hosts configured. Please configure email.smtp_hosts in your config file.",
             err=True,
         )
-        click.echo(
+        safe_console.echo(
             "See: check_zpools config-deploy --target user",
             err=True,
         )
@@ -75,7 +75,7 @@ def handle_send_email_error(exc: Exception, error_type: str) -> None:
 
     Why
         Eliminates duplicated error handling across CLI email commands.
-        Maintains compatibility with existing CLI tests by using click.echo
+        Maintains compatibility with existing CLI tests by using console.echo
         for error output.
 
     Parameters
@@ -107,7 +107,7 @@ def handle_send_email_error(exc: Exception, error_type: str) -> None:
     )
 
     logger.error(log_msg, extra={"error": str(exc)}, exc_info=(error_type not in error_messages))
-    click.echo(f"\nError: {cli_msg}", err=True)
+    safe_console.echo(f"\nError: {cli_msg}", err=True)
     raise SystemExit(1)
 
 

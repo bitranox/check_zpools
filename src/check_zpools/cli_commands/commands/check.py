@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 
 import lib_log_rich.runtime
-import rich_click as click
 
+from ... import safe_console
 from ...behaviors import check_pools_once
 from ...cli_errors import emit_json_error, handle_generic_error, handle_zfs_not_available
 from ...formatters import display_check_result_text, format_check_result_json, get_exit_code_for_severity
@@ -24,9 +24,9 @@ def check_command(*, output_format: OutputFormat) -> None:
 
             # Format and display output
             if output_format is OutputFormat.JSON:
-                # JSON output - use click.echo for plain text
+                # JSON output - use console.echo for plain text
                 output = format_check_result_json(result)
-                click.echo(output)
+                safe_console.echo(output)
             else:
                 # Text output with Rich - print directly to avoid ANSI code issues
                 display_check_result_text(result)

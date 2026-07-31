@@ -240,7 +240,7 @@ layers = [
   "check_zpools.formatters",
   "check_zpools.alert_state | check_zpools.monitor | check_zpools.zfs_parser",
   "check_zpools.mail | check_zpools.zfs_client | check_zpools.config",
-  "check_zpools.models | check_zpools.__init__conf__",
+  "check_zpools.models | check_zpools.__init__conf__ | check_zpools.safe_console",
 ]
 
 [tool.bashate]

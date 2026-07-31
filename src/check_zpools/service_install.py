@@ -38,9 +38,9 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import rich_click as click
 from pydantic import BaseModel
 
+from . import safe_console
 from .alert_state import AlertState, AlertStateFile
 from .models import DaemonConfig, InstallMethod
 
@@ -523,19 +523,19 @@ def _print_installation_summary(*, enable: bool, start: bool) -> None:
     start:
         Whether service was started.
     """
-    click.echo("\n✓ check_zpools service installed successfully\n")
+    safe_console.echo("\n✓ check_zpools service installed successfully\n")
 
     if enable:
-        click.echo("  • Service enabled (will start on boot)")
+        safe_console.echo("  • Service enabled (will start on boot)")
     if start:
-        click.echo("  • Service started")
+        safe_console.echo("  • Service started")
 
-    click.echo("\nUseful commands:")
-    click.echo(f"  • View status:  systemctl status {SERVICE_NAME}")
-    click.echo(f"  • View logs:    journalctl -u {SERVICE_NAME} -f")
-    click.echo(f"  • Stop service: systemctl stop {SERVICE_NAME}")
-    click.echo(f"  • Disable:      systemctl disable {SERVICE_NAME}")
-    click.echo("  • Uninstall:    check_zpools uninstall-service")
+    safe_console.echo("\nUseful commands:")
+    safe_console.echo(f"  • View status:  systemctl status {SERVICE_NAME}")
+    safe_console.echo(f"  • View logs:    journalctl -u {SERVICE_NAME} -f")
+    safe_console.echo(f"  • Stop service: systemctl stop {SERVICE_NAME}")
+    safe_console.echo(f"  • Disable:      systemctl disable {SERVICE_NAME}")
+    safe_console.echo("  • Uninstall:    check_zpools uninstall-service")
 
 
 def install_service(*, enable: bool = True, start: bool = True, uvx_version: str | None = None) -> None:
@@ -623,8 +623,8 @@ def _check_service_file_exists() -> bool:
         return True
 
     logger.warning("Service file not found: %s", SERVICE_FILE_PATH)
-    click.echo(f"⚠ Service file not found: {SERVICE_FILE_PATH}")
-    click.echo("Service may not be installed.")
+    safe_console.echo(f"⚠ Service file not found: {SERVICE_FILE_PATH}")
+    safe_console.echo("Service may not be installed.")
     return False
 
 
@@ -694,12 +694,12 @@ def _print_uninstall_summary() -> None:
     Side Effects
         Prints success message and cleanup instructions to stdout.
     """
-    click.echo("\n✓ check_zpools service uninstalled successfully\n")
-    click.echo("Note: Cache and state directories remain:")
-    click.echo(f"  • {CACHE_DIR}")
-    click.echo(f"  • {LIB_DIR}")
-    click.echo("\nTo remove these directories:")
-    click.echo(f"  sudo rm -rf {CACHE_DIR} {LIB_DIR}")
+    safe_console.echo("\n✓ check_zpools service uninstalled successfully\n")
+    safe_console.echo("Note: Cache and state directories remain:")
+    safe_console.echo(f"  • {CACHE_DIR}")
+    safe_console.echo(f"  • {LIB_DIR}")
+    safe_console.echo("\nTo remove these directories:")
+    safe_console.echo(f"  sudo rm -rf {CACHE_DIR} {LIB_DIR}")
 
 
 def uninstall_service(*, stop: bool = True, disable: bool = True) -> None:
@@ -797,7 +797,7 @@ def get_service_status() -> ServiceStatus:
     --------
     >>> status = get_service_status()  # doctest: +SKIP
     >>> if status.installed:  # doctest: +SKIP
-    ...     click.echo(f"Service running: {status.running}")
+    ...     safe_console.echo(f"Service running: {status.running}")
     """
     if not SERVICE_FILE_PATH.exists():
         return ServiceStatus()
@@ -977,7 +977,7 @@ def _display_service_uptime(status: ServiceStatus) -> None:
     uptime = now - start_time
     # Display in local timezone
     tz_name = start_time.strftime("%Z") or "local"
-    click.echo(f"  • Started:  {start_time.strftime('%Y-%m-%d %H:%M:%S')} {tz_name} (uptime: {_format_duration(uptime)})")
+    safe_console.echo(f"  • Started:  {start_time.strftime('%Y-%m-%d %H:%M:%S')} {tz_name} (uptime: {_format_duration(uptime)})")
 
 
 def _display_daemon_config() -> float:
@@ -991,10 +991,10 @@ def _display_daemon_config() -> float:
     check_interval = daemon_config.check_interval_seconds
     resend_hours = daemon_config.alert_resend_interval_hours
 
-    click.echo("\nDaemon Configuration:")
-    click.echo("-" * 56)
-    click.echo(f"  • Check interval:     {check_interval}s ({check_interval // 60}m)")
-    click.echo(f"  • Alert resend:       {resend_hours}h (email silencing period)")
+    safe_console.echo("\nDaemon Configuration:")
+    safe_console.echo("-" * 56)
+    safe_console.echo(f"  • Check interval:     {check_interval}s ({check_interval // 60}m)")
+    safe_console.echo(f"  • Alert resend:       {resend_hours}h (email silencing period)")
 
     return resend_hours
 
@@ -1005,27 +1005,27 @@ def _display_pool_status_section() -> None:
     Why
         Extracted from show_service_status (see _display_service_uptime).
     """
-    click.echo("\nCurrent Pool Status:")
-    click.echo("-" * 56)
+    safe_console.echo("\nCurrent Pool Status:")
+    safe_console.echo("-" * 56)
     pool_count, faulted_count, issues = _get_pool_status_summary()
 
     if pool_count == 0:
-        click.echo("  • Could not retrieve pool status")
+        safe_console.echo("  • Could not retrieve pool status")
         return
 
     device_status = "✓ All OK" if faulted_count == 0 else f"✗ {faulted_count} FAULTED"
-    click.echo(f"  • Pools monitored:    {pool_count}")
-    click.echo(f"  • Device status:      {device_status}")
+    safe_console.echo(f"  • Pools monitored:    {pool_count}")
+    safe_console.echo(f"  • Device status:      {device_status}")
 
     if not issues:
-        click.echo("  • Active issues:      None")
+        safe_console.echo("  • Active issues:      None")
         return
 
-    click.echo(f"  • Active issues:      {len(issues)}")
+    safe_console.echo(f"  • Active issues:      {len(issues)}")
     for issue in issues[:MAX_ISSUES_DISPLAYED]:  # Show first N issues
-        click.echo(f"      -> {issue}")
+        safe_console.echo(f"      -> {issue}")
     if len(issues) > MAX_ISSUES_DISPLAYED:
-        click.echo(f"      ... and {len(issues) - MAX_ISSUES_DISPLAYED} more")
+        safe_console.echo(f"      ... and {len(issues) - MAX_ISSUES_DISPLAYED} more")
 
 
 def _format_alert_remaining(last_alerted: datetime | None, resend_hours: float, now: datetime) -> str:
@@ -1055,19 +1055,19 @@ def _display_alert_states_section(resend_hours: float) -> None:
     alerts = _load_alert_state().alerts
 
     if not alerts:
-        click.echo("\nAlert State: No active alerts being tracked")
+        safe_console.echo("\nAlert State: No active alerts being tracked")
         return
 
-    click.echo("\nActive Alert States:")
-    click.echo("-" * 56)
+    safe_console.echo("\nActive Alert States:")
+    safe_console.echo("-" * 56)
     now = datetime.now(timezone.utc)
 
     for state in alerts.values():
         severity = state.last_severity.value if state.last_severity else "UNKNOWN"
         remaining_str = _format_alert_remaining(state.last_alerted, resend_hours, now)
 
-        click.echo(f"  [{severity}] {state.pool_name}:{state.issue_category.value}")
-        click.echo(f"      Alerts sent: {state.alert_count}, Next email in: {remaining_str}")
+        safe_console.echo(f"  [{severity}] {state.pool_name}:{state.issue_category.value}")
+        safe_console.echo(f"      Alerts sent: {state.alert_count}, Next email in: {remaining_str}")
 
 
 class ServiceStatusReport(BaseModel):
@@ -1104,25 +1104,25 @@ def show_service_status() -> None:
     """
     status = get_service_status()
 
-    click.echo("\ncheck_zpools Service Status")
-    click.echo("=" * 56)
+    safe_console.echo("\ncheck_zpools Service Status")
+    safe_console.echo("=" * 56)
 
     if not status.installed:
-        click.echo("✗ Service not installed")
-        click.echo("\nTo install:")
-        click.echo("  sudo check_zpools install-service")
+        safe_console.echo("✗ Service not installed")
+        safe_console.echo("\nTo install:")
+        safe_console.echo("  sudo check_zpools install-service")
         return
 
-    click.echo(f"✓ Service file installed: {SERVICE_FILE_PATH}")
-    click.echo(f"  • Running:  {'✓ Yes' if status.running else '✗ No'}")
-    click.echo(f"  • Enabled:  {'✓ Yes (starts on boot)' if status.enabled else '✗ No'}")
+    safe_console.echo(f"✓ Service file installed: {SERVICE_FILE_PATH}")
+    safe_console.echo(f"  • Running:  {'✓ Yes' if status.running else '✗ No'}")
+    safe_console.echo(f"  • Enabled:  {'✓ Yes (starts on boot)' if status.enabled else '✗ No'}")
 
     _display_service_uptime(status)
     resend_hours = _display_daemon_config()
     _display_pool_status_section()
     _display_alert_states_section(resend_hours)
 
-    click.echo()  # Final newline
+    safe_console.echo()  # Final newline
 
 
 __all__ = [

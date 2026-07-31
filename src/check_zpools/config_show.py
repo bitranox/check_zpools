@@ -22,8 +22,7 @@ from __future__ import annotations
 import json
 from typing import Any, cast
 
-import click
-
+from . import safe_console
 from .config import get_config
 from .models import ConfigOutputFormat
 
@@ -121,7 +120,7 @@ def _display_value_with_source(
 
     if isinstance(value, dict):
         # For nested dicts, show the header and recurse
-        click.echo(f"{indent}{key}:")
+        safe_console.echo(f"{indent}{key}:")
         nested_section = cast("dict[str, Any]", value)
         for nested_key, nested_value in nested_section.items():
             nested_dotted_key = f"{dotted_key}.{nested_key}"
@@ -134,11 +133,11 @@ def _display_value_with_source(
             )
     elif isinstance(value, list):
         # For lists, show as JSON with source
-        click.echo(f"{indent}{key} = {json.dumps(value)}{source_str}")
+        safe_console.echo(f"{indent}{key} = {json.dumps(value)}{source_str}")
     elif isinstance(value, str):
-        click.echo(f'{indent}{key} = "{value}"{source_str}')
+        safe_console.echo(f'{indent}{key} = "{value}"{source_str}')
     else:
-        click.echo(f"{indent}{key} = {value}{source_str}")
+        safe_console.echo(f"{indent}{key} = {value}{source_str}")
 
 
 def _display_json_section(config: Any, section: str | None) -> None:
@@ -159,12 +158,12 @@ def _display_json_section(config: Any, section: str | None) -> None:
     if section:
         section_data = config.get(section, default={})
         if section_data:
-            click.echo(json.dumps({section: section_data}, indent=2))
+            safe_console.echo(json.dumps({section: section_data}, indent=2))
         else:
-            click.echo(f"Section '{section}' not found or empty", err=True)
+            safe_console.echo(f"Section '{section}' not found or empty", err=True)
             raise SystemExit(1)
     else:
-        click.echo(config.to_json(indent=2))
+        safe_console.echo(config.to_json(indent=2))
 
 
 def _display_human_section_data(section_name: str, section_data: Any, config: Any) -> None:
@@ -179,14 +178,14 @@ def _display_human_section_data(section_name: str, section_data: Any, config: An
     config:
         Configuration object for source lookup
     """
-    click.echo(f"\n[{section_name}]")
+    safe_console.echo(f"\n[{section_name}]")
     if isinstance(section_data, dict):
         dict_data = cast("dict[str, Any]", section_data)
         for key, value in dict_data.items():
             dotted_key = f"{section_name}.{key}"
             _display_value_with_source(key, value, dotted_key, config, indent="  ")
     else:
-        click.echo(f"  {section_data}")
+        safe_console.echo(f"  {section_data}")
 
 
 def _display_human_section(config: Any, section: str | None) -> None:
@@ -209,7 +208,7 @@ def _display_human_section(config: Any, section: str | None) -> None:
         if section_data:
             _display_human_section_data(section, section_data, config)
         else:
-            click.echo(f"Section '{section}' not found or empty", err=True)
+            safe_console.echo(f"Section '{section}' not found or empty", err=True)
             raise SystemExit(1)
     else:
         data: dict[str, Any] = config.as_dict()
@@ -243,7 +242,7 @@ def display_config(*, output_format: ConfigOutputFormat = ConfigOutputFormat.HUM
 
     Side Effects
     ------------
-    Writes formatted configuration to stdout via click.echo().
+    Writes formatted configuration to stdout via safe_console.echo().
     Raises SystemExit(1) if requested section doesn't exist.
 
     Notes

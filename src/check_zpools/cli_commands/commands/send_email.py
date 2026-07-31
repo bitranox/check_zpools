@@ -6,8 +6,8 @@ import logging
 from typing import TYPE_CHECKING
 
 import lib_log_rich.runtime
-import rich_click as click
 
+from ... import safe_console
 from ...cli_email_handlers import handle_send_email_error, validate_smtp_configuration
 from ...config import load_settings
 from ...mail import send_email
@@ -52,11 +52,11 @@ def _handle_send_result(*, result: bool, recipients: tuple[str, ...]) -> None:
     SystemExit: If send failed.
     """
     if result:
-        click.echo("\nEmail sent successfully!")
+        safe_console.echo("\nEmail sent successfully!")
         logger.info("Email sent via CLI", extra={"recipients": list(recipients)})
     else:
         logger.error("Email sending failed via CLI", extra={"recipients": list(recipients)})
-        click.echo("\nEmail sending failed.", err=True)
+        safe_console.echo("\nEmail sending failed.", err=True)
         raise SystemExit(1)
 
 

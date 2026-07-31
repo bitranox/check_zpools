@@ -34,12 +34,10 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
-import rich_click as click
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-from . import __init__conf__
+from . import __init__conf__, safe_console
 from .models import InstallMethod
 
 # pwd module is only available on Unix-like systems
@@ -404,13 +402,13 @@ def _print_create_success(username: str, bashrc_path: Path, exec_command: str, *
         If True, alias was created for all users in /etc/bash.bashrc.
     """
     shell_command = __init__conf__.shell_command
-    click.echo(f"\n✓ Alias created for '{shell_command}'\n")
-    click.echo(f"  Target:   {username}")
-    click.echo(f"  File:     {bashrc_path}")
-    click.echo(f"  Command:  {exec_command}")
-    click.echo("\nTo activate the alias in current shell:")
-    click.echo(f"  source {bashrc_path}")
-    click.echo("\nOr open a new terminal session.")
+    safe_console.echo(f"\n✓ Alias created for '{shell_command}'\n")
+    safe_console.echo(f"  Target:   {username}")
+    safe_console.echo(f"  File:     {bashrc_path}")
+    safe_console.echo(f"  Command:  {exec_command}")
+    safe_console.echo("\nTo activate the alias in current shell:")
+    safe_console.echo(f"  source {bashrc_path}")
+    safe_console.echo("\nOr open a new terminal session.")
 
 
 def delete_alias(username: str | None = None, *, all_users: bool = False) -> None:
@@ -466,8 +464,8 @@ def delete_alias(username: str | None = None, *, all_users: bool = False) -> Non
     # Check if bashrc exists
     if not bashrc_path.exists():
         logger.warning("Bashrc file not found: %s", bashrc_path)
-        click.echo(f"\n⚠ Bashrc file not found: {bashrc_path}")
-        click.echo("No alias to remove.")
+        safe_console.echo(f"\n⚠ Bashrc file not found: {bashrc_path}")
+        safe_console.echo("No alias to remove.")
         return
 
     # Read current content
@@ -476,8 +474,8 @@ def delete_alias(username: str | None = None, *, all_users: bool = False) -> Non
     # Check if alias exists
     if not _has_existing_alias(content):
         logger.info("No alias block found in bashrc")
-        click.echo(f"\n⚠ No {__init__conf__.shell_command} alias found in {bashrc_path}")
-        click.echo("Nothing to remove.")
+        safe_console.echo(f"\n⚠ No {__init__conf__.shell_command} alias found in {bashrc_path}")
+        safe_console.echo("Nothing to remove.")
         return
 
     # Remove alias block
@@ -500,12 +498,12 @@ def _print_delete_success(username: str, bashrc_path: Path) -> None:
         Path to the modified bashrc file.
     """
     shell_command = __init__conf__.shell_command
-    click.echo(f"\n✓ Alias removed for '{shell_command}'\n")
-    click.echo(f"  User:     {username}")
-    click.echo(f"  File:     {bashrc_path}")
-    click.echo("\nThe alias will no longer be available in new terminal sessions.")
-    click.echo("To remove from current shell, run:")
-    click.echo(f"  unset -f {shell_command}")
+    safe_console.echo(f"\n✓ Alias removed for '{shell_command}'\n")
+    safe_console.echo(f"  User:     {username}")
+    safe_console.echo(f"  File:     {bashrc_path}")
+    safe_console.echo("\nThe alias will no longer be available in new terminal sessions.")
+    safe_console.echo("To remove from current shell, run:")
+    safe_console.echo(f"  unset -f {shell_command}")
 
 
 __all__ = [

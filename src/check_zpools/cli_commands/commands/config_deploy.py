@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 
 import lib_log_rich.runtime
-import rich_click as click
 
+from ... import safe_console
 from ...config_deploy import deploy_configuration
 
 logger = logging.getLogger(__name__)
@@ -24,22 +24,22 @@ def config_deploy_command(*, targets: tuple[str, ...], force: bool) -> None:
             deployed_paths = deploy_configuration(targets=list(targets), force=force)
 
             if deployed_paths:
-                click.echo("\nConfiguration deployed successfully:")
+                safe_console.echo("\nConfiguration deployed successfully:")
                 for path in deployed_paths:
-                    click.echo(f"  ✓ {path}")
+                    safe_console.echo(f"  ✓ {path}")
             else:
-                click.echo("\nNo files were created (all target files already exist).")
-                click.echo("Use --force to overwrite existing configuration files.")
+                safe_console.echo("\nNo files were created (all target files already exist).")
+                safe_console.echo("Use --force to overwrite existing configuration files.")
 
         except PermissionError as exc:
             logger.error("Permission denied when deploying configuration", extra={"error": str(exc)})
-            click.echo(f"\nError: Permission denied. {exc}", err=True)
-            click.echo("Hint: System-wide deployment (--target app/host) may require sudo.", err=True)
+            safe_console.echo(f"\nError: Permission denied. {exc}", err=True)
+            safe_console.echo("Hint: System-wide deployment (--target app/host) may require sudo.", err=True)
             raise SystemExit(1) from exc
         except Exception as exc:
             logger.error(
                 "Failed to deploy configuration",
                 extra={"error": str(exc), "error_type": type(exc).__name__},
             )
-            click.echo(f"\nError: Failed to deploy configuration: {exc}", err=True)
+            safe_console.echo(f"\nError: Failed to deploy configuration: {exc}", err=True)
             raise SystemExit(1) from exc

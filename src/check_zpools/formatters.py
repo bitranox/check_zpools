@@ -23,6 +23,7 @@ from rich.console import Console
 from rich.table import Table
 
 from .models import IssueCategory, PoolHealth, Severity
+from .safe_console import safe_stream
 
 if TYPE_CHECKING:
     from .models import CheckResult, PoolIssue, PoolStatus
@@ -140,7 +141,7 @@ def format_check_result_text(result: CheckResult) -> str:
     Notes
     -----
     This function returns a string with Rich markup tags like [green]text[/green].
-    The caller should use Rich Console.print() to render it, NOT click.echo().
+    The caller should use Rich Console.print() to render it, NOT safe_console.echo().
     """
     lines: list[str] = []
 
@@ -355,7 +356,10 @@ def display_check_result_text(result: CheckResult, console: Console | None = Non
     This avoids issues with mixed ANSI codes and Rich markup.
     """
     if console is None:
-        console = Console(file=sys.stdout, legacy_windows=False)
+        # Rich raises UnicodeEncodeError on a legacy codepage rather than
+        # substituting, so it gets a writer that degrades instead. Pool names
+        # and ZFS messages are data we do not control.
+        console = Console(file=safe_stream(sys.stdout), legacy_windows=False)
 
     # Header
     timestamp_str = result.timestamp.strftime("%Y-%m-%d %H:%M:%S")
