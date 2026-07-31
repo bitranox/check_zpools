@@ -8,15 +8,6 @@ and delegates to domain services for actual work.
 
 Contents
 --------
-Legacy Template Functions (Deprecated):
-* :func:`emit_greeting` - success-path helper that writes the canonical scaffold
-  message.
-* :func:`raise_intentional_failure` - deterministic error hook used by tests and
-  CLI flows to validate traceback handling.
-* :func:`noop_main` - placeholder entry used when callers expect a ``main``
-  callable despite the domain layer being stubbed today.
-
-ZFS Monitoring Functions:
 * :func:`check_pools_once` - perform one-shot check of all pools
 * :func:`run_daemon` - start daemon mode for continuous monitoring
 * :func:`scrub_pools` - start scrubs and wait for them to finish
@@ -34,7 +25,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, TextIO
+from typing import TYPE_CHECKING
 
 from .alert_state import AlertStateManager
 from .alerting import EmailAlerter
@@ -50,117 +41,8 @@ from .zfs_parser import ZFSParser
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-CANONICAL_GREETING = "Hello World"
-
 #: Module logger using standard logging interface.
 logger = logging.getLogger(__name__)
-
-
-def _target_stream(preferred: TextIO | None) -> TextIO:
-    """Return the stream that should hear the greeting."""
-
-    return preferred if preferred is not None else sys.stdout
-
-
-def _greeting_line() -> str:
-    """Return the greeting exactly as it should appear."""
-
-    return f"{CANONICAL_GREETING}\n"
-
-
-def _flush_if_possible(stream: TextIO) -> None:
-    """Flush the stream when the stream knows how to flush."""
-
-    flush = getattr(stream, "flush", None)
-    if callable(flush):
-        flush()
-
-
-def emit_greeting(*, stream: TextIO | None = None) -> None:
-    """Write the canonical greeting to the provided text stream.
-
-    Why
-        Provide a deterministic success path that the documentation, smoke
-        tests, and packaging checks can rely on while the real logging helpers
-        are developed.
-
-    What
-        Writes :data:`CANONICAL_GREETING` followed by a newline to the target
-        stream.
-
-    Parameters
-    ----------
-    stream:
-        Optional text stream receiving the greeting. Defaults to
-        :data:`sys.stdout` when ``None``.
-
-    Side Effects
-        Writes to the target stream and flushes it when a ``flush`` attribute is
-        available. Emits an INFO-level log message.
-
-    Examples
-    --------
-    >>> from io import StringIO
-    >>> buffer = StringIO()
-    >>> emit_greeting(stream=buffer)
-    >>> buffer.getvalue() == "Hello World\\n"
-    True
-    """
-
-    logger.info("Emitting canonical greeting", extra={"greeting": CANONICAL_GREETING})
-    target = _target_stream(stream)
-    target.write(_greeting_line())
-    _flush_if_possible(target)
-
-
-def raise_intentional_failure() -> None:
-    """Raise ``RuntimeError`` so transports can exercise failure flows.
-
-    Why
-        CLI commands and tests need a guaranteed failure scenario to ensure the
-        shared exit-code helpers and traceback toggles remain correct.
-
-    What
-        Always raises ``RuntimeError`` with the message ``"I should fail"``.
-
-    Side Effects
-        Emits an ERROR-level log message before raising the exception.
-
-    Raises
-        RuntimeError: Regardless of input.
-
-    Examples
-    --------
-    >>> raise_intentional_failure()
-    Traceback (most recent call last):
-    ...
-    RuntimeError: I should fail
-    """
-
-    logger.error("About to raise intentional failure for testing", extra={"test_mode": True})
-    raise RuntimeError("I should fail")
-
-
-def noop_main() -> None:
-    """Explicit placeholder callable for transports without domain logic yet.
-
-    Why
-        Some tools expect a module-level ``main`` even when the underlying
-        feature set is still stubbed out. Exposing this helper makes that
-        contract obvious and easy to replace later.
-
-    What
-        Performs no work and returns immediately.
-
-    Side Effects
-        Emits a DEBUG-level log message indicating the no-op execution.
-
-    Examples
-    --------
-    >>> noop_main()
-    """
-
-    logger.debug("Executing noop_main placeholder")
 
 
 def check_pools_once(config: CheckZpoolsConfig | None = None) -> CheckResult:
@@ -473,10 +355,6 @@ def _get_state_file_path(settings: CheckZpoolsConfig) -> Path:
 
 
 __all__ = [
-    "CANONICAL_GREETING",
     "check_pools_once",
-    "emit_greeting",
-    "noop_main",
-    "raise_intentional_failure",
     "run_daemon",
 ]

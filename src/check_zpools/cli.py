@@ -23,10 +23,8 @@ from typing import TYPE_CHECKING
 import lib_cli_exit_tools
 import lib_log_rich.runtime
 import rich_click as click
-from click.core import ParameterSource
 
 from . import __init__conf__
-from .behaviors import emit_greeting, noop_main, raise_intentional_failure
 from .cli_commands.commands import (
     alias_create_command,
     alias_delete_command,
@@ -87,11 +85,7 @@ def cli(ctx: click.Context, *, traceback: bool) -> None:
     apply_traceback_preferences(enabled=traceback)
 
     if ctx.invoked_subcommand is None:
-        source = ctx.get_parameter_source("traceback")
-        if source not in (ParameterSource.DEFAULT, None):
-            noop_main()
-        else:
-            click.echo(ctx.get_help())
+        click.echo(ctx.get_help())
 
 
 @cli.command("info", context_settings=CLICK_CONTEXT_SETTINGS)
@@ -100,22 +94,6 @@ def cli_info() -> None:
     with lib_log_rich.runtime.bind(job_id="cli-info", extra={"command": "info"}):
         logger.info("Displaying package information")
         __init__conf__.print_info()
-
-
-@cli.command("hello", context_settings=CLICK_CONTEXT_SETTINGS)
-def cli_hello() -> None:
-    """Demonstrate the success path by emitting the canonical greeting."""
-    with lib_log_rich.runtime.bind(job_id="cli-hello", extra={"command": "hello"}):
-        logger.info("Executing hello command")
-        emit_greeting()
-
-
-@cli.command("fail", context_settings=CLICK_CONTEXT_SETTINGS)
-def cli_fail() -> None:
-    """Trigger the intentional failure helper to test error handling."""
-    with lib_log_rich.runtime.bind(job_id="cli-fail", extra={"command": "fail"}):
-        logger.warning("Executing intentional failure command")
-        raise_intentional_failure()
 
 
 @cli.command("config", context_settings=CLICK_CONTEXT_SETTINGS)

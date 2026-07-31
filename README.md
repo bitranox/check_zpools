@@ -708,53 +708,6 @@ sudo check_zpools config-deploy --target app --target user
 
 ### Testing & Utilities
 
-#### `hello` - Verify Installation
-
-Prints "Hello World" to verify the package is properly installed and executable.
-
-**Usage:**
-```bash
-check_zpools hello
-```
-
-**Output:**
-```
-Hello World
-```
-
-**Use Cases:**
-- Verify package installation succeeded
-- Test CLI entry point is working
-- Quick smoke test after deployment
-- Validate PATH configuration for installed command
-
----
-
-#### `fail` - Test Error Handling
-
-Intentionally raises a RuntimeError to test error handling and logging.
-
-**Usage:**
-```bash
-check_zpools fail
-```
-
-**Behavior:**
-- Logs intentional failure at WARNING level
-- Raises RuntimeError with "Intentional failure for testing"
-- Exits with non-zero status code
-- Demonstrates error logging and traceback handling
-
-**Use Cases:**
-- Test error logging configuration
-- Verify exception handling is working
-- Test monitoring/alerting for failed commands
-- Validate log aggregation captures errors
-
-**Note:** This is a development/testing command. Use `--traceback` flag to see full stack trace.
-
----
-
 #### `send-email` - Advanced Email Testing
 
 Sends a custom email using configured SMTP settings with full control over message content and attachments.

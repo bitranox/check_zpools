@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from unittest.mock import patch
 
 import lib_cli_exit_tools
 import pytest
@@ -182,18 +183,10 @@ def test_when_cli_runs_without_arguments_help_is_printed(
     monkeypatch: pytest.MonkeyPatch,
     cli_runner: CliRunner,
 ) -> None:
-    calls: list[str] = []
-
-    def remember() -> None:
-        calls.append("called")
-
-    monkeypatch.setattr(cli_mod, "noop_main", remember)
-
     result = cli_runner.invoke(cli_mod.cli, [])
 
     assert result.exit_code == 0
     assert "Usage:" in result.output
-    assert calls == []
 
 
 @pytest.mark.os_agnostic
@@ -202,13 +195,7 @@ def test_when_main_receives_no_arguments_cli_main_is_exercised(
     cli_runner: CliRunner,
     isolated_traceback_config: None,
 ) -> None:
-    calls: list[str] = []
     outputs: list[str] = []
-
-    def remember() -> None:
-        calls.append("called")
-
-    monkeypatch.setattr(cli_mod, "noop_main", remember)
 
     def fake_run_cli(
         command: Any,
@@ -230,27 +217,7 @@ def test_when_main_receives_no_arguments_cli_main_is_exercised(
     exit_code = cli_mod.main([])
 
     assert exit_code == 0
-    assert calls == []
     assert outputs and "Usage:" in outputs[0]
-
-
-@pytest.mark.os_agnostic
-def test_when_traceback_is_requested_without_command_the_domain_runs(
-    monkeypatch: pytest.MonkeyPatch,
-    cli_runner: CliRunner,
-) -> None:
-    calls: list[str] = []
-
-    def remember() -> None:
-        calls.append("called")
-
-    monkeypatch.setattr(cli_mod, "noop_main", remember)
-
-    result = cli_runner.invoke(cli_mod.cli, ["--traceback"])
-
-    assert result.exit_code == 0
-    assert calls == ["called"]
-    assert "Usage:" not in result.output
 
 
 @pytest.mark.os_agnostic
@@ -259,32 +226,19 @@ def test_when_traceback_flag_is_passed_the_full_story_is_printed(
     capsys: pytest.CaptureFixture[str],
     strip_ansi: Callable[[str], str],
 ) -> None:
-    exit_code = cli_mod.main(["--traceback", "fail"])
+    # info has no error handler of its own, so this reaches the traceback
+    # printer the way an unexpected failure would.
+    with patch("check_zpools.__init__conf__.print_info", side_effect=RuntimeError("boom")):
+        exit_code = cli_mod.main(["--traceback", "info"])
 
     plain_err = strip_ansi(capsys.readouterr().err)
 
     assert exit_code != 0
     assert "Traceback (most recent call last)" in plain_err
-    assert "RuntimeError: I should fail" in plain_err
+    assert "RuntimeError: boom" in plain_err
     assert "[TRUNCATED" not in plain_err
     assert lib_cli_exit_tools.config.traceback is False
     assert lib_cli_exit_tools.config.traceback_force_color is False
-
-
-@pytest.mark.os_agnostic
-def test_when_hello_is_invoked_the_cli_smiles(cli_runner: CliRunner) -> None:
-    result: Result = cli_runner.invoke(cli_mod.cli, ["hello"])
-
-    assert result.exit_code == 0
-    assert "Hello World" in result.output
-
-
-@pytest.mark.os_agnostic
-def test_when_fail_is_invoked_the_cli_raises(cli_runner: CliRunner) -> None:
-    result: Result = cli_runner.invoke(cli_mod.cli, ["fail"])
-
-    assert result.exit_code != 0
-    assert isinstance(result.exception, RuntimeError)
 
 
 @pytest.mark.os_agnostic
@@ -695,7 +649,7 @@ def test_when_restore_is_disabled_the_traceback_choice_remains(
 ) -> None:
     cli_mod.apply_traceback_preferences(enabled=False)
 
-    cli_mod.main(["--traceback", "hello"], restore_traceback=False)
+    cli_mod.main(["--traceback", "info"], restore_traceback=False)
 
     assert lib_cli_exit_tools.config.traceback is True
     assert lib_cli_exit_tools.config.traceback_force_color is True

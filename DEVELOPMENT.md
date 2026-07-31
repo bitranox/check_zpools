@@ -173,7 +173,7 @@ SKIP_BOOTSTRAP=1 make test
 python -m pytest tests/test_cli.py -v
 
 # Run tests matching pattern
-python -m pytest -k "test_when_hello" -v
+python -m pytest -k "test_when_check" -v
 
 # Show print statements during tests
 python -m pytest tests/test_cli.py -v -s

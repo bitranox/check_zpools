@@ -27,8 +27,6 @@ from __future__ import annotations
 
 import contextlib
 import sys
-from dataclasses import dataclass
-from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -53,97 +51,6 @@ pytestmark = pytest.mark.os_agnostic
 
 # =============================================================================
 # Legacy Greeting Tests - Template Validation
-# =============================================================================
-
-
-class TestGreetingBehaviorSucceeds:
-    """The greeting behavior writes to streams successfully."""
-
-    def test_writes_greeting_to_provided_buffer(self) -> None:
-        """When providing a StringIO buffer, greeting is written to it.
-
-        Given: A StringIO buffer to capture output
-        When: Calling emit_greeting with that buffer
-        Then: Buffer contains exactly 'Hello World\n'
-        """
-        buffer = StringIO()
-
-        behaviors.emit_greeting(stream=buffer)
-
-        assert buffer.getvalue() == "Hello World\n", "Greeting must match canonical format"
-
-    def test_writes_greeting_to_stdout_by_default(self, capsys: pytest.CaptureFixture[str]) -> None:
-        """When no stream is provided, greeting goes to stdout.
-
-        Given: No explicit stream parameter
-        When: Calling emit_greeting with default arguments
-        Then: Standard output contains 'Hello World\n'
-        """
-        behaviors.emit_greeting()
-
-        captured = capsys.readouterr()
-
-        assert captured.out == "Hello World\n", "Greeting must appear on stdout"
-        assert captured.err == "", "Greeting must not appear on stderr"
-
-    def test_flushes_stream_when_flush_method_exists(self) -> None:
-        """When stream has flush method, it gets called.
-
-        Given: A custom stream with a flush method
-        When: Calling emit_greeting with that stream
-        Then: The flush method is invoked
-        """
-
-        @dataclass
-        class FlushableStream:
-            """Mock stream that tracks flush calls."""
-
-            ledger: list[str]
-            flushed: bool = False
-
-            def write(self, text: str) -> None:
-                self.ledger.append(text)
-
-            def flush(self) -> None:
-                self.flushed = True
-
-        stream = FlushableStream([])
-
-        behaviors.emit_greeting(stream=stream)  # type: ignore[arg-type]
-
-        assert stream.ledger == ["Hello World\n"], "Greeting must be written"
-        assert stream.flushed is True, "Stream must be flushed"
-
-
-class TestIntentionalFailureBehavior:
-    """The intentional failure behavior always raises RuntimeError."""
-
-    def test_raises_runtime_error_with_expected_message(self) -> None:
-        """When invoking intentional failure, it raises RuntimeError.
-
-        Given: Calling raise_intentional_failure
-        When: Function executes
-        Then: RuntimeError is raised with 'I should fail' message
-        """
-        with pytest.raises(RuntimeError, match="I should fail"):
-            behaviors.raise_intentional_failure()
-
-
-class TestNoopBehavior:
-    """The noop behavior returns None without side effects."""
-
-    def test_returns_none_immediately(self) -> None:
-        """When invoking noop_main, it returns None.
-
-        Given: Calling noop_main
-        When: Function executes
-        Then: Result is None
-        """
-        assert behaviors.noop_main() is None, "Noop must return None"
-
-
-# =============================================================================
-# Monitor Configuration Tests - Validation Logic
 # =============================================================================
 
 

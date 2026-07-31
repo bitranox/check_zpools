@@ -138,15 +138,23 @@ def test_when_module_entry_raises_the_exit_helpers_format_the_song(monkeypatch: 
     assert codes == ["code:boom"]
 
 
+def _raise_boom() -> None:
+    """Stand in for a callable that fails before any handler is installed."""
+    raise RuntimeError("boom")
+
+
 @pytest.mark.os_agnostic
 def test_when_traceback_flag_is_used_via_module_entry_the_full_poem_is_printed(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     strip_ansi: Callable[[str], str],
 ) -> None:
-    monkeypatch.setattr(sys, "argv", ["check_zpool_status", "--traceback", "fail"])
+    monkeypatch.setattr(sys, "argv", ["check_zpool_status", "--traceback", "info"])
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback", False, raising=False)
     monkeypatch.setattr(lib_cli_exit_tools.config, "traceback_force_color", False, raising=False)
+    # info has no error handler of its own, so this reaches the traceback
+    # printer the way an unexpected failure would.
+    monkeypatch.setattr("check_zpools.__init__conf__.print_info", _raise_boom)
 
     with pytest.raises(SystemExit) as exc:
         runpy.run_module("check_zpools.__main__", run_name="__main__")
@@ -155,7 +163,7 @@ def test_when_traceback_flag_is_used_via_module_entry_the_full_poem_is_printed(
 
     assert exc.value.code != 0
     assert "Traceback (most recent call last)" in plain_err
-    assert "RuntimeError: I should fail" in plain_err
+    assert "RuntimeError: boom" in plain_err
     assert "[TRUNCATED" not in plain_err
     assert lib_cli_exit_tools.config.traceback is False
     assert lib_cli_exit_tools.config.traceback_force_color is False
