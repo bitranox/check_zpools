@@ -6,35 +6,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
-### Fixed
+## [4.0.0] 2026-07-31 19:31:08
 
-- **Documented the requirement that actually gates the tool: OpenZFS 2.3+.** README and the
-  skill led with an operating-system list, but `zpool status -j --json-int` is what every
-  pool-reading path depends on and the `-j` JSON interface arrived in OpenZFS 2.3 - on an
-  older ZFS the command exits non-zero regardless of platform. The platform notes were also
-  imprecise: ZFS on macOS and Windows exists as third-party ports (the Windows driver still
-  beta), and both lag upstream, so the version needs checking rather than assuming.
-- **`check` no longer flattens ZFS errors into a bare `RuntimeError`.** `check_pools_once`
-  caught every exception and re-raised it as `RuntimeError`, so `--format json` reported
-  `"type": "RuntimeError"` for all of them and a caller could tell "zpool is missing" from
-  "zpool ran and refused" from "its output was unreadable" only by matching the message
-  prose - and `ZFSCommandError`'s `exit_code` and `stderr` were discarded on the way.
-  `ZFSNotAvailableError` was already re-raised intact; the other two now are too.
-- **Type checking passes on Windows.** `pwd` and `os.getuid`/`os.geteuid` do not exist
-  there, so every value read through them was Unknown on that lane and the strict rules
-  rejected the module - a failure invisible to a Linux-only run. Typed facades state the
-  shape actually used, which also retired a blanket `# type: ignore` that would have
-  hidden any other typing error on its line.
-- **`os_*` test markers now enforce the platform they name.** `os_posix` was registered
-  in `pyproject.toml` but wired to no skip, so tests declaring POSIX semantics ran on the
-  Windows CI lane and failed there - the marker read as a guard while being pure
-  documentation. `conftest.py` now skips on `os_posix`/`os_linux`/`os_macos`/`os_windows`
-  the same way it already did for the `*_only` family.
-- **Quickstart notebook no longer references the deleted template commands.** It called
-  `hello`, `fail` and imported `CANONICAL_GREETING`/`emit_greeting`, all removed in this
-  same unreleased set, so CI's notebook run failed on import. It now demonstrates the
-  real surface: the merged configuration, the JSON envelope and its error object, and
-  `load_settings()`.
+**Breaking.** The `hello` and `fail` subcommands are gone, along with the greeting and
+failure exports from the package root, and `send_email()` now takes an `EmailMessage`
+instead of six separate parameters. Details under Removed and Changed below. If you
+script `check_zpools hello` as an install smoke test, call `check_zpools --version`.
+
 
 ### Added
 
@@ -46,20 +24,6 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   codes, the JSON envelope including the failure object, and the library API. Mirrored into the
   central bitranox marketplace as `infra-storage-check-zpools`, where a gate compares the two
   copies on every commit so they cannot drift apart.
-
-### Removed
-
-- **BREAKING (CLI):** the `hello` and `fail` subcommands are gone, along with
-  the `CANONICAL_GREETING`, `emit_greeting`, `raise_intentional_failure` and
-  `noop_main` exports from the package root. They were scaffolding from the
-  project template this repo was generated from - a ZFS monitoring tool has no
-  use for a command that prints Hello World - and the package docstring
-  advertised "greeting, failure, metadata" as its public surface. Anything
-  scripting `check_zpools hello` as an install smoke test should call
-  `check_zpools --version` instead.
-
-### Added
-
 - `service-status --format text|json`. The status of the monitoring service is
   exactly what an outer monitor wants to poll, and it was previously readable
   only as a Rich table. The JSON document carries the service state, the daemon
@@ -103,8 +67,46 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   suppression was attributed to third-party stub gaps; measuring it showed 33
   of the 115 diagnostics were in `src/` and none came from a stub gap.
 
+### Removed
+
+- **BREAKING (CLI):** the `hello` and `fail` subcommands are gone, along with
+  the `CANONICAL_GREETING`, `emit_greeting`, `raise_intentional_failure` and
+  `noop_main` exports from the package root. They were scaffolding from the
+  project template this repo was generated from - a ZFS monitoring tool has no
+  use for a command that prints Hello World - and the package docstring
+  advertised "greeting, failure, metadata" as its public surface. Anything
+  scripting `check_zpools hello` as an install smoke test should call
+  `check_zpools --version` instead.
+
 ### Fixed
 
+- **Documented the requirement that actually gates the tool: OpenZFS 2.3+.** README and the
+  skill led with an operating-system list, but `zpool status -j --json-int` is what every
+  pool-reading path depends on and the `-j` JSON interface arrived in OpenZFS 2.3 - on an
+  older ZFS the command exits non-zero regardless of platform. The platform notes were also
+  imprecise: ZFS on macOS and Windows exists as third-party ports (the Windows driver still
+  beta), and both lag upstream, so the version needs checking rather than assuming.
+- **`check` no longer flattens ZFS errors into a bare `RuntimeError`.** `check_pools_once`
+  caught every exception and re-raised it as `RuntimeError`, so `--format json` reported
+  `"type": "RuntimeError"` for all of them and a caller could tell "zpool is missing" from
+  "zpool ran and refused" from "its output was unreadable" only by matching the message
+  prose - and `ZFSCommandError`'s `exit_code` and `stderr` were discarded on the way.
+  `ZFSNotAvailableError` was already re-raised intact; the other two now are too.
+- **Type checking passes on Windows.** `pwd` and `os.getuid`/`os.geteuid` do not exist
+  there, so every value read through them was Unknown on that lane and the strict rules
+  rejected the module - a failure invisible to a Linux-only run. Typed facades state the
+  shape actually used, which also retired a blanket `# type: ignore` that would have
+  hidden any other typing error on its line.
+- **`os_*` test markers now enforce the platform they name.** `os_posix` was registered
+  in `pyproject.toml` but wired to no skip, so tests declaring POSIX semantics ran on the
+  Windows CI lane and failed there - the marker read as a guard while being pure
+  documentation. `conftest.py` now skips on `os_posix`/`os_linux`/`os_macos`/`os_windows`
+  the same way it already did for the `*_only` family.
+- **Quickstart notebook no longer references the deleted template commands.** It called
+  `hello`, `fail` and imported `CANONICAL_GREETING`/`emit_greeting`, all removed in this
+  same unreleased set, so CI's notebook run failed on import. It now demonstrates the
+  real surface: the merged configuration, the JSON envelope and its error object, and
+  `load_settings()`.
 - The `check --format json` timestamp keeps its `+00:00` offset form. Moving
   that output onto a Pydantic model silently switched it to a `Z` suffix, which
   `datetime.fromisoformat` rejects on Python 3.10 - a version this package
