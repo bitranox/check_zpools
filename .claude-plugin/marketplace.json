@@ -1,0 +1,16 @@
+{
+  "name": "check_zpools",
+  "owner": {
+    "name": "bitranox"
+  },
+  "metadata": {
+    "description": "check_zpools delivered as a single Claude Code plugin: a skill to install, configure and operate ZFS pool monitoring, alerting and scrubbing."
+  },
+  "plugins": [
+    {
+      "name": "check_zpools",
+      "source": ".",
+      "description": "Install, configure and use check_zpools: check ZFS pool health and capacity, run scrubs without a timeout, alert by email with deduplication, and run it as a systemd daemon - from the CLI, a timer, or as a Python library."
+    }
+  ]
+}

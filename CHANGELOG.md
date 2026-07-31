@@ -6,6 +6,17 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Added
+
+- **Ships as its own Claude Code plugin/marketplace, carrying a usage skill.**
+  `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` make this repo installable
+  with `/plugin marketplace add bitranox/check_zpools` then `/plugin install check_zpools`;
+  `skills/check-zpools/SKILL.md` documents install (uvx/uv/pip and the isolated production
+  install), the layered configuration and its six sections, every subcommand with its exit
+  codes, the JSON envelope including the failure object, and the library API. Mirrored into the
+  central bitranox marketplace as `infra-storage-check-zpools`, where a gate compares the two
+  copies on every commit so they cannot drift apart.
+
 ### Removed
 
 - **BREAKING (CLI):** the `hello` and `fail` subcommands are gone, along with
