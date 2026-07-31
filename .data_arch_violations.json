@@ -1,0 +1,63 @@
+{
+  "pass": 1,
+  "total_violations": 5,
+  "files": {
+    "src/check_zpools/scrub_runner.py": {
+      "status": "pending",
+      "violations": [
+        {
+          "line": 62,
+          "type": "dict-in-signature",
+          "description": "ZFSScrubPort.get_pool_status returns dict[str, Any] | DictLike, widening the concrete Pydantic ZpoolStatusResponse the real client returns"
+        },
+        {
+          "line": 142,
+          "type": "internal-untyped-structure",
+          "description": "actions dict carries tuple[ScrubAction, str] pairs, unpacked positionally at two call sites instead of a typed model"
+        }
+      ]
+    },
+    "src/check_zpools/scrub_report.py": {
+      "status": "pending",
+      "violations": [
+        {
+          "line": 190,
+          "type": "hand-rolled-output-dict",
+          "description": "format_scrub_summary_json builds payload: dict[str, Any] and json.dumps it instead of exporting through a Pydantic model"
+        },
+        {
+          "line": 204,
+          "type": "hand-rolled-output-dict",
+          "description": "_outcome_as_dict returns dict[str, Any] with a nested inline scan dict"
+        }
+      ]
+    },
+    "src/check_zpools/behaviors.py": {
+      "status": "reviewed",
+      "violations": [],
+      "note": "scrub_pools/deliver_scrub_summary/build_scrub_settings take the lib_layered_config dict; that IS the external boundary and build_scrub_settings performs the parse into ScrubSettings. Permitted by rule 1 (parse at entry), matches the pre-existing check_pools_once contract."
+    },
+    "src/check_zpools/models.py": {
+      "status": "clean",
+      "violations": []
+    },
+    "src/check_zpools/zfs_client.py": {
+      "status": "clean",
+      "violations": []
+    },
+    "src/check_zpools/cli_commands/commands/scrub.py": {
+      "status": "clean",
+      "violations": []
+    },
+    "src/check_zpools/zfs_parser.py": {
+      "status": "pending",
+      "violations": [
+        {
+          "line": 246,
+          "type": "dict-in-signature",
+          "description": "parse_scan_runs accepts dict[str, Any] | DictLike; plain dict already satisfies the DictLike protocol, so the bare dict arm is redundant"
+        }
+      ]
+    }
+  }
+}

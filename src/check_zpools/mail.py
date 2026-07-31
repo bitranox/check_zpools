@@ -22,12 +22,11 @@ email mechanics.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from btx_lib_mail.lib_mail import ConfMail
 from btx_lib_mail.lib_mail import send as btx_send
-from pydantic import SecretStr
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, TypeAdapter, ValidationError, model_validator
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -47,8 +46,7 @@ def _default_smtp_hosts() -> list[str]:
     return []
 
 
-@dataclass(frozen=True, slots=True)
-class EmailConfig:
+class EmailConfig(BaseModel):
     """Email configuration container.
 
     Why
@@ -86,7 +84,48 @@ class EmailConfig:
     ['smtp.example.com:587']
     """
 
-    smtp_hosts: list[str] = field(default_factory=_default_smtp_hosts)
+    model_config = ConfigDict(frozen=True, extra="ignore")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_uncoercible_values(cls, data: Any) -> Any:
+        """Drop config values that cannot become their declared type, so the default applies.
+
+        Why
+            This model parses an operator-edited config file that a monitoring
+            daemon loads at startup on every node. A single typo (`timeout =
+            "abc"`) must not turn that daemon into a crash loop, so an
+            unusable value falls back to the field default - the long-standing
+            behaviour of this loader. Unlike the silent fallback it replaces,
+            each dropped value is logged, so the typo is still discoverable.
+
+        Examples
+        --------
+        >>> EmailConfig.model_validate({"timeout": "not_a_number"}).timeout
+        30.0
+        >>> EmailConfig.model_validate({"timeout": 5.0}).timeout
+        5.0
+        """
+        if not isinstance(data, dict):
+            return data
+        usable: dict[str, Any] = {}
+        for name, field_info in cls.model_fields.items():
+            if name not in data:
+                continue
+            value = data[name]
+            try:
+                TypeAdapter(field_info.annotation).validate_python(value)
+            except ValidationError:
+                logger.warning(
+                    "Ignoring unusable value for email.%s, using default",
+                    name,
+                    extra={"field": name, "value_type": type(value).__name__},
+                )
+                continue
+            usable[name] = value
+        return usable
+
+    smtp_hosts: list[str] = Field(default_factory=_default_smtp_hosts)
     from_address: str = "noreply@localhost"
     smtp_username: str | None = None
     smtp_password: str | None = None
@@ -159,7 +198,8 @@ class EmailConfig:
 
         self._validate_smtp_host_port(host, parts[1])
 
-    def __post_init__(self) -> None:
+    @model_validator(mode="after")
+    def _validate(self) -> EmailConfig:
         """Validate configuration values.
 
         Why
@@ -171,20 +211,25 @@ class EmailConfig:
 
         Examples
         --------
+        Pydantic wraps the failure, and its ValidationError is a ValueError, so
+        callers catching ValueError keep working:
+
         >>> EmailConfig(timeout=-5.0)  # doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
         ...
-        ValueError: timeout must be positive, got -5.0
+        pydantic_core._pydantic_core.ValidationError: timeout must be positive
 
-        >>> EmailConfig(from_address="not-an-email")  # doctest: +IGNORE_EXCEPTION_DETAIL
-        Traceback (most recent call last):
-        ...
-        ValueError: from_address must contain @, got 'not-an-email'
+        >>> try:
+        ...     EmailConfig(from_address="not-an-email")
+        ... except ValueError as exc:
+        ...     "from_address must contain @" in str(exc)
+        True
         """
         self._validate_timeout()
         self._validate_from_address()
         for host in self.smtp_hosts:
             self._validate_smtp_host(host)
+        return self
 
     def to_conf_mail(self) -> ConfMail:
         """Convert to btx_lib_mail ConfMail object.
@@ -490,106 +535,30 @@ def send_notification(
     )
 
 
-def _get_string_value(section: Mapping[str, Any], key: str, default: str) -> str:
-    """Extract string value from config section with type validation.
-
-    Parameters
-    ----------
-    section:
-        Configuration section to extract from
-    key:
-        Key to look up
-    default:
-        Default value if key missing or wrong type
-
-    Returns
-    -------
-    str:
-        String value or default
-    """
-    value = section.get(key, default)
-    return value if isinstance(value, str) else default
-
-
-def _get_optional_string(section: Mapping[str, Any], key: str) -> str | None:
-    """Extract optional string value from config section.
-
-    Parameters
-    ----------
-    section:
-        Configuration section to extract from
-    key:
-        Key to look up
-
-    Returns
-    -------
-    str | None:
-        String value or None if missing/wrong type
-    """
-    value = section.get(key)
-    return value if isinstance(value, str) else None
-
-
-def _get_bool_value(section: Mapping[str, Any], key: str, *, default: bool) -> bool:
-    """Extract boolean value from config section with type validation.
-
-    Parameters
-    ----------
-    section:
-        Configuration section to extract from
-    key:
-        Key to look up
-    default:
-        Default value if key missing or wrong type
-
-    Returns
-    -------
-    bool:
-        Boolean value or default
-    """
-    value = section.get(key, default)
-    return value if isinstance(value, bool) else default
-
-
-def _get_float_value(section: Mapping[str, Any], key: str, default: float) -> float:
-    """Extract float value from config section with type validation.
-
-    Parameters
-    ----------
-    section:
-        Configuration section to extract from
-    key:
-        Key to look up
-    default:
-        Default value if key missing or wrong type
-
-    Returns
-    -------
-    float:
-        Float value or default
-    """
-    value = section.get(key, default)
-    return float(value) if isinstance(value, (int, float)) else default
-
-
 def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
-    """Load EmailConfig from a configuration dictionary.
+    """Parse the `email` section of the layered configuration into EmailConfig.
 
     Why
-    ---
-    Bridges lib_layered_config's dictionary output with the typed
-    EmailConfig dataclass, handling optional values and type conversions.
+        The configuration arrives as a plain mapping from lib_layered_config;
+        this is the boundary where it becomes a validated model. Pydantic does
+        the coercion and the type checking, so there is no hand-rolled
+        extraction to keep in sync with the field list.
 
     Parameters
     ----------
     config_dict:
-        Configuration dictionary typically from lib_layered_config.
-        Expected to have an 'email' section with email settings.
+        Configuration mapping, expected to carry an `email` section.
 
     Returns
     -------
     EmailConfig:
-        Configured email settings with defaults for missing values.
+        Validated email settings, defaults applied for anything absent.
+
+    Raises
+    ------
+    ValueError:
+        When a present value fails validation (pydantic's ValidationError is
+        a ValueError).
 
     Examples
     --------
@@ -605,25 +574,8 @@ def load_email_config_from_dict(config_dict: Mapping[str, Any]) -> EmailConfig:
     >>> email_config.use_starttls
     True
     """
-    # Extract email section
-    email_section_raw = config_dict.get("email", {})
-    email_section: Mapping[str, Any] = cast("Mapping[str, Any]", email_section_raw if isinstance(email_section_raw, dict) else {})
-
-    # Extract smtp_hosts (list type)
-    smtp_hosts_raw = email_section.get("smtp_hosts", [])
-    smtp_hosts = cast("list[str]", smtp_hosts_raw if isinstance(smtp_hosts_raw, list) else [])
-
-    # Extract all other fields using helper functions
-    return EmailConfig(
-        smtp_hosts=smtp_hosts,
-        from_address=_get_string_value(email_section, "from_address", "noreply@localhost"),
-        smtp_username=_get_optional_string(email_section, "smtp_username"),
-        smtp_password=_get_optional_string(email_section, "smtp_password"),
-        use_starttls=_get_bool_value(email_section, "use_starttls", default=True),
-        timeout=_get_float_value(email_section, "timeout", 30.0),
-        raise_on_missing_attachments=_get_bool_value(email_section, "raise_on_missing_attachments", default=True),
-        raise_on_invalid_recipient=_get_bool_value(email_section, "raise_on_invalid_recipient", default=True),
-    )
+    section = config_dict.get("email", {})
+    return EmailConfig.model_validate(section if isinstance(section, dict) else {})
 
 
 __all__ = [

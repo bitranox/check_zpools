@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 from smtp_sink import SINK_PASSWORD, SINK_USERNAME, SmtpSink
 
 from check_zpools.mail import (
@@ -127,11 +128,11 @@ class TestEmailConfig:
         assert config.use_starttls is False
         assert config.timeout == 60.0
 
-    def test_frozen_dataclass(self) -> None:
+    def test_frozen_model(self) -> None:
         """EmailConfig should be immutable."""
         config = EmailConfig()
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(ValidationError):
             config.smtp_hosts = ["new.smtp.com"]  # type: ignore[misc]
 
     def test_to_conf_mail(self) -> None:
