@@ -787,8 +787,14 @@ class TestRunDaemonLifecycle:
         mock_daemon.start.side_effect = KeyboardInterrupt()
         mock_daemon_class.return_value = mock_daemon
 
-        # Should not raise exception
         behaviors.run_daemon(config=mock_config, foreground=True)
+
+        # Reaching here at all is the contract: KeyboardInterrupt does not escape
+        # run_daemon. Asserting start was reached keeps that from passing
+        # vacuously if the daemon were never entered. Cleanup is the daemon's own
+        # responsibility - the real start() stops itself in a finally - so it is
+        # deliberately not asserted here against a mock that never runs it.
+        mock_daemon.start.assert_called_once()
 
     @patch("check_zpools.behaviors._load_config_with_logging")
     @patch("check_zpools.behaviors._initialize_daemon_components")
