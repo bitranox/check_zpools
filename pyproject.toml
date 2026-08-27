@@ -49,7 +49,7 @@ Issues = "https://github.com/bitranox/check_zpools/issues"
 dev = [
   "pytest>=9.1.1",
   "pytest-cov>=7.1.0",
-  "ruff>=0.16.1",
+  "ruff>=0.16.5",
   "pyright[nodejs]>=1.1.411",
   "bandit>=1.9.4",
   # 1.5.1 was yanked upstream (unintended breaking changes), so 1.5.0 is the newest usable
@@ -64,7 +64,7 @@ dev = [
   # Re-enable once codecov-cli relaxes its click<8.3.0 pin.
   # "codecov-cli>=11.2.6",
   # Transitive CVE pins
-  "click>=8.4.2",                # CVE-2026-7246
+  "click>=8.5.0",                # CVE-2026-7246
   "pip-audit>=2.10.1",
   "textual>=8.2.8",
   "import-linter>=2.13",
@@ -75,7 +75,7 @@ dev = [
 check_zpools = "check_zpools.cli:main"
 
 [build-system]
-requires = ["hatchling>=1.31.0"]
+requires = ["hatchling>=1.32.0"]
 build-backend = "hatchling.build"
 
 
