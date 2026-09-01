@@ -115,10 +115,6 @@ Everything else is the generated bmk list: run `make help`.
 - **Always run `make test` before pushing** to avoid lint/test breakage
 - Ensure all tests pass and code is properly formatted
 
-### Post-Push Monitoring
-- Monitor GitHub Actions for errors after pushing
-- Attempt to correct any CI/CD errors that appear
-
 ## Code Quality
 
 Deliberately accepted items - do not flag in future reviews:
