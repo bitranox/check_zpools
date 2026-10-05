@@ -13,7 +13,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - `python -m check_zpools` now runs `cli.main()`, the function the console script runs. Before, it ran a separate session that exited 1 on a usage error where the console script exits 2, and bypassed main()'s error handling.
 
 ### Changed
-- Raised dependency and dev tool floors to their current releases.
+- Raised dependency floors across major versions: lib_layered_config 7.0.1 (was 5.6.2), btx-lib-mail 3.0.1 (was 1.5.2); the test suite passes against them. Also raised the remaining dependency and dev tool floors.
 
 ## [4.0.2] 2026-08-27 19:53:53
 
