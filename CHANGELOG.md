@@ -6,6 +6,15 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [4.0.3] 2026-10-05 19:37:40
+
+### Fixed
+
+- `python -m check_zpools` now runs `cli.main()`, the function the console script runs. Before, it ran a separate session that exited 1 on a usage error where the console script exits 2, and bypassed main()'s error handling.
+
+### Changed
+- Raised dependency and dev tool floors to their current releases.
+
 ## [4.0.2] 2026-08-27 19:53:53
 
 ### Fixed
