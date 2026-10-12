@@ -1,6 +1,6 @@
 [project]
 name = "check_zpools"
-version = "4.0.3"
+version = "4.0.4"
 description = "Zpool Monitoring Daemon"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -256,3 +256,7 @@ ignores = ["E003"]
 # CVE-2024-6345: setuptools vendored in build env, not a runtime dependency
 # CVE-2026-26007: cryptography transitive dep, fix available in 46.0.5 (awaiting upstream update)
 ignore-vulns = ["GHSA-4xh5-x5gv-qwph", "PYSEC-2022-42969", "PYSEC-2022-43012", "PYSEC-2025-49", "CVE-2024-6345", "CVE-2026-26007", "CVE-2026-4539", "CVE-2026-25645"]
+
+[tool.uv]
+exclude-newer = "1 day"
+exclude-newer-package = {btx-lib-mail = false, lib-cli-exit-tools = false, lib-layered-config = false, lib-log-rich = false, pydantic = "2026-10-11T18:37:56Z", pydantic-core = "2026-10-11T18:35:45Z", rtoml = "2026-10-12T00:17:16Z"}

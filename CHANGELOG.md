@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [4.0.4] 2026-10-12 18:59:41
+
 ### Fixed
 
 - A digit-only value in a text setting no longer stops the daemon or is silently dropped.
