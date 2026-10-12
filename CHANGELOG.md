@@ -6,6 +6,16 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- A digit-only value in a text setting no longer stops the daemon or is silently dropped.
+  lib_layered_config reads an unquoted `.env` or environment value that spells a number losslessly
+  as an int. `ALERTS__SUBJECT_PREFIX=2026` or `DAEMON__STATE_FILE=2026` failed validation with
+  `Input should be a valid string`, `EMAIL__SMTP_PASSWORD=123456` was dropped as "unusable" so no
+  login was attempted, and `LIB_LOG_RICH__SERVICE=4711` made lib_log_rich refuse its settings.
+  The config models and the logging setup now read the number back as the text that was written;
+  numeric settings still read as numbers and a boolean is still refused as text.
+
 ## [4.0.3] 2026-10-05 19:37:40
 
 ### Fixed

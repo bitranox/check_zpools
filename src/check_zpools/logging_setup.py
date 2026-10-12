@@ -63,6 +63,13 @@ def _build_runtime_config() -> lib_log_rich.runtime.RuntimeConfig:
     # Convert to dict and provide defaults for required parameters
     config_dict = dict(log_config)
 
+    # lib_layered_config reads an unquoted all-digit value as an int, and RuntimeConfig accepts text
+    # only; the conversion is lossless, so str() restores what the operator wrote.
+    for key in ("service", "environment"):
+        value = config_dict.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            config_dict[key] = str(value)
+
     # Ensure required parameters have sensible defaults
     config_dict.setdefault("service", __init__conf__.name)
     config_dict.setdefault("environment", "prod")

@@ -397,7 +397,9 @@ class DaemonConfig(BaseModel):
     send_ok_emails: bool = False
     send_recovery_emails: bool = True
 
-    model_config = ConfigDict(extra="ignore")
+    # lib_layered_config reads an unquoted all-digit .env value as an int; the conversion is
+    # lossless, so turning it back into text keeps a digit-only value valid instead of failing.
+    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
 
 
 class AlertConfig(BaseModel):
@@ -429,7 +431,9 @@ class AlertConfig(BaseModel):
     send_recovery_emails: bool = True
     alert_on_severities: list[Severity] = [Severity.CRITICAL, Severity.WARNING]
 
-    model_config = ConfigDict(extra="ignore")
+    # lib_layered_config reads an unquoted all-digit .env value as an int; the conversion is
+    # lossless, so turning it back into text keeps a digit-only value valid instead of failing.
+    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
 
     @field_validator("alert_on_severities", mode="before")
     @classmethod
@@ -482,7 +486,9 @@ class ScrubSettings(BaseModel):
     email_on_success: bool = True
     skip_if_other_scan_running: bool = True
 
-    model_config = ConfigDict(extra="ignore")
+    # lib_layered_config reads an unquoted all-digit .env value as an int; the conversion is
+    # lossless, so turning it back into text keeps a digit-only value valid instead of failing.
+    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
 
 
 class CapacityInfo(BaseModel):
@@ -1519,7 +1525,9 @@ class EmailConfig(BaseModel):
     ['smtp.example.com:587']
     """
 
-    model_config = ConfigDict(frozen=True, extra="ignore")
+    # lib_layered_config reads an unquoted all-digit .env value as an int; the conversion is
+    # lossless, so turning it back into text keeps a digit-only value valid instead of failing.
+    model_config = ConfigDict(frozen=True, extra="ignore", coerce_numbers_to_str=True)
 
     @model_validator(mode="before")
     @classmethod
@@ -1550,7 +1558,9 @@ class EmailConfig(BaseModel):
                 continue
             value = incoming[name]
             try:
-                TypeAdapter(field_info.annotation).validate_python(value)
+                # The probe must read a value the way the model will, so it carries the model's config.
+                annotation: Any = field_info.annotation
+                TypeAdapter(annotation, config=cls.model_config).validate_python(value)
             except ValidationError:
                 logger.warning(
                     "Ignoring unusable value for email.%s, using default",
@@ -1701,7 +1711,9 @@ class MonitorConfig(BaseModel):
     75
     """
 
-    model_config = ConfigDict(extra="ignore")
+    # lib_layered_config reads an unquoted all-digit .env value as an int; the conversion is
+    # lossless, so turning it back into text keeps a digit-only value valid instead of failing.
+    model_config = ConfigDict(extra="ignore", coerce_numbers_to_str=True)
 
     capacity_warning_percent: int = 80
     capacity_critical_percent: int = 90
