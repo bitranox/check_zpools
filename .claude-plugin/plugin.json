@@ -1,7 +1,7 @@
 {
   "name": "check_zpools",
   "description": "Monitor ZFS pools and run scrubs from a machine, script or systemd timer. Ships the infra-storage-check-zpools skill: install (uvx/uv/pip and an isolated production install), the layered configuration and its six sections, every subcommand with its exit codes, the JSON modes for scripting, and the library API.",
-  "version": "4.0.6",
+  "version": "4.0.7",
   "author": {
     "name": "bitranox"
   },
