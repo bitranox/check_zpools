@@ -16,9 +16,6 @@ from datetime import datetime, timezone
 from io import StringIO
 
 import pytest
-
-# Import shared test helpers from conftest (centralized to avoid duplication)
-from conftest import a_healthy_pool_named, a_pool_with
 from rich.console import Console
 
 from check_zpools.formatters import (
@@ -29,6 +26,9 @@ from check_zpools.formatters import (
     get_exit_code_for_severity,
 )
 from check_zpools.models import CheckResult, IssueCategory, IssueDetails, PoolIssue, Severity
+
+# Import shared test helpers from conftest (centralized to avoid duplication)
+from conftest import a_healthy_pool_named, a_pool_with
 
 
 def a_warning_issue_for(pool_name: str) -> PoolIssue:
