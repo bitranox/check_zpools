@@ -6,6 +6,8 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+## [4.0.8] 2026-10-26 13:52:17
+
 ### Fixed
 
 - The test suite no longer reads the app and host configuration layers of the machine it runs on. An
@@ -13,6 +15,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `_MAC_APP_ROOT`, `_PROGRAMDATA`) at an empty directory under `tmp_path`, so a system-wide deploy
   (for example a `/etc/xdg/<slug>/config.d/99-*.toml`) can no longer fail tests locally while CI
   stays green.
+
+### Changed
+
+- The `check-zpools` skill says a deliberately skipped alert (an issue below
+  `alert_on_severities`) logs as "Failed to send alert", that list settings take a JSON list, which
+  config values fail the load and which degrade, and to install the service for alerting.
 
 ## [4.0.7] 2026-10-24 15:58:34
 
