@@ -6,6 +6,12 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ## [Unreleased]
 
+### Fixed
+
+- Two config display tests now compare the shown SMTP hosts exactly (the parsed JSON value, and the
+  whole `smtp_hosts = [...]` line of the text display) instead of searching the output for a host
+  substring, which also passed on a wrong host such as `xsmtp.test.com:5870`.
+
 ## [4.0.8] 2026-10-26 13:52:17
 
 ### Fixed
