@@ -12,7 +12,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   whole `smtp_hosts = [...]` line of the text display) instead of searching the output for a host
   substring, which also passed on a wrong host such as `xsmtp.test.com:5870`.
 
-## [4.0.8] 2026-10-26 13:52:17
+## [4.0.8] - 2026-10-26
 
 ### Fixed
 
@@ -38,13 +38,13 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   `alert_on_severities`) logs as "Failed to send alert", that list settings take a JSON list, which
   config values fail the load and which degrade, and to install the service for alerting.
 
-## [4.0.7] 2026-10-24 15:58:34
+## [4.0.7] - 2026-10-24
 
 ### Changed
 
 - Raise the btx_lib_mail floor to 4.6.0.
 
-## [4.0.6] 2026-10-15 16:38:54
+## [4.0.6] - 2026-10-15
 
 ### Fixed
 
@@ -64,7 +64,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - `tests/test_platform_markers.py` pins what the `os_windows`, `os_macos`, `os_linux` and `os_posix`
   markers do: each test asserts its own platform, so a marker that stops skipping fails off its platform.
 
-## [4.0.5] 2026-10-12 23:10:04
+## [4.0.5] - 2026-10-12
 
 ### Added
 - Python 3.15 is a supported version: declared in the classifiers, so CI and `make test-all` run it.
@@ -76,7 +76,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - The install section explains why installing with uv protects against supply-chain attacks and why
   a plain `pip install` from PyPI does not.
 
-## [4.0.4] 2026-10-12 18:59:41
+## [4.0.4] - 2026-10-12
 
 ### Fixed
 
@@ -88,7 +88,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   The config models and the logging setup now read the number back as the text that was written;
   numeric settings still read as numbers and a boolean is still refused as text.
 
-## [4.0.3] 2026-10-05 19:37:40
+## [4.0.3] - 2026-10-05
 
 ### Fixed
 
@@ -97,7 +97,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 ### Changed
 - Raised dependency floors across major versions: lib_layered_config 7.0.1 (was 5.6.2), btx-lib-mail 3.0.1 (was 1.5.2); the test suite passes against them. Also raised the remaining dependency and dev tool floors.
 
-## [4.0.2] 2026-08-27 19:53:53
+## [4.0.2] - 2026-08-27
 
 ### Fixed
 
@@ -117,7 +117,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 - Tests for `echo`'s default target. Every existing case passed an explicit
   `file`, so the branch this had to rewrite had no coverage at all.
 
-## [4.0.1] 2026-08-01 00:49:03
+## [4.0.1] - 2026-08-01
 
 ### Fixed
 
@@ -130,7 +130,7 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
   renders through a wrapped writer for the same reason. It is named `safe_console` because
   `console` is the conventional name for a Rich `Console` instance and would shadow it.
 
-## [4.0.0] 2026-07-31 19:31:08
+## [4.0.0] - 2026-07-31
 
 **Breaking.** The `hello` and `fail` subcommands are gone, along with the greeting and
 failure exports from the package root, and `send_email()` now takes an `EmailMessage`
@@ -236,7 +236,7 @@ script `check_zpools hello` as an install smoke test, call `check_zpools --versi
   `datetime.fromisoformat` rejects on Python 3.10 - a version this package
   supports. A test now pins it.
 
-## [3.8.1] 2026-07-31 14:52:28
+## [3.8.1] - 2026-07-31
 
 ### Fixed
 - A resilver is no longer reported as a scrub in progress. `scan_stats` uses one
@@ -252,7 +252,7 @@ script `check_zpools hello` as an install smoke test, call `check_zpools --versi
 - The scan enums (`ScanState`, `ScanFunction`) are declared before the boundary
   models that now carry them; no behaviour change.
 
-## [3.8.0] 2026-07-31 14:27:34
+## [3.8.0] - 2026-07-31
 
 ### Added
 - `check_zpools scrub` starts a scrub on the selected pools and waits until ZFS
@@ -287,7 +287,7 @@ script `check_zpools hello` as an install smoke test, call `check_zpools --versi
   is left unchanged here to avoid altering monitor behaviour in a feature
   release. Fixed in 3.8.1.
 
-## [3.7.7] 2026-07-24 17:27:25
+## [3.7.7] - 2026-07-24
 
 ### Fixed
 - Latest ruff (floating `>=` dev pin) newly enforces its widened default rule set;
@@ -307,7 +307,7 @@ script `check_zpools hello` as an install smoke test, call `check_zpools --versi
   per-file-ignores, pinning the lint policy so a future ruff release cannot
   reintroduce an unbounded rule explosion.
 
-## [3.7.6] 2026-07-20
+## [3.7.6] - 2026-07-20
 
 ### Fixed
 - Mail tests no longer fake SMTP by patching `smtplib.SMTP` with a `MagicMock`.
@@ -332,14 +332,14 @@ script `check_zpools hello` as an install smoke test, call `check_zpools --versi
   connection on the macOS runners. No test asserts on the client's advertised
   hostname, and the suite should not depend on the runner's DNS.
 
-## [3.7.5] 2026-07-19
+## [3.7.5] - 2026-07-19
 
 ### Changed
 - Bump `btx-lib-mail` floor to `>=1.4.0` and wrap the SMTP password in
   `pydantic.SecretStr` when building the `ConfMail` transport config, matching
   btx_lib_mail 1.4.0 which now stores `smtp_password` as a `SecretStr`.
 
-## [3.7.4] 2026-06-14
+## [3.7.4] - 2026-06-14
 
 ### Changed
 - Added a `typed_click.py` facade wrapping rich-click's `option` / `version_option` decorators behind explicit, fully-known signatures, keeping the CLI strict-clean under pyright 1.1.410 (`reportUnknownMemberType`) without disabling the rule (ignore isolated to the facade). The existing broader `reportUnknownMemberType` suppression is retained for non-click code (daemon/monitor untyped `.append`/`.err` usages).
