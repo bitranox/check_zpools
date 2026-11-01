@@ -8,6 +8,11 @@ the [Keep a Changelog](https://keepachangelog.com/) format.
 
 ### Fixed
 
+- `notebooks/Quickstart.ipynb` installs the checkout it runs in, so CI's "Execute notebooks" job
+  tests the commit under test. It used to install `git+https://github.com/...` every time, which is
+  the pushed default branch, so a pull request's notebook run tested the code already there.
+  Outside a checkout (a downloaded notebook) it still installs from GitHub.
+
 - Two config display tests now compare the shown SMTP hosts exactly (the parsed JSON value, and the
   whole `smtp_hosts = [...]` line of the text display) instead of searching the output for a host
   substring, which also passed on a wrong host such as `xsmtp.test.com:5870`.
